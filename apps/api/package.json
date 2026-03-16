@@ -33,7 +33,7 @@
   },
   "devDependencies": {
     "@arbitex/chain": "workspace:*",
-    "@nestjs/testing": "^10.3.9",
+    "@nestjs/testing": "^11.1.17",
     "@types/node": "^20.14.0",
     "tsx": "^4.15.1",
     "typescript": "^5.4.5",
