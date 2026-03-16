@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1.6
+FROM node:20-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /app
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+FROM base AS deps
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY apps/api/package.json ./apps/api/
+COPY packages/config/package.json ./packages/config/
+COPY packages/db/package.json ./packages/db/
+COPY packages/shared-types/package.json ./packages/shared-types/
+RUN pnpm install --frozen-lockfile --filter @arbitex/api...
+
+# ── Builder ───────────────────────────────────────────────────────────────────
+FROM deps AS builder
+COPY . .
+RUN pnpm --filter @arbitex/shared-types build
+RUN pnpm --filter @arbitex/config build
+RUN pnpm --filter @arbitex/db generate
+RUN pnpm --filter @arbitex/api build
+
+# ── Runner ────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+RUN addgroup --system --gid 1001 arbitex && \
+    adduser --system --uid 1001 --ingroup arbitex arbitex
+WORKDIR /app
+
+COPY --from=builder --chown=arbitex:arbitex /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=arbitex:arbitex /app/node_modules ./node_modules
+COPY --from=builder --chown=arbitex:arbitex /app/packages ./packages
+
+USER arbitex
+ENV NODE_ENV=production
+EXPOSE 3001
+
+CMD ["node", "apps/api/dist/main.js"]

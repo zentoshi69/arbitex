@@ -1,0 +1,35 @@
+{
+  "name": "@arbitex/worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arbitex/chain": "workspace:*",
+    "@arbitex/config": "workspace:*",
+    "@arbitex/db": "workspace:*",
+    "@arbitex/dex-adapters": "workspace:*",
+    "@arbitex/execution-engine": "workspace:*",
+    "@arbitex/opportunity-engine": "workspace:*",
+    "@arbitex/risk-engine": "workspace:*",
+    "@arbitex/shared-types": "workspace:*",
+    "bullmq": "^5.9.0",
+    "ioredis": "^5.4.1",
+    "pino": "^9.2.0",
+    "viem": "^2.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.15.1",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
