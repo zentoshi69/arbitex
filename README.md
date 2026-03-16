@@ -1,6 +1,6 @@
 # ArbitEx — Cross-DEX Arbitrage Platform
 
-[![CI](https://github.com/USERNAME/arbitex/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/arbitex/actions/workflows/ci.yml)
+[![CI](https://github.com/zentoshi69/arbitex/actions/workflows/ci.yml/badge.svg)](https://github.com/zentoshi69/arbitex/actions/workflows/ci.yml)
 
 > **OPERATOR USE ONLY** — This system is designed exclusively for lawful,
 > market-neutral statistical arbitrage. Read the [Legal Scope](#legal-scope)
