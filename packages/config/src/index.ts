@@ -124,11 +124,16 @@ export function getRpcConfig(chainId: number): RpcConfig {
   const c = loadConfig() as Record<string, unknown>;
   const rpcUrl = c[keys.rpc] as string | undefined;
   if (!rpcUrl) throw new Error(`RPC URL for chain ${chainId} not configured. Set ${keys.rpc} in .env`);
-  return {
-    rpcUrl,
-    archiveRpcUrl: keys.archive ? (c[keys.archive] as string | undefined) : undefined,
-    wssUrl: keys.wss ? (c[keys.wss] as string | undefined) : undefined,
-  };
+  const result: RpcConfig = { rpcUrl };
+  if (keys.archive) {
+    const val = c[keys.archive] as string | undefined;
+    if (val) result.archiveRpcUrl = val;
+  }
+  if (keys.wss) {
+    const val = c[keys.wss] as string | undefined;
+    if (val) result.wssUrl = val;
+  }
+  return result;
 }
 
 let _config: AppConfig | undefined;
