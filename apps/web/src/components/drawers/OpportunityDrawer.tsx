@@ -30,11 +30,17 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-[520px] bg-slate-900 border-l border-slate-800 z-50 overflow-y-auto">
+      <div
+        className="fixed right-0 top-0 h-full w-[520px] z-50 overflow-y-auto"
+        style={{ background: "var(--ax-bg-panel)", borderLeft: "1px solid var(--ax-border)" }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 sticky top-0 bg-slate-900">
+        <div
+          className="flex items-center justify-between px-5 py-4 sticky top-0"
+          style={{ borderBottom: "1px solid var(--ax-border)", background: "var(--ax-bg-panel)" }}
+        >
           <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-blue-400" />
+            <Zap className="w-4 h-4 text-[var(--ax-dim)]" />
             <h2 className="font-semibold text-white text-sm">Opportunity Detail</h2>
             {opp && <StateBadge state={opp.state} />}
           </div>
@@ -66,7 +72,7 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
             </div>
 
             {/* Token pair */}
-            <div className="bg-slate-800/60 rounded-lg p-4">
+            <div className="rounded-[2px] p-4 border" style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-lg font-bold text-white">
@@ -99,7 +105,7 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
                   <span className="text-slate-500">→</span>
                   <span className="text-slate-300">{opp.tokenOutSymbol}</span>
                   <span className="text-slate-500">on</span>
-                  <span className="text-blue-400 font-medium">{opp.buyVenueName}</span>
+                  <span className="text-[var(--ax-off-white)] font-medium">{opp.buyVenueName}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <span className="px-2 py-1 bg-slate-800 rounded text-slate-300 font-mono text-xs">
@@ -109,7 +115,7 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
                   <span className="text-slate-500">→</span>
                   <span className="text-slate-300">{opp.tokenInSymbol}</span>
                   <span className="text-slate-500">on</span>
-                  <span className="text-blue-400 font-medium">{opp.sellVenueName}</span>
+                  <span className="text-[var(--ax-off-white)] font-medium">{opp.sellVenueName}</span>
                 </div>
               </div>
             </div>
@@ -190,7 +196,7 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
                 <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
                   Execution
                 </h3>
-                <div className="bg-slate-800/60 rounded-lg p-3 space-y-2">
+                <div className="rounded-[2px] p-3 border space-y-2" style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-400">State</span>
                     <StateBadge state={opp.execution.state} />
@@ -202,7 +208,7 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
                         href={`https://etherscan.io/tx/${opp.execution.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-400 font-mono hover:text-blue-300"
+                        className="flex items-center gap-1 text-xs text-[var(--ax-dim)] font-mono hover:text-[var(--ax-off-white)]"
                       >
                         {opp.execution.txHash.slice(0, 14)}…
                         <ExternalLink className="w-3 h-3" />
@@ -224,7 +230,7 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
               {["DETECTED", "QUOTED", "SIMULATED"].includes(opp.state) && (
                 <button
                   onClick={handleSimulate}
-                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium text-white transition-colors"
+                  className="flex-1 py-2 ax-btn text-sm font-medium transition-colors"
                 >
                   Run Dry-Run Simulation
                 </button>

@@ -21,7 +21,7 @@ function VenueRow({ venue }: { venue: any }) {
 
   return (
     <div className={cn(
-      "flex items-center justify-between px-5 py-4 border-b border-slate-800 last:border-0",
+      "flex items-center justify-between px-5 py-4 border-b border-[var(--ax-border)] last:border-0",
       !venue.isEnabled && "opacity-60"
     )}>
       <div>
@@ -89,10 +89,10 @@ export default function SettingsPage() {
       />
 
       {/* Venue toggles */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-800">
+      <div className="ax-panel overflow-hidden">
+        <div className="px-5 py-4 border-b border-[var(--ax-border)]">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Settings className="w-4 h-4 text-blue-400" />
+            <Settings className="w-4 h-4 text-[var(--ax-dim)]" />
             DEX Venues
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -114,7 +114,7 @@ export default function SettingsPage() {
       </div>
 
       {/* System info */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 space-y-4">
+      <div className="ax-panel p-5 space-y-4">
         <h2 className="text-sm font-semibold text-white">System Information</h2>
         <div className="grid grid-cols-2 gap-3 text-sm">
           {[
@@ -123,7 +123,11 @@ export default function SettingsPage() {
             ["Dashboard Version", "v1.0.0-MVP"],
             ["Environment", process.env.NODE_ENV ?? "development"],
           ].map(([label, value]) => (
-            <div key={label} className="bg-slate-800/60 rounded px-3 py-2">
+            <div
+              key={label}
+              className="rounded-[2px] px-3 py-2 border"
+              style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}
+            >
               <p className="text-xs text-slate-500">{label}</p>
               <p className="text-xs font-mono text-slate-300 mt-0.5 truncate">{value}</p>
             </div>

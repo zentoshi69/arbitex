@@ -16,7 +16,7 @@ const ALL_FLAGS = [
 
 const FLAG_COLORS: Record<string, string> = {
   FEE_ON_TRANSFER:   "bg-orange-900/40 text-orange-300 border-orange-800",
-  REBASING:          "bg-blue-900/40 text-blue-300 border-blue-800",
+  REBASING:          "bg-[rgba(255,255,255,0.03)] text-[var(--ax-off-white)] border border-[var(--ax-border)]",
   HONEYPOT_SUSPICION:"bg-red-900/60 text-red-200 border-red-700",
   PAUSED_TRANSFERS:  "bg-amber-900/40 text-amber-300 border-amber-800",
   BLACKLISTED:       "bg-red-950 text-red-400 border-red-900",
@@ -50,7 +50,7 @@ function FlagEditor({ token, onClose }: { token: any; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/70">
-      <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-[420px] shadow-2xl">
+      <div className="ax-panel p-6 w-[420px] shadow-2xl">
         <h3 className="font-semibold text-white mb-1">Edit Token Flags</h3>
         <p className="text-xs text-slate-400 mb-4">
           <span className="font-semibold text-slate-200">{token.symbol}</span>
@@ -61,13 +61,14 @@ function FlagEditor({ token, onClose }: { token: any; onClose: () => void }) {
           {ALL_FLAGS.map((flag) => (
             <label
               key={flag}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/60 cursor-pointer hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-[2px] cursor-pointer transition-colors border hover:opacity-90"
+              style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}
             >
               <input
                 type="checkbox"
                 checked={flags.includes(flag)}
                 onChange={() => toggle(flag)}
-                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-0"
+                className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-slate-200 focus:ring-slate-500 focus:ring-offset-0"
               />
               <div className="flex-1">
                 <FlagBadge flag={flag} />
@@ -85,14 +86,14 @@ function FlagEditor({ token, onClose }: { token: any; onClose: () => void }) {
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-300 transition-colors"
+            className="flex-1 py-2 ax-btn text-sm transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={() => mutation.mutate(flags)}
             disabled={mutation.isPending}
-            className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 rounded text-sm font-medium text-white transition-colors"
+            className="flex-1 py-2 ax-btn-primary disabled:opacity-60 text-sm font-medium transition-colors"
           >
             {mutation.isPending ? "Saving…" : "Save Flags"}
           </button>
@@ -140,19 +141,19 @@ export default function TokensPage() {
             placeholder="Search symbol, address…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-600 w-52"
+            className="pl-8 pr-3 py-1.5 ax-field text-sm w-52"
           />
         </div>
         <button
           onClick={() => qc.invalidateQueries({ queryKey: ["tokens"] })}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs text-slate-300 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 ax-btn text-xs transition-colors"
         >
           <RefreshCw className="w-3 h-3" /> Refresh
         </button>
         <span className="ml-auto text-xs text-slate-500">{items.length} tokens</span>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+      <div className="ax-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full data-table">
             <thead>
@@ -216,7 +217,7 @@ export default function TokensPage() {
                   <td>
                     <button
                       onClick={() => setEditingToken(token)}
-                      className="text-xs px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-300 transition-colors"
+                      className="text-xs px-2.5 py-1 ax-btn transition-colors"
                     >
                       Edit Flags
                     </button>

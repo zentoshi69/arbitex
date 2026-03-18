@@ -6,7 +6,7 @@ import { SectionHeader, Skeleton, EmptyState } from "@/components/ui";
 import { FileText, ChevronDown, ChevronRight } from "lucide-react";
 
 const ACTION_COLORS: Record<string, string> = {
-  RISK_CONFIG_UPDATED: "text-blue-400",
+  RISK_CONFIG_UPDATED: "text-slate-300",
   KILL_SWITCH_ACTIVATED: "text-red-400",
   KILL_SWITCH_DEACTIVATED: "text-emerald-400",
   TOKEN_FLAGS_UPDATED: "text-amber-400",
@@ -28,7 +28,7 @@ function AuditRow({ log }: { log: any }) {
   const color = ACTION_COLORS[log.action] ?? "text-slate-300";
 
   return (
-    <div className="border-b border-slate-800/60 last:border-0">
+    <div className="border-b last:border-0" style={{ borderColor: "rgba(30,30,28,0.6)" }}>
       <button
         onClick={() => setExpanded((e) => !e)}
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800/30 transition-colors text-left"
@@ -105,7 +105,7 @@ export default function AuditPage() {
           <select
             value={actionFilter}
             onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-            className="bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 px-2 py-1.5 focus:outline-none focus:border-blue-600"
+            className="ax-field text-sm text-slate-200 px-2 py-1.5"
           >
             {ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
@@ -118,9 +118,9 @@ export default function AuditPage() {
         </span>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+      <div className="ax-panel overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-800 bg-slate-950">
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[var(--ax-border)]" style={{ background: "var(--ax-bg-panel)" }}>
           <span className="w-4" />
           <span className="text-[11px] font-semibold text-slate-500 uppercase w-52">Action</span>
           <span className="text-[11px] font-semibold text-slate-500 uppercase flex-1">Actor / Entity</span>
@@ -144,11 +144,11 @@ export default function AuditPage() {
         ))}
 
         {data && data.pagination?.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--ax-border)]">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 text-slate-300 hover:bg-slate-700"
+              className="text-xs px-3 py-1.5 ax-btn"
             >
               ← Prev
             </button>
@@ -156,7 +156,7 @@ export default function AuditPage() {
             <button
               onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
               disabled={page === data.pagination.totalPages}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 text-slate-300 hover:bg-slate-700"
+              className="text-xs px-3 py-1.5 ax-btn"
             >
               Next →
             </button>

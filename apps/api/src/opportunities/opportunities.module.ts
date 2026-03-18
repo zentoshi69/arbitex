@@ -110,7 +110,12 @@ export class OpportunitiesController {
     @Query("minProfit") minProfitStr?: string
   ) {
     const minProfit = minProfitStr ? parseFloat(minProfitStr) : undefined;
-    return this.svc.list({ page, limit, state, minProfit });
+    return this.svc.list({
+      page,
+      limit,
+      ...(state ? { state } : {}),
+      ...(minProfit !== undefined ? { minProfit } : {}),
+    });
   }
 
   @Get(":id")

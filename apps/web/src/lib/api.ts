@@ -77,11 +77,33 @@ export const api = {
   // Tokens
   tokens: {
     list: () => apiFetch<any>("/tokens"),
+    resolve: (address: string) =>
+      apiFetch<any>(`/tokens/resolve?${new URLSearchParams({ address })}`),
     updateFlags: (id: string, flags: string[]) =>
       apiFetch<any>(`/tokens/${id}/flags`, {
         method: "PATCH",
         body: JSON.stringify({ flags }),
       }),
+  },
+
+  // Pools
+  pools: {
+    list: (params?: Record<string, string | number>) => {
+      const qs = params
+        ? "?" + new URLSearchParams(params as Record<string, string>).toString()
+        : "";
+      return apiFetch<any>(`/pools${qs}`);
+    },
+    resolve: (address: string) =>
+      apiFetch<any>(`/pools/resolve?${new URLSearchParams({ address })}`),
+    create: (data: {
+      venueId: string;
+      poolAddress: string;
+      token0Address: string;
+      token1Address: string;
+      feeBps: number;
+    }) =>
+      apiFetch<any>("/pools", { method: "POST", body: JSON.stringify(data) }),
   },
 
   // Venues
@@ -92,6 +114,49 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify(data),
       }),
+    create: (data: {
+      chainId: number;
+      name: string;
+      protocol: string;
+      routerAddress: string;
+      factoryAddress?: string;
+    }) =>
+      apiFetch<any>("/venues", { method: "POST", body: JSON.stringify({ ...data, chainId: String(data.chainId) }) }),
+  },
+
+  lp: {
+    v2: {
+      getPair: (factory: string, tokenA: string, tokenB: string) =>
+        apiFetch<any>(`/lp/v2/pair?${new URLSearchParams({ factory, tokenA, tokenB })}`),
+      register: (data: { chainId: number; venueId: string; tokenA: string; tokenB: string; feeBps: number }) =>
+        apiFetch<any>("/lp/v2/register", { method: "POST", body: JSON.stringify(data) }),
+      position: (params: { chainId: number; venueId: string; tokenA: string; tokenB: string }) =>
+        apiFetch<any>(
+          `/lp/v2/position?${new URLSearchParams({
+            chainId: String(params.chainId),
+            venueId: params.venueId,
+            tokenA: params.tokenA,
+            tokenB: params.tokenB,
+          })}`
+        ),
+      addLiquidity: (data: {
+        chainId: number;
+        venueId: string;
+        tokenA: string;
+        tokenB: string;
+        amountADesired: string;
+        amountBDesired: string;
+        slippageBps: number;
+      }) => apiFetch<any>("/lp/v2/add-liquidity", { method: "POST", body: JSON.stringify(data) }),
+      removeLiquidity: (data: {
+        chainId: number;
+        venueId: string;
+        tokenA: string;
+        tokenB: string;
+        liquidity: string;
+        slippageBps: number;
+      }) => apiFetch<any>("/lp/v2/remove-liquidity", { method: "POST", body: JSON.stringify(data) }),
+    },
   },
 
   // Health

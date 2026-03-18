@@ -53,6 +53,13 @@ const EnvSchema = z.object({
   BASE_WSS_URL: z.string().url().optional(),
   CHAIN_ID: z.coerce.number().int().positive().default(1),
 
+  // Avalanche (optional, used for V2 LP admin)
+  AVALANCHE_RPC_URL: z.string().url().optional(),
+
+  // Super Admin signer (for LP actions on-chain)
+  SUPERADMIN_KEYSTORE_PATH: z.string().optional(),
+  SUPERADMIN_KEYSTORE_PASS: z.string().optional(),
+
   // Execution wallet — absent in web/api, present in worker
   EXECUTION_WALLET_KEYSTORE_PATH: z.string().optional(),
   EXECUTION_WALLET_KEYSTORE_PASS: z.string().optional(),
@@ -70,6 +77,9 @@ const EnvSchema = z.object({
   OPERATOR_API_KEY: z
     .string()
     .min(32, "OPERATOR_API_KEY must be at least 32 characters"),
+
+  // Dashboard origin (CORS)
+  DASHBOARD_ORIGIN: z.string().url().default("http://localhost:3000"),
 
   // App
   PORT: z.coerce.number().int().positive().default(3001),

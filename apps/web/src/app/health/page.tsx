@@ -81,7 +81,7 @@ export default function HealthPage() {
               { label: "Cache (Redis)", status: health.redis, detail: "Queue backend + state cache" },
               { label: "Ethereum RPC", status: health.rpc, detail: "Chain interaction layer" },
             ].map(({ label, status, detail }) => (
-              <div key={label} className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+              <div key={label} className="ax-panel p-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-medium text-slate-200">{label}</p>
                   <StatusDot status={status} />
@@ -92,7 +92,7 @@ export default function HealthPage() {
           </div>
 
           {/* Kill switches */}
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
+          <div className="ax-panel p-5">
             <h3 className="text-sm font-semibold text-slate-200 mb-3">Kill Switch States</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Object.entries(health.killSwitches).map(([key, active]) => (
@@ -102,8 +102,13 @@ export default function HealthPage() {
                     "flex items-center justify-between px-3 py-2 rounded-lg border",
                     active as boolean
                       ? "bg-red-950/40 border-red-800"
-                      : "bg-slate-800/40 border-slate-700"
+                      : ""
                   )}
+                  style={
+                    !(active as boolean)
+                      ? { background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }
+                      : undefined
+                  }
                 >
                   <span className="text-xs font-mono text-slate-300">{key}</span>
                   <span className={cn(
@@ -119,13 +124,13 @@ export default function HealthPage() {
 
           {/* Queue depths */}
           {Object.keys(health.workerQueueDepths).length > 0 && (
-            <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
+            <div className="ax-panel p-5">
               <h3 className="text-sm font-semibold text-slate-200 mb-3">Worker Queue Depths</h3>
               <div className="space-y-2">
                 {Object.entries(health.workerQueueDepths).map(([queue, depth]) => (
                   <div key={queue} className="flex items-center gap-3">
                     <span className="text-xs font-mono text-slate-400 w-48">{queue}</span>
-                    <div className="flex-1 bg-slate-800 rounded-full h-2">
+                    <div className="flex-1 rounded-full h-2" style={{ background: "rgba(255,255,255,0.04)" }}>
                       <div
                         className={cn(
                           "h-2 rounded-full transition-all",

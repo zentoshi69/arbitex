@@ -1,15 +1,31 @@
 import { Controller, Get } from "@nestjs/common";
 import { Module, Injectable } from "@nestjs/common";
 import { prisma } from "@arbitex/db";
-import Redis from "ioredis";
-import { config, getPrimaryRpcConfig } from "@arbitex/config";
+import RedisModule, { Redis as RedisClient } from "ioredis";
+import { config } from "@arbitex/config";
 import { createChainClient } from "@arbitex/chain";
 import type { SystemHealth } from "@arbitex/shared-types";
 import { Public } from "../auth/auth.module.js";
 
+const RedisCtor: new (...args: any[]) => RedisClient =
+  ((RedisModule as any).default ?? (RedisModule as any)) as any;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error("timeout")), ms);
+    p.then((v) => {
+      clearTimeout(id);
+      resolve(v);
+    }).catch((e) => {
+      clearTimeout(id);
+      reject(e);
+    });
+  });
+}
+
 @Injectable()
 export class HealthService {
-  private readonly redis = new Redis(config.REDIS_URL);
+  private readonly redis: RedisClient = new RedisCtor(config.REDIS_URL);
   private readonly startTime = Date.now();
 
   async check(): Promise<SystemHealth> {
@@ -55,7 +71,7 @@ export class HealthService {
 
   private async checkRedis(): Promise<"up" | "down"> {
     try {
-      await this.redis.ping();
+      await withTimeout(this.redis.ping(), 500);
       return "up";
     } catch {
       return "down";
@@ -65,11 +81,11 @@ export class HealthService {
   private async checkRpc(): Promise<"up" | "down" | "slow"> {
     try {
       const client = createChainClient({
-        ...getPrimaryRpcConfig(),
+        rpcUrl: config.ETHEREUM_RPC_URL,
         chainId: config.CHAIN_ID,
       });
       const start = Date.now();
-      await client.getBlockNumber();
+      await withTimeout(client.getBlockNumber(), 1500);
       const latency = Date.now() - start;
       return latency > 2000 ? "slow" : "up";
     } catch {
@@ -79,11 +95,11 @@ export class HealthService {
 
   private async getQueueDepths(): Promise<Record<string, number>> {
     try {
-      const keys = await this.redis.keys("bull:*:waiting");
+      const keys = await withTimeout(this.redis.keys("bull:*:waiting"), 700);
       const depths: Record<string, number> = {};
       for (const key of keys) {
         const queueName = key.split(":")[1] ?? key;
-        const depth = await this.redis.llen(key);
+        const depth = await withTimeout(this.redis.llen(key), 700);
         depths[queueName] = depth;
       }
       return depths;
@@ -95,7 +111,9 @@ export class HealthService {
   private async getKillSwitches(): Promise<Record<string, boolean>> {
     const keys = ["GLOBAL", "CHAIN_1"];
     const values = await Promise.all(
-      keys.map((k) => this.redis.get(`arbitex:risk:kill:${k}`))
+      keys.map((k) =>
+        withTimeout(this.redis.get(`arbitex:risk:kill:${k}`), 700).catch(() => null)
+      )
     );
     return Object.fromEntries(keys.map((k, i) => [k, values[i] === "1"]));
   }

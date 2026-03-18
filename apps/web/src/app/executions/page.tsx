@@ -68,7 +68,7 @@ export default function ExecutionsPage() {
           { label: "Landed (page)", value: `${totalLanded} trades` },
           { label: "PnL (page)", value: `$${totalPnl.toFixed(4)}`, color: totalPnl >= 0 ? "text-emerald-400" : "text-red-400" },
         ].map(({ label, value, color }) => (
-          <div key={label} className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-2.5 flex items-center justify-between">
+          <div key={label} className="ax-panel px-4 py-2.5 flex items-center justify-between">
             <span className="text-xs text-slate-500">{label}</span>
             <span className={`text-sm font-mono font-semibold ${color ?? "text-slate-200"}`}>{value}</span>
           </div>
@@ -84,20 +84,20 @@ export default function ExecutionsPage() {
             placeholder="Search tx hash, tokens…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-600 w-52"
+            className="pl-8 pr-3 py-1.5 ax-field text-sm w-52"
           />
         </div>
         <select
           value={stateFilter}
           onChange={(e) => { setStateFilter(e.target.value); setPage(1); }}
-          className="bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 px-2 py-1.5 focus:outline-none focus:border-blue-600"
+          className="ax-field text-sm text-slate-200 px-2 py-1.5"
         >
           {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
       {/* Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+      <div className="ax-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full data-table">
             <thead>
@@ -148,7 +148,7 @@ export default function ExecutionsPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="flex items-center gap-1 text-xs font-mono text-blue-400 hover:text-blue-300"
+                        className="flex items-center gap-1 text-xs font-mono text-[var(--ax-dim)] hover:text-[var(--ax-off-white)]"
                       >
                         {exec.txHash.slice(0, 12)}…
                         <ExternalLink className="w-3 h-3" />
@@ -185,11 +185,11 @@ export default function ExecutionsPage() {
         </div>
 
         {data && data.pagination?.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--ax-border)]">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 hover:bg-slate-700 text-slate-300"
+              className="text-xs px-3 py-1.5 ax-btn"
             >← Prev</button>
             <span className="text-xs text-slate-500">
               Page {page} of {data.pagination.totalPages}
@@ -197,7 +197,7 @@ export default function ExecutionsPage() {
             <button
               onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
               disabled={page === data.pagination.totalPages}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 hover:bg-slate-700 text-slate-300"
+              className="text-xs px-3 py-1.5 ax-btn"
             >Next →</button>
           </div>
         )}

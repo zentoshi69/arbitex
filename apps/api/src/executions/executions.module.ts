@@ -80,7 +80,7 @@ export class ExecutionsController {
     @Query("limit", new DefaultValuePipe(25), ParseIntPipe) limit: number,
     @Query("state") state?: string
   ) {
-    return this.svc.list({ page, limit, state });
+    return this.svc.list({ page, limit, ...(state ? { state } : {}) });
   }
 
   @Get(":id")

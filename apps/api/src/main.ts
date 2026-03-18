@@ -1,4 +1,5 @@
 // apps/api/src/main.ts
+import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import {
   FastifyAdapter,
@@ -8,6 +9,8 @@ import { ValidationPipe } from "@nestjs/common";
 import { AppModule } from "./app.module.js";
 import { config } from "@arbitex/config";
 import { pino } from "pino";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 
 const logger = pino({ level: config.LOG_LEVEL });
 
@@ -17,6 +20,17 @@ async function bootstrap() {
     new FastifyAdapter({ logger: false }),
     { bufferLogs: true }
   );
+
+  await app.register(helmet, {
+    // API is consumed by dashboard + local scripts; keep CSP on the web app.
+    contentSecurityPolicy: false,
+  });
+
+  await app.register(rateLimit, {
+    max: 300,
+    timeWindow: "1 minute",
+    // Trust proxy is environment-specific; keeping it strict avoids spoofed IPs.
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -28,10 +42,7 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: [
-      "http://localhost:3000",
-      process.env["DASHBOARD_ORIGIN"] ?? "http://localhost:3000",
-    ],
+    origin: [config.DASHBOARD_ORIGIN],
     credentials: true,
   });
 

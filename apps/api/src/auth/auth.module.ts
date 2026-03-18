@@ -76,6 +76,7 @@ const ROLE_HIERARCHY: Record<UserRole, number> = {
   VIEWER: 0,
   OPERATOR: 1,
   ADMIN: 2,
+  SUPER_ADMIN: 3,
 };
 
 @Injectable()

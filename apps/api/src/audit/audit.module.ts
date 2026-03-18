@@ -64,7 +64,14 @@ export class AuditController {
     @Query("entityType") entityType?: string,
     @Query("entityId") entityId?: string
   ) {
-    return this.svc.list({ page, limit, action, actor, entityType, entityId });
+    return this.svc.list({
+      page,
+      limit,
+      ...(action ? { action } : {}),
+      ...(actor ? { actor } : {}),
+      ...(entityType ? { entityType } : {}),
+      ...(entityId ? { entityId } : {}),
+    });
   }
 
   @Get("actions")

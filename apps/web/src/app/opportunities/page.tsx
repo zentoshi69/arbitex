@@ -70,7 +70,7 @@ export default function OpportunitiesPage() {
             placeholder="Search tokens, venues…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-600 w-48"
+            className="pl-8 pr-3 py-1.5 ax-field text-sm w-48"
           />
         </div>
 
@@ -79,7 +79,7 @@ export default function OpportunitiesPage() {
           <select
             value={stateFilter}
             onChange={(e) => { setStateFilter(e.target.value); setPage(1); }}
-            className="bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 px-2 py-1.5 focus:outline-none focus:border-blue-600"
+            className="ax-field text-sm text-slate-200 px-2 py-1.5"
           >
             {STATES.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -92,7 +92,7 @@ export default function OpportunitiesPage() {
           placeholder="Min profit ($)"
           value={minProfit}
           onChange={(e) => { setMinProfit(e.target.value); setPage(1); }}
-          className="bg-slate-800 border border-slate-700 rounded text-sm text-slate-300 px-2 py-1.5 focus:outline-none focus:border-blue-600 w-32"
+          className="ax-field text-sm text-slate-200 px-2 py-1.5 w-32"
         />
 
         <span className="ml-auto text-xs text-slate-500">
@@ -101,7 +101,7 @@ export default function OpportunitiesPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+      <div className="ax-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full data-table">
             <thead>
@@ -174,11 +174,11 @@ export default function OpportunitiesPage() {
 
         {/* Pagination */}
         {data && data.pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--ax-border)]">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 hover:bg-slate-700 text-slate-300"
+              className="text-xs px-3 py-1.5 ax-btn"
             >
               ← Prev
             </button>
@@ -188,7 +188,7 @@ export default function OpportunitiesPage() {
             <button
               onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
               disabled={page === data.pagination.totalPages}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 hover:bg-slate-700 text-slate-300"
+              className="text-xs px-3 py-1.5 ax-btn"
             >
               Next →
             </button>

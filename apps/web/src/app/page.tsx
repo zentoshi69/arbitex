@@ -129,10 +129,10 @@ export default function OverviewPage() {
       </div>
 
       {/* PnL Chart */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+      <div className="ax-panel p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-blue-400" />
+            <TrendingUp className="w-4 h-4 text-[var(--ax-dim)]" />
             30-Day Cumulative PnL
           </h2>
         </div>
@@ -142,25 +142,27 @@ export default function OverviewPage() {
       {/* Live opportunities + Recent executions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Opportunities */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+        <div className="ax-panel">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--ax-border)]">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Zap className="w-4 h-4 text-blue-400" />
+              <Zap className="w-4 h-4 text-[var(--ax-dim)]" />
               Live Opportunities
               {liveOppCount !== null && liveOppCount > 0 && (
-                <span className="px-1.5 py-0.5 bg-blue-600 rounded text-[10px] font-bold">
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid var(--ax-border)" }}
+                >
                   +{liveOppCount}
                 </span>
               )}
             </h2>
             <Link
               href="/opportunities"
-              className="text-xs text-blue-400 hover:text-blue-300"
+              className="text-xs text-[var(--ax-dim)] hover:text-[var(--ax-off-white)]"
             >
               View all →
             </Link>
           </div>
-          <div className="divide-y divide-slate-800/60">
+          <div className="divide-y" style={{ borderColor: "var(--ax-border)" }}>
             {opps?.items?.length === 0 && (
               <p className="text-center text-slate-500 text-xs py-8">
                 No active opportunities
@@ -170,7 +172,8 @@ export default function OverviewPage() {
               <Link
                 key={opp.id}
                 href={`/opportunities/${opp.id}`}
-                className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/40 transition-colors"
+                className="flex items-center justify-between px-4 py-2.5 transition-colors"
+                style={{ background: "transparent" }}
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-200">
@@ -190,25 +193,25 @@ export default function OverviewPage() {
         </div>
 
         {/* Recent executions */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+        <div className="ax-panel">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--ax-border)]">
             <h2 className="text-sm font-semibold text-white flex items-center gap-2">
               <Activity className="w-4 h-4 text-emerald-400" />
               Recent Executions
             </h2>
             <Link
               href="/executions"
-              className="text-xs text-blue-400 hover:text-blue-300"
+              className="text-xs text-[var(--ax-dim)] hover:text-[var(--ax-off-white)]"
             >
               View all →
             </Link>
           </div>
-          <div className="divide-y divide-slate-800/60">
+          <div className="divide-y" style={{ borderColor: "var(--ax-border)" }}>
             {executions?.items?.map((exec: any) => (
               <Link
                 key={exec.id}
                 href={`/executions/${exec.id}`}
-                className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-800/40 transition-colors"
+                className="flex items-center justify-between px-4 py-2.5 transition-colors"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-200">

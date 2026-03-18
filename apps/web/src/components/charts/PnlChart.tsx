@@ -85,7 +85,7 @@ export function PnlChart({
             />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a28" vertical={false} />
         <XAxis
           dataKey="date"
           tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
@@ -130,7 +130,7 @@ export function TradeBarChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={formatted} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a28" vertical={false} />
         <XAxis
           dataKey="date"
           tick={{ fill: "#64748b", fontSize: 11 }}
@@ -148,7 +148,7 @@ export function TradeBarChart({
         <Tooltip content={<CustomTooltip />} />
         <Bar
           dataKey="PnL"
-          fill="#3b82f6"
+          fill="#6b7280"
           radius={[2, 2, 0, 0]}
           maxBarSize={24}
         />

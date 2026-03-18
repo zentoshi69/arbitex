@@ -16,8 +16,11 @@ import type { RiskConfig } from "@arbitex/shared-types";
 import { RiskEngine } from "@arbitex/risk-engine";
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from "../auth/auth.module.js";
 import type { JwtPayload } from "../auth/auth.module.js";
-import Redis from "ioredis";
+import RedisModule, { Redis as RedisClient } from "ioredis";
 import { config } from "@arbitex/config";
+
+const RedisCtor: new (...args: any[]) => RedisClient =
+  ((RedisModule as any).default ?? (RedisModule as any)) as any;
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 class UpdateRiskConfigDto {
@@ -39,11 +42,11 @@ class KillSwitchDto {
 // ── Service ───────────────────────────────────────────────────────────────────
 @Injectable()
 export class RiskService {
-  private readonly redis: Redis;
+  private readonly redis: RedisClient;
   private readonly riskEngine: RiskEngine;
 
   constructor() {
-    this.redis = new Redis(config.REDIS_URL);
+    this.redis = new RedisCtor(config.REDIS_URL);
     // RiskConfig loaded from DB overrides or defaults
     this.riskEngine = new RiskEngine(
       this.redis,
@@ -94,7 +97,7 @@ export class RiskService {
         entityType: "risk_config",
         entityId: "global",
         diff: { before: current, after: { ...current, ...updates } },
-        ipAddress,
+        ipAddress: ipAddress ?? null,
       },
     });
 

@@ -130,9 +130,11 @@ export class RiskEngine {
     return {
       rule: "MAX_TRADE_SIZE",
       passed,
-      detail: passed
-        ? undefined
-        : `Trade size $${tradeSizeUsd.toFixed(2)} exceeds max $${this.config.maxTradeSizeUsd}`,
+      ...(passed
+        ? {}
+        : {
+            detail: `Trade size $${tradeSizeUsd.toFixed(2)} exceeds max $${this.config.maxTradeSizeUsd}`,
+          }),
     };
   }
 
@@ -141,9 +143,11 @@ export class RiskEngine {
     return {
       rule: "MIN_NET_PROFIT",
       passed,
-      detail: passed
-        ? undefined
-        : `Net profit $${netProfitUsd.toFixed(4)} below minimum $${this.config.minNetProfitUsd}`,
+      ...(passed
+        ? {}
+        : {
+            detail: `Net profit $${netProfitUsd.toFixed(4)} below minimum $${this.config.minNetProfitUsd}`,
+          }),
     };
   }
 
@@ -152,9 +156,11 @@ export class RiskEngine {
     return {
       rule: "MAX_GAS_PRICE",
       passed,
-      detail: passed
-        ? undefined
-        : `Gas price ${gasGwei} Gwei exceeds max ${this.config.maxGasGwei} Gwei`,
+      ...(passed
+        ? {}
+        : {
+            detail: `Gas price ${gasGwei} Gwei exceeds max ${this.config.maxGasGwei} Gwei`,
+          }),
     };
   }
 
@@ -209,9 +215,11 @@ export class RiskEngine {
     return {
       rule: `POOL_LIQUIDITY(${pool.poolId.slice(-8)})`,
       passed,
-      detail: passed
-        ? undefined
-        : `Pool liquidity $${pool.liquidityUsd.toFixed(0)} below minimum $${this.config.minPoolLiquidityUsd}`,
+      ...(passed
+        ? {}
+        : {
+            detail: `Pool liquidity $${pool.liquidityUsd.toFixed(0)} below minimum $${this.config.minPoolLiquidityUsd}`,
+          }),
     };
   }
 
@@ -222,9 +230,11 @@ export class RiskEngine {
     return {
       rule: "FAILED_TX_RATE",
       passed,
-      detail: passed
-        ? undefined
-        : `Failed tx rate ${failedCount}/hr exceeds max ${this.config.maxFailedTxPerHour}/hr — auto-kill triggered`,
+      ...(passed
+        ? {}
+        : {
+            detail: `Failed tx rate ${failedCount}/hr exceeds max ${this.config.maxFailedTxPerHour}/hr — auto-kill triggered`,
+          }),
     };
   }
 
@@ -239,9 +249,11 @@ export class RiskEngine {
     return {
       rule: `TOKEN_EXPOSURE(${tokenAddress.slice(0, 8)})`,
       passed,
-      detail: passed
-        ? undefined
-        : `Token exposure $${totalExposure.toFixed(2)} would exceed max $${this.config.maxTokenExposureUsd}`,
+      ...(passed
+        ? {}
+        : {
+            detail: `Token exposure $${totalExposure.toFixed(2)} would exceed max $${this.config.maxTokenExposureUsd}`,
+          }),
     };
   }
 

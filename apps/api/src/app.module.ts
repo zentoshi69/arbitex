@@ -12,6 +12,8 @@ import { MetricsModule } from "./metrics/metrics.module.js";
 import { AuditModule } from "./audit/audit.module.js";
 import { PoolsModule } from "./pools/pools.module.js";
 import { ChainModule } from "./chain/chain.module.js";
+import { LpModule } from "./lp/lp.module.js";
+import { MarketModule } from "./market/market.module.js";
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { ChainModule } from "./chain/chain.module.js";
     AuditModule,
     PoolsModule,
     ChainModule,
+    LpModule,
+    MarketModule,
   ],
 })
 export class AppModule {}

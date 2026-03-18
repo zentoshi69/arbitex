@@ -29,5 +29,12 @@
     "prettier": "^3.3.0",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "glob": "10.5.0",
+      "minimatch": "9.0.7",
+      "@fastify/middie": "9.2.0"
+    }
   }
 }

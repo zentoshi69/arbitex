@@ -37,6 +37,73 @@ Dashboard: http://localhost:3000
 API: http://localhost:3001
 Prometheus: http://localhost:9090
 
+### Fast start/stop scripts
+
+After you’ve done the full bootstrap once, you can use:
+
+```bash
+# Foreground fast mode (no install/build/migrate)
+./scripts/run-arbitex-fast.sh
+
+# Or run it in background as a daemon
+./scripts/arbitex.sh start
+./scripts/arbitex.sh status
+./scripts/arbitex.sh logs
+./scripts/arbitex.sh stop
+```
+
+### macOS auto-run (LaunchAgent)
+
+This will **start at login**, **restart on crash**, and write logs to files.
+
+```bash
+./scripts/launchd-install.sh
+```
+
+Uninstall:
+
+```bash
+./scripts/launchd-uninstall.sh
+```
+
+---
+
+## Production deployment (VPS + Docker + HTTPS)
+
+This repo includes a production Docker Compose stack in `docker-compose.prod.yml`:
+- `web` (Next.js dashboard)
+- `api` (NestJS + Fastify)
+- `worker` (BullMQ worker)
+- `postgres`, `redis`
+- `caddy` reverse proxy with automatic TLS
+
+### 1) Configure DNS
+
+**Domain:** `bitrunner3001.com`  
+**Nameservers:** `ns1.dns-parking.com`, `ns2.dns-parking.com`
+
+At your DNS provider (where the nameservers point), add **A records**:
+- `dashboard.bitrunner3001.com` → your VPS public IP
+- `api.bitrunner3001.com` → your VPS public IP
+
+### 2) Create `.env.production`
+
+Copy `.env.production.example` to `.env.production` and fill values (strong secrets, RPC URLs, keystore paths).
+
+### 3) Put keystore files on the VPS
+
+Place your JSON keystores on the VPS and set:
+- `EXECUTION_KEYSTORE_FILE`
+- `SUPERADMIN_KEYSTORE_FILE`
+
+### 4) Deploy
+
+On the VPS:
+
+```bash
+./scripts/deploy-vps.sh
+```
+
 ---
 
 ## Monorepo Structure

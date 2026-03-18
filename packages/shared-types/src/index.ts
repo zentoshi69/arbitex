@@ -83,6 +83,7 @@ export const UserRole = {
   VIEWER: "VIEWER",
   OPERATOR: "OPERATOR",
   ADMIN: "ADMIN",
+  SUPER_ADMIN: "SUPER_ADMIN",
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 

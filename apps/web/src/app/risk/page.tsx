@@ -41,8 +41,8 @@ function RiskConfigForm({ config }: { config: Record<string, number> }) {
   ];
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg">
-      <div className="px-5 py-4 border-b border-slate-800">
+    <div className="ax-panel">
+      <div className="px-5 py-4 border-b border-[var(--ax-border)]">
         <h2 className="text-sm font-semibold text-white">Risk Parameters</h2>
         <p className="text-xs text-slate-400 mt-0.5">
           Changes take effect immediately on next evaluation. All changes are audited.
@@ -63,20 +63,20 @@ function RiskConfigForm({ config }: { config: Record<string, number> }) {
               }
               min={min}
               step={step}
-              className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-200 font-mono focus:outline-none focus:border-blue-600"
+              className="w-full ax-field px-3 py-1.5 text-sm font-mono"
             />
             <p className="text-[11px] text-slate-500">{description}</p>
           </div>
         ))}
       </div>
-      <div className="px-5 py-4 border-t border-slate-800 flex items-center justify-between">
+      <div className="px-5 py-4 border-t border-[var(--ax-border)] flex items-center justify-between">
         <p className="text-xs text-slate-500">
           Requires ADMIN role. Change is logged to audit trail.
         </p>
         <button
           onClick={() => mutation.mutate(form as any)}
           disabled={mutation.isPending}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 rounded text-sm font-medium text-white transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-[var(--ax-red)] hover:opacity-90 disabled:opacity-60 rounded-[2px] text-sm font-medium text-white transition-colors"
         >
           <Save className="w-3.5 h-3.5" />
           {mutation.isPending ? "Saving…" : saved ? "Saved ✓" : "Save Changes"}
@@ -105,8 +105,8 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg">
-      <div className="px-5 py-4 border-b border-slate-800">
+    <div className="ax-panel">
+      <div className="px-5 py-4 border-b border-[var(--ax-border)]">
         <h2 className="text-sm font-semibold text-white flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-red-400" />
           Kill Switches
@@ -115,7 +115,7 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
           Instant halts — take effect on next evaluation cycle.
         </p>
       </div>
-      <div className="divide-y divide-slate-800">
+      <div className="divide-y" style={{ borderColor: "var(--ax-border)" }}>
         {Object.entries(switches).map(([key, active]) => {
           const meta = SWITCH_LABELS[key] ?? { label: key, description: "", danger: false };
           return (
@@ -167,7 +167,7 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
       {/* Confirm modal for GLOBAL kill */}
       {confirmKey && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/70">
-          <div className="bg-slate-900 border border-red-800 rounded-xl p-6 w-96 shadow-2xl">
+          <div className="ax-panel p-6 w-96 shadow-2xl" style={{ borderColor: "rgba(232,65,66,0.35)" }}>
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-red-400" />
               <h3 className="text-lg font-bold text-white">Activate Global Kill Switch?</h3>
@@ -179,7 +179,7 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmKey(null)}
-                className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-300 transition-colors"
+                className="flex-1 py-2 ax-btn text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -188,7 +188,7 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
                   mutation.mutate({ key: confirmKey, active: true });
                   setConfirmKey(null);
                 }}
-                className="flex-1 py-2 bg-red-700 hover:bg-red-600 rounded text-sm font-bold text-white transition-colors"
+                className="flex-1 py-2 ax-btn-primary text-sm font-bold transition-colors"
               >
                 Activate Kill Switch
               </button>
@@ -218,11 +218,11 @@ function RiskEventsFeed() {
   }, [on, qc]);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg">
-      <div className="px-5 py-4 border-b border-slate-800">
+    <div className="ax-panel">
+      <div className="px-5 py-4 border-b border-[var(--ax-border)]">
         <h2 className="text-sm font-semibold text-white">Recent Risk Events</h2>
       </div>
-      <div className="divide-y divide-slate-800/60 max-h-80 overflow-y-auto">
+      <div className="divide-y max-h-80 overflow-y-auto" style={{ borderColor: "rgba(30,30,28,0.6)" }}>
         {isLoading && <div className="p-4"><Skeleton className="h-8" /></div>}
         {!isLoading && (!events || events.length === 0) && (
           <p className="text-center text-slate-500 text-xs py-8">No risk events</p>

@@ -12,7 +12,7 @@ import { readFileSync } from "fs";
 import { getChain } from "./client.js";
 
 // Web3 v3 keystore decrypt — uses Node.js crypto
-import { decrypt as decryptKeystore } from "@ethereumjs/wallet";
+import { Wallet } from "@ethereumjs/wallet";
 
 export type SignerConfig = {
   keystorePath: string;
@@ -40,7 +40,7 @@ export async function loadWalletFromKeystore(
   const keystore = JSON.parse(keystoreJson);
   
   // Decrypt keystore — throws on wrong password
-  const wallet = await decryptKeystore(keystore, cfg.keystorePassword);
+  const wallet = await Wallet.fromV3(keystore, cfg.keystorePassword, true);
   const privateKey = `0x${Buffer.from(wallet.getPrivateKey()).toString("hex")}` as Hex;
 
   const account = privateKeyToAccount(privateKey);

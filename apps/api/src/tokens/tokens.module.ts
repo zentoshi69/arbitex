@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
+  BadRequestException,
   Body,
   Param,
   UseGuards,
@@ -16,6 +18,16 @@ import { prisma } from "@arbitex/db";
 import { paginatedResponse } from "@arbitex/shared-types";
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from "../auth/auth.module.js";
 import type { JwtPayload } from "../auth/auth.module.js";
+import { createChainClient } from "@arbitex/chain";
+import { config } from "@arbitex/config";
+
+const isHexAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v);
+
+const ERC20_ABI = [
+  { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+  { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+] as const;
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 class UpdateTokenFlagsDto {
@@ -29,9 +41,33 @@ class UpdateVenueDto {
   isEnabled!: boolean;
 }
 
+class CreateVenueDto {
+  @IsString()
+  name!: string;
+
+  @IsString()
+  protocol!: string;
+
+  @IsString()
+  routerAddress!: string;
+
+  @IsOptional()
+  @IsString()
+  factoryAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  chainId?: string;
+}
+
 // ── Tokens ────────────────────────────────────────────────────────────────────
 @Injectable()
 export class TokensService {
+  private readonly client = createChainClient({
+    rpcUrl: config.ETHEREUM_RPC_URL,
+    chainId: config.CHAIN_ID,
+  });
+
   async list(params: { page: number; limit: number; search?: string }) {
     const where: any = params.search
       ? {
@@ -56,6 +92,47 @@ export class TokensService {
     return paginatedResponse(items, total, params.page, params.limit);
   }
 
+  async resolveByAddress(address: string, chainId?: number) {
+    const addr = address.trim();
+    if (!isHexAddress(addr)) {
+      throw new BadRequestException("Invalid contract address");
+    }
+
+    const existing = await prisma.token.findFirst({
+      where: {
+        chainId: chainId ?? config.CHAIN_ID,
+        address: { equals: addr, mode: "insensitive" },
+      },
+    });
+
+    if (existing) {
+      return { source: "db", token: existing };
+    }
+
+    // Not in DB — attempt on-chain ERC20 metadata lookup
+    const tokenAddress = addr as `0x${string}`;
+    const [name, symbol, decimals] = await Promise.all([
+      this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "name" }).catch(() => null),
+      this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "symbol" }).catch(() => null),
+      this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "decimals" }).catch(() => null),
+    ]);
+
+    if (!name || !symbol || decimals === null) {
+      return { source: "unknown", token: null };
+    }
+
+    return {
+      source: "chain",
+      token: {
+        chainId: chainId ?? config.CHAIN_ID,
+        address: addr,
+        name,
+        symbol,
+        decimals: Number(decimals),
+      },
+    };
+  }
+
   async updateFlags(
     id: string,
     flags: string[],
@@ -76,7 +153,7 @@ export class TokensService {
         entityType: "token",
         entityId: id,
         diff: { before: { flags: current.flags }, after: { flags } },
-        ipAddress,
+        ipAddress: ipAddress ?? null,
       },
     });
 
@@ -95,7 +172,14 @@ export class TokensController {
     @Query("limit", new DefaultValuePipe(50), ParseIntPipe) limit: number,
     @Query("search") search?: string
   ) {
-    return this.svc.list({ page, limit, search });
+    return this.svc.list({ page, limit, ...(search ? { search } : {}) });
+  }
+
+  @Get("resolve")
+  resolve(@Query("address") address?: string, @Query("chainId") chainId?: string) {
+    if (!address) throw new BadRequestException("Missing address");
+    const parsedChainId = chainId ? Number(chainId) : undefined;
+    return this.svc.resolveByAddress(address, parsedChainId);
   }
 
   @Patch(":id/flags")
@@ -139,11 +223,46 @@ export class VenuesService {
           before: { isEnabled: current.isEnabled },
           after: { isEnabled: data.isEnabled },
         },
-        ipAddress,
+        ipAddress: ipAddress ?? null,
       },
     });
 
     return updated;
+  }
+
+  async create(
+    data: {
+      chainId: number;
+      name: string;
+      protocol: string;
+      routerAddress: string;
+      factoryAddress?: string | null;
+    },
+    actor: string
+  ) {
+    const created = await prisma.venue.create({
+      data: {
+        chainId: data.chainId,
+        name: data.name,
+        protocol: data.protocol,
+        routerAddress: data.routerAddress,
+        factoryAddress: data.factoryAddress ?? null,
+        isEnabled: true,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: "VENUE_CREATED",
+        actor,
+        entityType: "venue",
+        entityId: created.id,
+        diff: data,
+        ipAddress: null,
+      },
+    });
+
+    return created;
   }
 }
 
@@ -165,6 +284,22 @@ export class VenuesController {
     @CurrentUser() user: JwtPayload
   ) {
     return this.svc.update(id, dto, user.sub);
+  }
+
+  @Post()
+  @Roles("SUPER_ADMIN")
+  create(@Body() dto: CreateVenueDto, @CurrentUser() user: JwtPayload) {
+    const chainId = dto.chainId ? Number(dto.chainId) : 1;
+    return this.svc.create(
+      {
+        chainId,
+        name: dto.name,
+        protocol: dto.protocol,
+        routerAddress: dto.routerAddress,
+        factoryAddress: dto.factoryAddress ?? null,
+      },
+      user.sub
+    );
   }
 }
 

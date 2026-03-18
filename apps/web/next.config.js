@@ -20,11 +20,20 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL ?? ""} ${process.env.NEXT_PUBLIC_WS_URL ?? ""}`,
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              // Note: 'unsafe-eval' is required for Next.js dev; remove in production.
+              process.env.NODE_ENV === "development"
+                ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
+                : "script-src 'self'",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "frame-ancestors 'none'",
             ].join("; "),
           },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
         ],
       },
     ];

@@ -36,4 +36,4 @@ USER arbitex
 ENV NODE_ENV=production
 EXPOSE 3001
 
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["node", "apps/api/dist/bootstrap.js"]

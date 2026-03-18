@@ -30,6 +30,21 @@ module.exports = {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        // Override Tailwind "slate" palette to neutral greys so existing UI
+        // classes like bg-slate-800 / text-slate-400 don't introduce blue hues.
+        slate: {
+          50: "#F3F3F3",
+          100: "#E6E6E6",
+          200: "#CCCCCC",
+          300: "#B3B3B3",
+          400: "#999999",
+          500: "#7A7A7A",
+          600: "#5F5F5F",
+          700: "#454545",
+          800: "#2E2E2E",
+          900: "#1A1A1A",
+          950: "#0A0A08",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -37,7 +52,8 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ["var(--ax-font)"],
+        mono: ["var(--ax-font)"],
       },
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",

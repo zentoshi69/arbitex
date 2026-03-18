@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { io, type Socket } from "socket.io-client";
 import type { WsEventMap } from "@arbitex/shared-types";
+import { WalletProvider } from "@/components/wallet/WalletProvider";
 
 // ── React Query ───────────────────────────────────────────────────────────────
 const queryClientConfig = {
@@ -100,7 +101,9 @@ export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient(queryClientConfig));
   return (
     <QueryClientProvider client={queryClient}>
-      <WsProvider>{children}</WsProvider>
+      <WsProvider>
+        <WalletProvider>{children}</WalletProvider>
+      </WsProvider>
     </QueryClientProvider>
   );
 }

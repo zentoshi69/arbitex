@@ -1,80 +1,31 @@
-# ArbitEx — Production deployment for bitrunner3001.com
-#
-# Usage:
-#   1. cp .env.prod.example .env.prod && edit .env.prod
-#   2. docker compose -f docker-compose.prod.yml --env-file .env.prod --profile tools run --rm migrate
-#   3. docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-#
-# Migrations run as a one-off before first up. Re-run migrate after schema changes.
-
-version: "3.9"
-
 services:
-  # ── Reverse proxy (Caddy) — TLS + WebSocket ─────────────────────────────────
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"  # HTTP/3
-    volumes:
-      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - api
-      - web
-    networks:
-      - arbitex_network
-
-  # ── Infrastructure ─────────────────────────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-arbitex}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-arbitex}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-arbitex}"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
       interval: 5s
       timeout: 5s
-      retries: 10
-    networks:
-      - arbitex_network
-
-  migrate:
-    build:
-      context: .
-      dockerfile: infra/Dockerfile.migrate
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - arbitex_network
-    profiles:
-      - tools
+      retries: 20
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "sh", "-lc", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
       interval: 5s
       timeout: 5s
-      retries: 10
-    networks:
-      - arbitex_network
+      retries: 20
 
-  # ── Applications ─────────────────────────────────────────────────────────────
   api:
     build:
       context: .
@@ -83,31 +34,27 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-https://autumn-yolo-patron.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      BSC_RPC_URL: ${BSC_RPC_URL:-https://autumn-yolo-patron.bsc.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://autumn-yolo-patron.polygon-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      ARBITRUM_RPC_URL: ${ARBITRUM_RPC_URL:-https://autumn-yolo-patron.arbitrum-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      BASE_RPC_URL: ${BASE_RPC_URL:-https://autumn-yolo-patron.base-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-https://autumn-yolo-patron.avalanche-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/ext/bc/C/rpc/}
-      AVALANCHE_ARCHIVE_RPC_URL: ${AVALANCHE_ARCHIVE_RPC_URL:-}
-      AVALANCHE_WSS_URL: ${AVALANCHE_WSS_URL:-}
-      CHAIN_ID: ${CHAIN_ID:-1}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRY: ${JWT_EXPIRY:-8h}
-      OPERATOR_API_KEY: ${OPERATOR_API_KEY}
-      OPERATOR_PASSWORD_HASH: ${OPERATOR_PASSWORD_HASH:-}
-      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-}
-      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://bitrunner3001.com}
+      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:?set DASHBOARD_ORIGIN}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:?set REDIS_URL}
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:?set ETHEREUM_RPC_URL}
+      ETHEREUM_ARCHIVE_RPC_URL: ${ETHEREUM_ARCHIVE_RPC_URL:-}
+      AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      OPERATOR_API_KEY: ${OPERATOR_API_KEY:?set OPERATOR_API_KEY}
+      MOCK_EXECUTION: ${MOCK_EXECUTION:-false}
+      SUPERADMIN_KEYSTORE_PATH: /run/secrets/superadmin_keystore.json
+      SUPERADMIN_KEYSTORE_PASS: ${SUPERADMIN_KEYSTORE_PASS:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - arbitex_network
+    secrets:
+      - superadmin_keystore
+    expose:
+      - "3001"
 
   worker:
     build:
@@ -116,58 +63,56 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-https://autumn-yolo-patron.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      BSC_RPC_URL: ${BSC_RPC_URL:-https://autumn-yolo-patron.bsc.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://autumn-yolo-patron.polygon-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      ARBITRUM_RPC_URL: ${ARBITRUM_RPC_URL:-https://autumn-yolo-patron.arbitrum-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      BASE_RPC_URL: ${BASE_RPC_URL:-https://autumn-yolo-patron.base-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
-      AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-https://autumn-yolo-patron.avalanche-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/ext/bc/C/rpc/}
-      AVALANCHE_ARCHIVE_RPC_URL: ${AVALANCHE_ARCHIVE_RPC_URL:-}
-      AVALANCHE_WSS_URL: ${AVALANCHE_WSS_URL:-}
-      CHAIN_ID: ${CHAIN_ID:-1}
-      EXECUTION_WALLET_KEYSTORE_PATH: /run/secrets/keystore.json
-      EXECUTION_WALLET_KEYSTORE_PASS: ${EXECUTION_WALLET_KEYSTORE_PASS:-}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:?set REDIS_URL}
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:?set ETHEREUM_RPC_URL}
+      ETHEREUM_ARCHIVE_RPC_URL: ${ETHEREUM_ARCHIVE_RPC_URL:-}
+      AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-}
       FLASHBOTS_AUTH_KEY: ${FLASHBOTS_AUTH_KEY:-}
-      MOCK_EXECUTION: ${MOCK_EXECUTION:-true}
-      DEFAULT_MAX_TRADE_SIZE_USD: ${DEFAULT_MAX_TRADE_SIZE_USD:-1000}
-      DEFAULT_MIN_NET_PROFIT_USD: ${DEFAULT_MIN_NET_PROFIT_USD:-5}
-      DEFAULT_MAX_GAS_GWEI: ${DEFAULT_MAX_GAS_GWEI:-100}
+      FLASHBOTS_RELAY_URL: ${FLASHBOTS_RELAY_URL:-}
+      EXECUTION_WALLET_KEYSTORE_PATH: /run/secrets/execution_keystore.json
+      EXECUTION_WALLET_KEYSTORE_PASS: ${EXECUTION_WALLET_KEYSTORE_PASS:-}
+      MOCK_EXECUTION: ${MOCK_EXECUTION:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     secrets:
-      - keystore
-    networks:
-      - arbitex_network
+      - execution_keystore
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.bitrunner3001.com}
-        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-wss://api.bitrunner3001.com}
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?set NEXT_PUBLIC_WS_URL}
     depends_on:
       - api
-    networks:
-      - arbitex_network
+    expose:
+      - "3000"
 
-  # ── Observability ─────────────────────────────────────────────────────────────
-  prometheus:
-    image: prom/prometheus:latest
+  caddy:
+    image: caddy:2-alpine
     restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+      DASHBOARD_DOMAIN: ${DASHBOARD_DOMAIN:?set DASHBOARD_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN}
     volumes:
-      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    networks:
-      - arbitex_network
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
 
 volumes:
   postgres_data:
@@ -176,9 +121,8 @@ volumes:
   caddy_config:
 
 secrets:
-  keystore:
-    file: ${KEYSTORE_FILE_PATH:-./infra/dev-keystore.json}
+  execution_keystore:
+    file: ${EXECUTION_KEYSTORE_FILE:?set EXECUTION_KEYSTORE_FILE}
+  superadmin_keystore:
+    file: ${SUPERADMIN_KEYSTORE_FILE:?set SUPERADMIN_KEYSTORE_FILE}
 
-networks:
-  arbitex_network:
-    name: arbitex_network

@@ -5,8 +5,10 @@ import { useState } from "react";
 import { SectionHeader, EmptyState, Skeleton, AddressCell } from "@/components/ui";
 import { Search, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "@/lib/api";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const isHexAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v.trim());
 
 async function fetchPools(params: { page: number; search: string }) {
   const token = typeof window !== "undefined" ? localStorage.getItem("arbitex_token") : null;
@@ -23,7 +25,10 @@ function LiquidityBar({ value, max }: { value: number; max: number }) {
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden w-24">
         <div
-          className={cn("h-full rounded-full", value > 1_000_000 ? "bg-emerald-500" : value > 100_000 ? "bg-blue-500" : "bg-amber-500")}
+          className={cn(
+            "h-full rounded-full",
+            value > 1_000_000 ? "bg-emerald-500" : value > 100_000 ? "bg-slate-400" : "bg-slate-600"
+          )}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -49,6 +54,8 @@ function SnapshotAge({ lastUpdated }: { lastUpdated: string | null }) {
 export default function PoolsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [resolved, setResolved] = useState<any>(null);
+  const [resolving, setResolving] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["pools", page],
@@ -78,16 +85,66 @@ export default function PoolsPage() {
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
           <input
             type="text"
-            placeholder="Filter by pair, venue…"
+            placeholder="Filter by pair, venue… or paste 0x… to resolve"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 pr-3 py-1.5 bg-slate-800 border border-slate-700 rounded text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-600 w-52"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              if (!isHexAddress(e.target.value)) setResolved(null);
+            }}
+            onKeyDown={async (e) => {
+              if (e.key !== "Enter") return;
+              const v = (e.currentTarget.value ?? "").trim();
+              if (!isHexAddress(v)) return;
+              setResolving(true);
+              try {
+                const r = await api.pools.resolve(v);
+                setResolved(r);
+              } finally {
+                setResolving(false);
+              }
+            }}
+            className="pl-8 pr-3 py-1.5 ax-field text-sm w-52"
           />
         </div>
+        {resolving && <span className="text-xs text-slate-500">Resolving…</span>}
         <span className="ml-auto text-xs text-slate-500">{data?.pagination?.total ?? 0} pools</span>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+      {resolved && (
+        <div className="ax-panel p-4 text-sm space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-slate-300">
+              Resolved: <span className="font-semibold">{resolved.kind}</span>
+            </div>
+            <AddressCell address={resolved.address} />
+          </div>
+          {resolved.token?.data && (
+            <div className="text-slate-200">
+              Token ({resolved.token.source}):{" "}
+              <span className="font-semibold">{resolved.token.data.symbol}</span>{" "}
+              <span className="text-slate-400">({resolved.token.data.decimals} decimals)</span>
+            </div>
+          )}
+          {resolved.pool && (
+            <div className="text-slate-200">
+              Pool:{" "}
+              <span className="font-semibold">
+                {resolved.pool.token0?.symbol ?? "?"} / {resolved.pool.token1?.symbol ?? "?"}
+              </span>{" "}
+              <span className="text-slate-400">
+                · {resolved.pool.venue?.name ?? "—"} · {resolved.pool.feeBps} bps
+              </span>
+            </div>
+          )}
+          {(resolved.pools?.length ?? 0) > 0 && (
+            <div className="text-xs text-slate-400">
+              {resolved.pools.length} associated pools found in DB.
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="ax-panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full data-table">
             <thead>
@@ -117,7 +174,7 @@ export default function PoolsPage() {
                   <tr key={pool.id}>
                     <td>
                       <div className="flex items-center gap-1.5">
-                        <Droplets className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                        <Droplets className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
                         <span className="font-semibold text-slate-200 text-sm">
                           {pool.token0?.symbol ?? "?"} / {pool.token1?.symbol ?? "?"}
                         </span>
@@ -155,14 +212,14 @@ export default function PoolsPage() {
         </div>
 
         {data?.pagination?.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--ax-border)]">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 text-slate-300 hover:bg-slate-700">
+              className="text-xs px-3 py-1.5 ax-btn">
               ← Prev
             </button>
             <span className="text-xs text-slate-500">Page {page} / {data.pagination.totalPages}</span>
             <button onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))} disabled={page === data.pagination.totalPages}
-              className="text-xs px-3 py-1.5 bg-slate-800 rounded disabled:opacity-40 text-slate-300 hover:bg-slate-700">
+              className="text-xs px-3 py-1.5 ax-btn">
               Next →
             </button>
           </div>

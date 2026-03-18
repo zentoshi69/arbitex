@@ -167,14 +167,16 @@ export class OpportunityEngine {
           // Persist snapshots to DB
           const now = new Date();
           for (const pool of pools) {
+            const dbPoolId = await this.resolveDbPoolId(pool);
+            if (!dbPoolId) continue;
             await this.db.poolSnapshot.create({
               data: {
-                poolId: await this.resolveDbPoolId(pool),
+                poolId: dbPoolId,
                 price0Per1: pool.price0Per1,
                 price1Per0: pool.price1Per0,
                 liquidityUsd: pool.liquidityUsd,
-                sqrtPriceX96: pool.sqrtPriceX96,
-                tick: pool.tick,
+                sqrtPriceX96: pool.sqrtPriceX96 ?? null,
+                tick: pool.tick ?? null,
                 timestamp: now,
               },
             }).catch(() => {}); // non-fatal
@@ -315,11 +317,11 @@ export class OpportunityEngine {
     }
   }
 
-  private async resolveDbPoolId(pool: NormalizedPool): Promise<string> {
-    // Resolve or create pool in DB — simplified
+  private async resolveDbPoolId(pool: NormalizedPool): Promise<string | null> {
+    // Resolve pool in DB (snapshots require a real UUID pool.id)
     const existing = await this.db.pool.findFirst({
       where: { poolAddress: { equals: pool.poolId, mode: "insensitive" } },
     });
-    return existing?.id ?? pool.poolId; // fallback
+    return existing?.id ?? null;
   }
 }

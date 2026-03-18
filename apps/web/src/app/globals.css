@@ -4,29 +4,170 @@
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --ring: 212.7 26.8% 83.9%;
+    /* ── ArbitEx redesign tokens (Black / White / Red) ── */
+    --ax-red: #E84142;
+    --ax-red-dim: rgba(232,65,66,0.15);
+    --ax-red-glow: rgba(232,65,66,0.08);
+    --ax-white: #FFFFFF;
+    --ax-off-white: #E8E8E2;
+    --ax-dim: #888880;
+    --ax-muted: #444440;
+    --ax-border: #1E1E1C;
+    --ax-border-hi: #2E2E2C;
+    --ax-bg: #0A0A08;
+    --ax-bg-panel: #0F0F0D;
+    --ax-bg-card: #141412;
+    --ax-bg-hover: #1A1A18;
+
+    /* Typography */
+    --ax-font: "Styrene A", "StyreneA", "Styrene", system-ui, -apple-system, "SF Pro Display",
+      "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+
+    /* Neutral (grey) semantic tokens used by Tailwind theme */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 96%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --primary: 0 0% 92%;
+    --primary-foreground: 0 0% 8%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 0 65% 35%;
+    --destructive-foreground: 0 0% 96%;
+    --ring: 0 0% 70%;
     --radius: 0.5rem;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  body {
+    @apply bg-background text-foreground;
+    background: var(--ax-bg);
+    color: var(--ax-white);
+    font-family: var(--ax-font);
+  }
 }
+
+/* ── Scanline overlay (opt-in via body class) ── */
+body.ax-scanlines::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.06) 3px,
+    rgba(0,0,0,0.06) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Redesign layout helpers ───────────────────────────────────────────────── */
+.ax-sidebar {
+  background: var(--ax-bg-panel);
+  border-right: 1px solid var(--ax-border);
+  position: relative;
+}
+.ax-sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 1px;
+  background: linear-gradient(180deg, var(--ax-red) 0%, transparent 40%);
+  pointer-events: none;
+}
+
+.ax-topbar {
+  background: var(--ax-bg-panel);
+  border-bottom: 1px solid var(--ax-border);
+  position: relative;
+}
+.ax-topbar::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ax-red) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.ax-panel {
+  background: var(--ax-bg-card);
+  border: 1px solid var(--ax-border);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.ax-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ax-red) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.ax-ticker {
+  height: 38px;
+  background: var(--ax-bg-panel);
+  border-bottom: 1px solid var(--ax-border);
+  overflow: hidden;
+}
+.ax-ticker-track {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  gap: 22px;
+  padding: 0 24px;
+  white-space: nowrap;
+  will-change: transform;
+  animation: ax-marquee 26s linear infinite;
+}
+@keyframes ax-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ax-tick-item { display: inline-flex; align-items: baseline; gap: 8px; font-family: var(--ax-mono, ui-monospace); }
+.ax-tick-label { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ax-muted); }
+.ax-tick-val { font-family: var(--ax-mono, ui-monospace); font-size: 11px; color: var(--ax-white); font-weight: 500; }
+.ax-tick-val.up { color: #4ADE80; }
+.ax-tick-val.red { color: var(--ax-red); }
+
+/* Form fields */
+.ax-field {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--ax-border-hi);
+  border-radius: 2px;
+  color: var(--ax-off-white);
+}
+.ax-field::placeholder { color: var(--ax-muted); }
+.ax-field:focus {
+  outline: none;
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.04);
+}
+
+.ax-btn {
+  border-radius: 2px;
+  border: 1px solid var(--ax-border-hi);
+  background: rgba(255,255,255,0.04);
+  color: var(--ax-off-white);
+}
+.ax-btn:hover { background: rgba(255,255,255,0.06); }
+.ax-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ax-btn-primary {
+  border-radius: 2px;
+  border: 1px solid rgba(232,65,66,0.45);
+  background: var(--ax-red);
+  color: #fff;
+}
+.ax-btn-primary:hover { opacity: 0.9; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -36,13 +177,17 @@
 
 /* Dense table styles */
 .data-table th {
-  @apply text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 py-2 bg-slate-900 border-b border-slate-800;
+  @apply text-xs font-semibold uppercase tracking-wider px-3 py-2;
+  color: var(--ax-dim);
+  background: var(--ax-bg-panel);
+  border-bottom: 1px solid var(--ax-border);
 }
 .data-table td {
-  @apply text-sm px-3 py-2 border-b border-slate-800/50;
+  @apply text-sm px-3 py-2;
+  border-bottom: 1px solid rgba(30,30,28,0.6);
 }
 .data-table tr:hover td {
-  @apply bg-slate-800/30;
+  background: var(--ax-bg-hover);
 }
 
 /* State badge animations */

@@ -31,12 +31,12 @@ function LifecycleBar({ currentState }: { currentState: string }) {
             <div className="flex-1 flex flex-col items-center gap-1">
               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                 done ? "bg-emerald-500" :
-                active ? "bg-blue-400 ring-2 ring-blue-400/30" :
+                active ? "bg-slate-300 ring-2 ring-slate-300/25" :
                 isFailed && idx === currentIdx ? "bg-red-500" :
                 "bg-slate-700"
               }`} />
               <span className={`text-[9px] font-mono leading-none ${
-                done ? "text-emerald-500" : active ? "text-blue-400" : "text-slate-600"
+                done ? "text-emerald-500" : active ? "text-slate-200" : "text-slate-600"
               }`}>
                 {step.slice(0, 4)}
               </span>
@@ -70,10 +70,16 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
   return (
     <>
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-[520px] bg-slate-900 border-l border-slate-800 z-50 overflow-y-auto">
+      <div
+        className="fixed right-0 top-0 h-full w-[520px] z-50 overflow-y-auto"
+        style={{ background: "var(--ax-bg-panel)", borderLeft: "1px solid var(--ax-border)" }}
+      >
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 sticky top-0 bg-slate-900">
+        <div
+          className="flex items-center justify-between px-5 py-4 sticky top-0"
+          style={{ borderBottom: "1px solid var(--ax-border)", background: "var(--ax-bg-panel)" }}
+        >
           <div className="flex items-center gap-2">
             <PlayCircle className="w-4 h-4 text-emerald-400" />
             <h2 className="font-semibold text-white text-sm">Execution Detail</h2>
@@ -112,7 +118,10 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
 
             {/* Trade */}
             {exec.opportunity && (
-              <div className="bg-slate-800/60 rounded-lg p-4 space-y-2">
+              <div
+                className="rounded-[2px] p-4 space-y-2 border"
+                style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}
+              >
                 <p className="text-lg font-bold text-white">
                   {exec.opportunity.tokenInSymbol} → {exec.opportunity.tokenOutSymbol}
                 </p>
@@ -147,7 +156,7 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
                         href={`https://etherscan.io/tx/${exec.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300 font-mono text-xs"
+                        className="flex items-center gap-1 text-[var(--ax-dim)] hover:text-[var(--ax-off-white)] font-mono text-xs"
                       >
                         {exec.txHash.slice(0, 18)}…
                         <ExternalLink className="w-3 h-3" />
@@ -212,7 +221,11 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
                 </h3>
                 <div className="space-y-2">
                   {exec.transactions.map((tx: any, i: number) => (
-                    <div key={tx.id} className="bg-slate-800/60 rounded px-3 py-2 space-y-1">
+                    <div
+                      key={tx.id}
+                      className="rounded-[2px] px-3 py-2 space-y-1 border"
+                      style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}
+                    >
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-mono text-slate-400">Nonce {tx.nonce}</span>
                         <span className="text-[11px] text-slate-500">
@@ -246,7 +259,7 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
                       <span className="text-slate-600">→</span>
                       <span className="text-slate-300">{r.tokenOut.slice(0, 6)}…</span>
                       <span className="text-slate-500">via</span>
-                      <span className="text-blue-400">{r.venueName}</span>
+                      <span className="text-[var(--ax-off-white)]">{r.venueName}</span>
                       <span className="ml-auto text-slate-500 font-mono">{r.feeBps} bps</span>
                     </div>
                   ))}
