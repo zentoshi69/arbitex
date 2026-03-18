@@ -1,10 +1,35 @@
-# ArbitEx — Production deployment (bitrunnar3001.com)
+# ArbitEx — Production deployment (bitrunner3001.com)
+
+## Pre-flight checklist
+
+Before deploying, ensure:
+
+- [ ] **DNS**: `bitrunner3001.com` and `api.bitrunner3001.com` point to your server IP ([docs/DNS_SETUP.md](./DNS_SETUP.md))
+- [ ] **Firewall**: Ports 80 and 443 open (and 22 for SSH)
+- [ ] **Hostinger VPS**: If using Hostinger, also open ports in hPanel → VPS → Network ([docs/HOSTINGER_SETUP.md](./HOSTINGER_SETUP.md))
+- [ ] **Secrets**: `.env.prod` created from `.env.prod.example` with all `CHANGE_ME` values replaced
+- [ ] **Login**: `OPERATOR_PASSWORD_HASH` or `OPERATOR_PASSWORD` set (see below)
+- [ ] **Keystore**: `KEYSTORE_FILE_PATH` points to a valid encrypted keystore (or use `./infra/dev-keystore.json` for mock execution only)
 
 ## Prerequisites
 
 - Docker & Docker Compose
-- Domain `bitrunnar3001.com` and `api.bitrunnar3001.com` pointing to your server
+- Domain `bitrunner3001.com` and `api.bitrunner3001.com` pointing to your server (or edit `infra/caddy/Caddyfile` and `infra/nginx/nginx.conf` for a different domain)
 - Ports 80 and 443 open
+
+## Required .env.prod values
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `POSTGRES_PASSWORD` | ✅ | Strong password for Postgres |
+| `REDIS_PASSWORD` | ✅ | Strong password for Redis |
+| `DATABASE_URL` | ✅ | `postgresql://arbitex:YOUR_POSTGRES_PASSWORD@postgres:5432/arbitex` |
+| `REDIS_URL` | ✅ | `redis://:YOUR_REDIS_PASSWORD@redis:6379` |
+| `JWT_SECRET` | ✅ | Min 32 random characters |
+| `OPERATOR_API_KEY` | ✅ | Min 32 characters for API auth |
+| `OPERATOR_PASSWORD_HASH` or `OPERATOR_PASSWORD` | ✅ | Dashboard login (see below) |
+
+**RPC URLs**: `docker-compose.prod.yml` provides defaults for ETH, BSC, Polygon, Arbitrum, Base, and Avalanche. Override in `.env.prod` if using your own QuickNode/Alchemy URLs. Set `CHAIN_ID` to match your active chain (1=ETH, 43114=Avalanche, etc.).
 
 ## Option A: Caddy (recommended — auto TLS)
 
@@ -22,8 +47,8 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod --profile tools r
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 # 4. Verify
-curl -s https://bitrunnar3001.com | head -5
-curl -s https://api.bitrunnar3001.com/health | jq
+curl -s https://bitrunner3001.com | head -5
+curl -s https://api.bitrunner3001.com/health | jq
 ```
 
 ## Option B: Nginx (manual TLS)
@@ -37,10 +62,10 @@ If you prefer Nginx, run it on the host and proxy to the app ports.
 
 2. Get certs:
    ```bash
-   certbot certonly --standalone -d bitrunnar3001.com -d api.bitrunnar3001.com
+   certbot certonly --standalone -d bitrunner3001.com -d api.bitrunner3001.com
    ```
 
-4. Copy `infra/nginx/nginx.conf` to `/etc/nginx/sites-available/arbitex`, adjust upstream ports if needed, enable, reload nginx.
+3. Copy `infra/nginx/nginx.conf` to `/etc/nginx/sites-available/arbitex`, adjust upstream ports if needed, enable, reload nginx.
 
 ## Generate bcrypt hash for login
 
@@ -48,13 +73,20 @@ If you prefer Nginx, run it on the host and proxy to the app ports.
 node -e "console.log(require('bcryptjs').hashSync(process.argv[1], 12))" "YourSecurePassword"
 ```
 
-Set the output as `OPERATOR_PASSWORD_HASH` in `.env.prod`.
+Set the output as `OPERATOR_PASSWORD_HASH` in `.env.prod`. Alternatively, set `OPERATOR_PASSWORD` (plain text) for dev/testing only — not recommended for production.
 
 ## URLs
 
 | Service   | URL                              |
 |----------|----------------------------------|
-| Dashboard| https://bitrunnar3001.com        |
-| API      | https://api.bitrunnar3001.com    |
-| Health   | https://api.bitrunnar3001.com/health |
-| Metrics  | https://api.bitrunnar3001.com/metrics |
+| Dashboard| https://bitrunner3001.com        |
+| API      | https://api.bitrunner3001.com    |
+| Health   | https://api.bitrunner3001.com/health |
+| Metrics  | https://api.bitrunner3001.com/metrics |
+
+## Troubleshooting
+
+- **"couldn't find env file"**: Ensure `.env.prod` exists and you pass `--env-file .env.prod`.
+- **Worker fails to start**: Check that the RPC URL for your `CHAIN_ID` is set (compose provides defaults; override in `.env.prod` if needed).
+- **Caddy certificate errors**: Ensure DNS propagates and ports 80/443 are open. Check `docker compose logs caddy`.
+- **Login not configured**: Set either `OPERATOR_PASSWORD_HASH` (bcrypt) or `OPERATOR_PASSWORD` (plain text).

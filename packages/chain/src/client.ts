@@ -7,13 +7,15 @@ import {
   type Transport,
   type Chain,
 } from "viem";
-import { mainnet, arbitrum, base, avalanche } from "viem/chains";
+import { mainnet, arbitrum, base, avalanche, bsc, polygon } from "viem/chains";
 
 const CHAIN_MAP: Record<number, Chain> = {
   1: mainnet,
-  43114: avalanche,
+  56: bsc,
+  137: polygon,
   42161: arbitrum,
   8453: base,
+  43114: avalanche,
 };
 
 export type RpcConfig = {

@@ -48,6 +48,12 @@ services:
       JWT_SECRET: dev_jwt_secret_replace_in_production_min_256_bits
       OPERATOR_API_KEY: dev_operator_api_key_replace_in_production
       PORT: 3001
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-https://autumn-yolo-patron.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      BSC_RPC_URL: ${BSC_RPC_URL:-https://autumn-yolo-patron.bsc.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://autumn-yolo-patron.polygon-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      ARBITRUM_RPC_URL: ${ARBITRUM_RPC_URL:-https://autumn-yolo-patron.arbitrum-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      BASE_RPC_URL: ${BASE_RPC_URL:-https://autumn-yolo-patron.base-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      CHAIN_ID: ${CHAIN_ID:-1}
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,10 +76,14 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://arbitex:arbitex_dev_password@postgres:5432/arbitex
       REDIS_URL: redis://:arbitex_redis_dev@redis:6379
-      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-}
-      AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-}
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-https://autumn-yolo-patron.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      BSC_RPC_URL: ${BSC_RPC_URL:-https://autumn-yolo-patron.bsc.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-https://autumn-yolo-patron.polygon-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      ARBITRUM_RPC_URL: ${ARBITRUM_RPC_URL:-https://autumn-yolo-patron.arbitrum-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      BASE_RPC_URL: ${BASE_RPC_URL:-https://autumn-yolo-patron.base-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/}
+      AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-https://autumn-yolo-patron.avalanche-mainnet.quiknode.pro/7edde485d6dc8477f25236b21d96257257f71f20/ext/bc/C/rpc/}
       AVALANCHE_WSS_URL: ${AVALANCHE_WSS_URL:-}
-      CHAIN_ID: ${CHAIN_ID:-43114}
+      CHAIN_ID: ${CHAIN_ID:-1}
       EXECUTION_WALLET_KEYSTORE_PATH: /run/secrets/keystore.json
       EXECUTION_WALLET_KEYSTORE_PASS: ${EXECUTION_WALLET_KEYSTORE_PASS:-}
       FLASHBOTS_AUTH_KEY: ${FLASHBOTS_AUTH_KEY:-}

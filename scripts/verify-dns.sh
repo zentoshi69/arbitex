@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Verify DNS for bitrunnar3001.com and api.bitrunnar3001.com
+# Verify DNS for bitrunner3001.com and api.bitrunner3001.com
 # Usage: ./scripts/verify-dns.sh [expected_ip]
 
 set -e
 
-DOMAINS=("bitrunnar3001.com" "api.bitrunnar3001.com")
+DOMAINS=("bitrunner3001.com" "api.bitrunner3001.com")
 EXPECTED_IP="${1:-}"
 
-echo "Checking DNS for bitrunnar3001.com..."
+echo "Checking DNS for bitrunner3001.com..."
 echo ""
 
 for domain in "${DOMAINS[@]}"; do

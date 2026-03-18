@@ -45,6 +45,8 @@ const EnvSchema = z.object({
   AVALANCHE_RPC_URL: z.string().url().optional(),
   AVALANCHE_ARCHIVE_RPC_URL: z.string().url().optional(),
   AVALANCHE_WSS_URL: z.string().url().optional(),
+  BSC_RPC_URL: z.string().url().optional(),
+  POLYGON_RPC_URL: z.string().url().optional(),
   ARBITRUM_RPC_URL: z.string().url().optional(),
   ARBITRUM_WSS_URL: z.string().url().optional(),
   BASE_RPC_URL: z.string().url().optional(),
@@ -100,9 +102,11 @@ const EnvSchema = z.object({
 /** Per-chain RPC env var names */
 const CHAIN_RPC_KEYS: Record<number, { rpc: string; archive?: string; wss?: string }> = {
   1: { rpc: "ETHEREUM_RPC_URL", archive: "ETHEREUM_ARCHIVE_RPC_URL", wss: "ETHEREUM_WSS_URL" },
-  43114: { rpc: "AVALANCHE_RPC_URL", archive: "AVALANCHE_ARCHIVE_RPC_URL", wss: "AVALANCHE_WSS_URL" },
+  56: { rpc: "BSC_RPC_URL" },
+  137: { rpc: "POLYGON_RPC_URL" },
   42161: { rpc: "ARBITRUM_RPC_URL", wss: "ARBITRUM_WSS_URL" },
   8453: { rpc: "BASE_RPC_URL", wss: "BASE_WSS_URL" },
+  43114: { rpc: "AVALANCHE_RPC_URL", archive: "AVALANCHE_ARCHIVE_RPC_URL", wss: "AVALANCHE_WSS_URL" },
 };
 
 export type AppConfig = z.infer<typeof EnvSchema>;

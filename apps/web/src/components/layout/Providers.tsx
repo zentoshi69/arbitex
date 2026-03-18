@@ -49,6 +49,7 @@ function WsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const onStorage = (e: StorageEvent) => {
       if (e.key === "arbitex_token") setToken(e.newValue ?? "");
     };

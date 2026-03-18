@@ -1,4 +1,4 @@
-# DNS Setup for bitrunnar3001.com
+# DNS Setup for bitrunner3001.com
 
 Add these records at your domain registrar or DNS provider (Cloudflare, Namecheap, GoDaddy, etc.).
 
@@ -11,8 +11,8 @@ Replace `YOUR_SERVER_IP` with your server's public IPv4 address (e.g. `123.45.67
 | A | `@` | `YOUR_SERVER_IP` | 300 | DNS only (grey cloud) |
 | A | `api` | `YOUR_SERVER_IP` | 300 | DNS only (grey cloud) |
 
-- `@` = root domain (`bitrunnar3001.com`)
-- `api` = subdomain (`api.bitrunnar3001.com`)
+- `@` = root domain (`bitrunner3001.com`)
+- `api` = subdomain (`api.bitrunner3001.com`)
 
 ## Provider-specific notes
 
@@ -41,8 +41,8 @@ After saving (propagation can take 5–60 minutes):
 
 ```bash
 # From your machine or server
-dig +short bitrunnar3001.com
-dig +short api.bitrunnar3001.com
+dig +short bitrunner3001.com
+dig +short api.bitrunner3001.com
 ```
 
 Both should return your server IP. Then proceed with deployment.
