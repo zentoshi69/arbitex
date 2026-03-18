@@ -39,15 +39,29 @@ export function useWs() {
 function WsProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const [token, setToken] = useState("");
 
   useEffect(() => {
     const wsUrl = process.env["NEXT_PUBLIC_WS_URL"] ?? "ws://localhost:3001";
-    const token = typeof window !== "undefined"
-      ? localStorage.getItem("arbitex_token") ?? ""
-      : "";
+    const t =
+      typeof window !== "undefined" ? localStorage.getItem("arbitex_token") ?? "" : "";
+    setToken(t);
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "arbitex_token") setToken(e.newValue ?? "");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  useEffect(() => {
+    const wsUrl = process.env["NEXT_PUBLIC_WS_URL"] ?? "ws://localhost:3001";
+    const wsToken = typeof window !== "undefined" ? token : "";
 
     const socket = io(`${wsUrl}/ws`, {
-      auth: { token },
+      auth: { token: wsToken },
       transports: ["websocket"],
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
@@ -63,7 +77,7 @@ function WsProvider({ children }: { children: ReactNode }) {
 
     socketRef.current = socket;
     return () => { socket.disconnect(); };
-  }, []);
+  }, [token]);
 
   const on = <K extends keyof WsEventMap>(
     event: K,

@@ -1,0 +1,14 @@
+# Use with Nginx on host — disables Caddy, exposes api/web to localhost
+# docker compose -f docker-compose.prod.yml -f docker-compose.prod-nginx.yml --env-file .env.prod up -d
+
+services:
+  caddy:
+    scale: 0
+
+  api:
+    ports:
+      - "127.0.0.1:3001:3001"
+
+  web:
+    ports:
+      - "127.0.0.1:3000:3000"

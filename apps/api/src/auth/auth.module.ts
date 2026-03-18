@@ -12,6 +12,7 @@ import { Module } from "@nestjs/common";
 import * as jose from "jose";
 import { config } from "@arbitex/config";
 import type { UserRole } from "@arbitex/shared-types";
+import { AuthController } from "./auth.controller.js";
 
 // ── Metadata keys ─────────────────────────────────────────────────────────────
 export const ROLES_KEY = "roles";
@@ -110,6 +111,7 @@ export class RolesGuard implements CanActivate {
 // ── Auth Module ───────────────────────────────────────────────────────────────
 @Module({
   providers: [JwtAuthGuard, RolesGuard],
+  controllers: [AuthController],
   exports: [JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

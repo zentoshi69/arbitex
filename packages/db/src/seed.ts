@@ -16,7 +16,7 @@ async function main() {
       chainId: 1,
       name: "Ethereum Mainnet",
       shortName: "eth",
-      rpcUrl: process.env["ETHEREUM_RPC_URL"] ?? "https://eth-mainnet.g.alchemy.com/v2/demo",
+      rpcUrl: process.env["ETHEREUM_RPC_URL"] ?? process.env["AVALANCHE_RPC_URL"] ?? "https://eth-mainnet.g.alchemy.com/v2/demo",
       isEnabled: true,
     },
     update: {},

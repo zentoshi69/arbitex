@@ -2,7 +2,7 @@ import { Controller, Get } from "@nestjs/common";
 import { Module, Injectable } from "@nestjs/common";
 import { prisma } from "@arbitex/db";
 import Redis from "ioredis";
-import { config } from "@arbitex/config";
+import { config, getPrimaryRpcConfig } from "@arbitex/config";
 import { createChainClient } from "@arbitex/chain";
 import type { SystemHealth } from "@arbitex/shared-types";
 import { Public } from "../auth/auth.module.js";
@@ -65,7 +65,7 @@ export class HealthService {
   private async checkRpc(): Promise<"up" | "down" | "slow"> {
     try {
       const client = createChainClient({
-        rpcUrl: config.ETHEREUM_RPC_URL,
+        ...getPrimaryRpcConfig(),
         chainId: config.CHAIN_ID,
       });
       const start = Date.now();

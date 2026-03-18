@@ -7,9 +7,13 @@ FROM base AS deps
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared-types/package.json ./packages/shared-types/
-RUN pnpm install --frozen-lockfile --filter @arbitex/web...
+RUN pnpm install --filter @arbitex/web...
 
 FROM deps AS builder
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
 COPY . .
 RUN pnpm --filter @arbitex/shared-types build
 RUN pnpm --filter @arbitex/web build

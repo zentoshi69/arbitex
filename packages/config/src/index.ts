@@ -38,9 +38,17 @@ const EnvSchema = z.object({
   // Redis
   REDIS_URL: z.string().url("REDIS_URL must be a valid URL"),
 
-  // Ethereum
-  ETHEREUM_RPC_URL: z.string().url(),
+  // Multi-chain RPC — private QuickNode/Alchemy URLs preferred for all blockchain ops
+  ETHEREUM_RPC_URL: z.string().url().optional(),
   ETHEREUM_ARCHIVE_RPC_URL: z.string().url().optional(),
+  ETHEREUM_WSS_URL: z.string().url().optional(),
+  AVALANCHE_RPC_URL: z.string().url().optional(),
+  AVALANCHE_ARCHIVE_RPC_URL: z.string().url().optional(),
+  AVALANCHE_WSS_URL: z.string().url().optional(),
+  ARBITRUM_RPC_URL: z.string().url().optional(),
+  ARBITRUM_WSS_URL: z.string().url().optional(),
+  BASE_RPC_URL: z.string().url().optional(),
+  BASE_WSS_URL: z.string().url().optional(),
   CHAIN_ID: z.coerce.number().int().positive().default(1),
 
   // Execution wallet — absent in web/api, present in worker
@@ -79,9 +87,45 @@ const EnvSchema = z.object({
   DEFAULT_MIN_NET_PROFIT_USD: z.coerce.number().positive().default(5),
   DEFAULT_MAX_GAS_GWEI: z.coerce.number().positive().default(100),
   DEFAULT_MIN_POOL_LIQUIDITY_USD: z.coerce.number().positive().default(100_000),
-});
+}).refine(
+  (data) => {
+    const keys = CHAIN_RPC_KEYS[data.CHAIN_ID];
+    if (!keys) return false;
+    const val = (data as Record<string, unknown>)[keys.rpc];
+    return typeof val === "string" && val.length > 0;
+  },
+  (data) => ({ message: `RPC URL for chain ${data.CHAIN_ID} is required. Set the appropriate *_RPC_URL in .env` })
+);
+
+/** Per-chain RPC env var names */
+const CHAIN_RPC_KEYS: Record<number, { rpc: string; archive?: string; wss?: string }> = {
+  1: { rpc: "ETHEREUM_RPC_URL", archive: "ETHEREUM_ARCHIVE_RPC_URL", wss: "ETHEREUM_WSS_URL" },
+  43114: { rpc: "AVALANCHE_RPC_URL", archive: "AVALANCHE_ARCHIVE_RPC_URL", wss: "AVALANCHE_WSS_URL" },
+  42161: { rpc: "ARBITRUM_RPC_URL", wss: "ARBITRUM_WSS_URL" },
+  8453: { rpc: "BASE_RPC_URL", wss: "BASE_WSS_URL" },
+};
 
 export type AppConfig = z.infer<typeof EnvSchema>;
+
+export type RpcConfig = {
+  rpcUrl: string;
+  archiveRpcUrl?: string;
+  wssUrl?: string;
+};
+
+/** Get RPC config for a chain. Throws if not configured. Use for all blockchain reads/writes. */
+export function getRpcConfig(chainId: number): RpcConfig {
+  const keys = CHAIN_RPC_KEYS[chainId];
+  if (!keys) throw new Error(`Unsupported chainId: ${chainId}`);
+  const c = loadConfig() as Record<string, unknown>;
+  const rpcUrl = c[keys.rpc] as string | undefined;
+  if (!rpcUrl) throw new Error(`RPC URL for chain ${chainId} not configured. Set ${keys.rpc} in .env`);
+  return {
+    rpcUrl,
+    archiveRpcUrl: keys.archive ? (c[keys.archive] as string | undefined) : undefined,
+    wssUrl: keys.wss ? (c[keys.wss] as string | undefined) : undefined,
+  };
+}
 
 let _config: AppConfig | undefined;
 
@@ -113,3 +157,8 @@ export const config = loadConfig();
 export const isProd = () => config.NODE_ENV === "production";
 /** Check if mock execution is enabled */
 export const isMockExecution = () => config.MOCK_EXECUTION;
+
+/** Primary chain RPC config (for CHAIN_ID). Use for default blockchain reads/writes. */
+export function getPrimaryRpcConfig(): RpcConfig {
+  return getRpcConfig(loadConfig().CHAIN_ID);
+}

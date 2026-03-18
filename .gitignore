@@ -1,0 +1,33 @@
+# Env files — never commit secrets
+.env
+.env.local
+.env.prod
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+.next/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+coverage/
+.nyc_output/
+playwright-report/
+test-results/

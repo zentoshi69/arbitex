@@ -1,13 +1,13 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
 import { Module, Injectable } from "@nestjs/common";
 import { createChainClient } from "@arbitex/chain";
-import { config } from "@arbitex/config";
+import { config, getPrimaryRpcConfig } from "@arbitex/config";
 import { JwtAuthGuard, Public } from "../auth/auth.module.js";
 
 @Injectable()
 export class ChainService {
   private readonly client = createChainClient({
-    rpcUrl: config.ETHEREUM_RPC_URL,
+    ...getPrimaryRpcConfig(),
     chainId: config.CHAIN_ID,
   });
 

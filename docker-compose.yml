@@ -70,8 +70,10 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://arbitex:arbitex_dev_password@postgres:5432/arbitex
       REDIS_URL: redis://:arbitex_redis_dev@redis:6379
-      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-https://eth-mainnet.g.alchemy.com/v2/demo}
-      ETHEREUM_ARCHIVE_RPC_URL: ${ETHEREUM_ARCHIVE_RPC_URL:-https://eth-mainnet.g.alchemy.com/v2/demo}
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-}
+      AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-}
+      AVALANCHE_WSS_URL: ${AVALANCHE_WSS_URL:-}
+      CHAIN_ID: ${CHAIN_ID:-43114}
       EXECUTION_WALLET_KEYSTORE_PATH: /run/secrets/keystore.json
       EXECUTION_WALLET_KEYSTORE_PASS: ${EXECUTION_WALLET_KEYSTORE_PASS:-}
       FLASHBOTS_AUTH_KEY: ${FLASHBOTS_AUTH_KEY:-}

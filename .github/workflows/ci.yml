@@ -64,6 +64,7 @@ jobs:
         env:
           DATABASE_URL: "postgresql://test:test@localhost:5432/test"
           REDIS_URL: "redis://localhost:6379"
+          CHAIN_ID: "1"
           ETHEREUM_RPC_URL: "https://eth.llamarpc.com"
           JWT_SECRET: "ci_jwt_secret_minimum_32_characters_long_xxxx"
           OPERATOR_API_KEY: "ci_operator_api_key_minimum_32_chars_xxxx"
@@ -117,6 +118,7 @@ jobs:
         env:
           DATABASE_URL: "postgresql://test:test@localhost:5432/test"
           REDIS_URL: "redis://localhost:6379"
+          CHAIN_ID: "1"
           ETHEREUM_RPC_URL: "https://eth.llamarpc.com"
           JWT_SECRET: "ci_jwt_secret_minimum_32_characters_long_xxxx"
           OPERATOR_API_KEY: "ci_operator_api_key_minimum_32_chars_xxxx"
