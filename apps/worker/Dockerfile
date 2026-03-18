@@ -6,7 +6,7 @@ WORKDIR /app
 FROM base AS deps
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/worker/package.json ./apps/worker/
-COPY packages/*/package.json ./packages/
+COPY packages/ ./packages/
 RUN pnpm install --filter @arbitex/worker...
 
 FROM deps AS builder

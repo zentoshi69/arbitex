@@ -14,7 +14,8 @@ pnpm install
 
 # 2. Configure environment (from repo root)
 cp .env.example .env.local
-# Edit .env.local — set DATABASE_URL, REDIS_URL, ETHEREUM_RPC_URL, JWT_SECRET, OPERATOR_API_KEY
+# Edit .env.local — set DATABASE_URL, REDIS_URL, JWT_SECRET, OPERATOR_API_KEY, OPERATOR_PASSWORD or OPERATOR_PASSWORD_HASH
+# RPC URLs: docker-compose provides defaults; set CHAIN_ID (1=ETH, 43114=Avalanche, etc.) for your active chain
 # API and worker load .env.local automatically when run from root
 
 # 3. Start infrastructure
@@ -99,8 +100,9 @@ See `.env.example` for the full list. Critical variables:
 |---|---|---|
 | `DATABASE_URL` | ✅ | PostgreSQL connection string |
 | `REDIS_URL` | ✅ | Redis connection string |
-| `ETHEREUM_RPC_URL` | ✅ | Dedicated node recommended |
+| `*_RPC_URL` | ✅ for active chain | RPC for `CHAIN_ID` (1=ETH, 43114=Avalanche, etc.). docker-compose has defaults |
 | `JWT_SECRET` | ✅ | Min 32 chars, never exposed to browser |
+| `OPERATOR_PASSWORD_HASH` or `OPERATOR_PASSWORD` | ✅ | Dashboard login |
 | `EXECUTION_WALLET_KEYSTORE_PATH` | worker only | Path to encrypted keystore |
 | `FLASHBOTS_AUTH_KEY` | worker only | Private key for Flashbots auth |
 
@@ -179,12 +181,14 @@ Operators assume full regulatory responsibility in their jurisdiction.
 
 ## Production Deployment
 
-1. Build images: `docker compose build`
-2. Set all production env vars (use AWS Secrets Manager / Vault)
-3. Run migrations: `pnpm db:migrate`
-4. Deploy with: `docker compose up -d`
-5. Verify `/health` returns `{"status":"healthy"}`
-6. Monitor Prometheus at `:9090`
+See **[docs/DEPLOY.md](docs/DEPLOY.md)** for full deployment instructions (Caddy/Nginx, DNS, Hostinger VPS).
+
+Quick steps:
+
+1. `cp .env.prod.example .env.prod` and fill in secrets
+2. `docker compose -f docker-compose.prod.yml --env-file .env.prod --profile tools run --rm migrate`
+3. `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d`
+4. Verify `https://api.bitrunner3001.com/health` returns `{"status":"healthy"}`
 
 For HSM/KMS signing (Phase 2), replace `loadWalletFromKeystore` in
 `packages/chain/src/wallet.ts` with your KMS provider adapter.

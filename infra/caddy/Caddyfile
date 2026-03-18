@@ -1,13 +1,13 @@
-# ArbitEx — Caddy reverse proxy for bitrunnar3001.com
+# ArbitEx — Caddy reverse proxy for bitrunner3001.com
 # TLS via Let's Encrypt (automatic). Ensure ports 80 and 443 are open.
 
-# Dashboard — bitrunnar3001.com → Next.js
-bitrunnar3001.com {
+# Dashboard — bitrunner3001.com → Next.js
+bitrunner3001.com {
     reverse_proxy web:3000
 }
 
-# API + WebSocket — api.bitrunnar3001.com → NestJS
-api.bitrunnar3001.com {
+# API + WebSocket — api.bitrunner3001.com → NestJS
+api.bitrunner3001.com {
     reverse_proxy api:3001 {
         # WebSocket / Socket.IO upgrade support
         header_up X-Forwarded-For {remote_host}

@@ -1,4 +1,6 @@
-# Fix ArbitEx on Hostinger VPS
+# ArbitEx on Hostinger VPS
+
+Quick setup for deploying ArbitEx on a Hostinger VPS. See [DEPLOY.md](./DEPLOY.md) for full deployment docs.
 
 ## Step 1: Create .env.prod (fixes "couldn't find env file")
 
@@ -15,9 +17,16 @@ Edit these (replace CHANGE_ME with real values):
 - `DATABASE_URL` = `postgresql://arbitex:YOUR_POSTGRES_PASSWORD@postgres:5432/arbitex`
 - `REDIS_URL` = `redis://:YOUR_REDIS_PASSWORD@redis:6379`
 - `JWT_SECRET` = at least 32 random characters
-- `OPERATOR_PASSWORD` = your dashboard login password (or set OPERATOR_PASSWORD_HASH)
+- `OPERATOR_API_KEY` = at least 32 characters
 
-Copy your Avalanche RPC URLs from `.env` if you have them.
+**Login password** — use ONE of:
+- `OPERATOR_PASSWORD_HASH` = bcrypt hash (recommended). Generate with:
+  ```bash
+  node -e "console.log(require('bcryptjs').hashSync(process.argv[1], 12))" "YourSecurePassword"
+  ```
+- `OPERATOR_PASSWORD` = plain text (dev only, not recommended for production)
+
+RPC URLs have defaults in docker-compose; override in `.env.prod` if using your own QuickNode/Alchemy URLs.
 
 Save and exit (Ctrl+X, then Y, then Enter in nano).
 
@@ -65,10 +74,10 @@ Hostinger has a **network firewall** in their panel. If ports still don't work:
 
 ```bash
 # Check containers are running
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml --env-file .env.prod ps
 
 # Check Caddy got a certificate
-docker compose -f docker-compose.prod.yml logs caddy | tail -20
+docker compose -f docker-compose.prod.yml --env-file .env.prod logs caddy | tail -20
 ```
 
 Then open in browser:

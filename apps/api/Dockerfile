@@ -10,6 +10,8 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
 COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/chain/package.json ./packages/chain/
+COPY packages/risk-engine/package.json ./packages/risk-engine/
 RUN pnpm install --filter @arbitex/api...
 
 # ── Builder ───────────────────────────────────────────────────────────────────
