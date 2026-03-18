@@ -7,7 +7,7 @@ import type { ArbitexPublicClient } from "@arbitex/chain";
 import { NonceManager, loadWalletFromKeystore, createMockWallet } from "@arbitex/chain";
 import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
 import type Redis from "ioredis";
-import { config } from "@arbitex/config";
+import { config, getRpcConfig } from "@arbitex/config";
 import { pino } from "pino";
 
 const logger = pino();
@@ -37,7 +37,7 @@ export async function processExecutionJob(
     : await loadWalletFromKeystore({
         keystorePath: config.EXECUTION_WALLET_KEYSTORE_PATH!,
         keystorePassword: config.EXECUTION_WALLET_KEYSTORE_PASS!,
-        rpcUrl: config.ETHEREUM_RPC_URL,
+        rpcUrl: getRpcConfig(config.CHAIN_ID).rpcUrl,
         chainId: config.CHAIN_ID,
       });
 

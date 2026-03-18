@@ -7,7 +7,7 @@ FROM base AS deps
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/*/package.json ./packages/
-RUN pnpm install --frozen-lockfile --filter @arbitex/worker...
+RUN pnpm install --filter @arbitex/worker...
 
 FROM deps AS builder
 COPY . .

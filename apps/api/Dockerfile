@@ -10,7 +10,7 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
 COPY packages/shared-types/package.json ./packages/shared-types/
-RUN pnpm install --frozen-lockfile --filter @arbitex/api...
+RUN pnpm install --filter @arbitex/api...
 
 # ── Builder ───────────────────────────────────────────────────────────────────
 FROM deps AS builder

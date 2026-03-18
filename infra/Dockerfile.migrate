@@ -1,0 +1,14 @@
+# Minimal image to run Prisma migrations
+FROM node:20-alpine
+RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /app
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY packages/db/package.json ./packages/db/
+COPY packages/config/package.json ./packages/config/
+COPY packages/shared-types/package.json ./packages/shared-types/
+RUN pnpm install --filter @arbitex/db...
+COPY packages/db ./packages/db
+COPY packages/config ./packages/config
+COPY packages/shared-types ./packages/shared-types
+RUN pnpm --filter @arbitex/db generate
+CMD ["pnpm", "--filter", "@arbitex/db", "migrate:deploy"]

@@ -1,7 +1,7 @@
 import { Worker, Queue, QueueScheduler, type Job } from "bullmq";
 import IORedis from "ioredis";
 import { pino } from "pino";
-import { config } from "@arbitex/config";
+import { config, getPrimaryRpcConfig } from "@arbitex/config";
 import { prisma } from "@arbitex/db";
 import { createChainClient } from "@arbitex/chain";
 import { UniswapV3Adapter, MockDexAdapter, AdapterRegistry } from "@arbitex/dex-adapters";
@@ -31,9 +31,10 @@ export const queues = {
 };
 
 // ── Chain client ──────────────────────────────────────────────────────────────
+const primaryRpc = getPrimaryRpcConfig();
 const chainClient = createChainClient({
-  rpcUrl: config.ETHEREUM_RPC_URL,
-  archiveRpcUrl: config.ETHEREUM_ARCHIVE_RPC_URL,
+  rpcUrl: primaryRpc.rpcUrl,
+  archiveRpcUrl: primaryRpc.archiveRpcUrl,
   chainId: config.CHAIN_ID,
 });
 

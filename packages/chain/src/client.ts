@@ -7,10 +7,11 @@ import {
   type Transport,
   type Chain,
 } from "viem";
-import { mainnet, arbitrum, base } from "viem/chains";
+import { mainnet, arbitrum, base, avalanche } from "viem/chains";
 
 const CHAIN_MAP: Record<number, Chain> = {
   1: mainnet,
+  43114: avalanche,
   42161: arbitrum,
   8453: base,
 };
