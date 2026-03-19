@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@arbitex/chain": "workspace:*",
     "@arbitex/config": "workspace:*",
     "@arbitex/db": "workspace:*",
     "@arbitex/risk-engine": "workspace:*",
@@ -36,7 +37,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@arbitex/chain": "workspace:*",
     "@nestjs/testing": "^11.1.14",
     "@swc-node/register": "^1.11.1",
     "@swc/core": "^1.15.18",

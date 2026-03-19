@@ -7,11 +7,7 @@ WORKDIR /app
 FROM base AS deps
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/
-COPY packages/config/package.json ./packages/config/
-COPY packages/db/package.json ./packages/db/
-COPY packages/shared-types/package.json ./packages/shared-types/
-COPY packages/chain/package.json ./packages/chain/
-COPY packages/risk-engine/package.json ./packages/risk-engine/
+COPY packages/ ./packages/
 RUN pnpm install --filter @arbitex/api...
 
 # ── Builder ───────────────────────────────────────────────────────────────────
@@ -20,6 +16,8 @@ COPY . .
 RUN pnpm --filter @arbitex/shared-types build
 RUN pnpm --filter @arbitex/config build
 RUN pnpm --filter @arbitex/db generate
+RUN pnpm --filter @arbitex/chain build
+RUN pnpm --filter @arbitex/risk-engine build
 RUN pnpm --filter @arbitex/api build
 
 # ── Runner ────────────────────────────────────────────────────────────────────

@@ -37,6 +37,8 @@ const ROUTER_ABI = parseAbi([
 
 export type SushiSwapV2Config = {
   venueId: string;
+  venueName?: string;
+  protocol?: string;
   chainId: number;
   factoryAddress: Address;
   routerAddress: Address;
@@ -53,11 +55,10 @@ const SUSHISWAP_V2_MAINNET: SushiSwapV2Config = {
 
 export class SushiSwapV2Adapter implements IDexAdapter {
   readonly venueId: string;
-  readonly venueName = "SushiSwap V2";
+  readonly venueName: string;
   readonly chainId: number;
-  readonly protocol = "sushiswap_v2";
+  readonly protocol: string;
 
-  // Cache: pairAddress → pool
   private pairCache = new Map<string, NormalizedPool>();
 
   constructor(
@@ -65,6 +66,8 @@ export class SushiSwapV2Adapter implements IDexAdapter {
     private readonly cfg: SushiSwapV2Config = SUSHISWAP_V2_MAINNET
   ) {
     this.venueId = cfg.venueId;
+    this.venueName = cfg.venueName ?? "SushiSwap V2";
+    this.protocol = cfg.protocol ?? "sushiswap_v2";
     this.chainId = cfg.chainId;
   }
 

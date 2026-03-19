@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield } from "lucide-react";
+import { isTokenValid } from "@/lib/auth";
 
 const BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -12,6 +13,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const existing = localStorage.getItem("arbitex_token");
+    if (isTokenValid(existing)) {
+      router.replace("/");
+    } else if (existing) {
+      localStorage.removeItem("arbitex_token");
+    }
+  }, [router]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -20,11 +30,12 @@ export default function LoginPage() {
       const res = await fetch(`${BASE}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: password.trim() }),
       });
 
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message ?? `HTTP ${res.status}`);
+      if (!body.token) throw new Error("Missing token in login response");
 
       localStorage.setItem("arbitex_token", body.token);
       router.replace("/");

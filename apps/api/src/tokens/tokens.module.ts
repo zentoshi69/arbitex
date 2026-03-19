@@ -36,6 +36,11 @@ class UpdateTokenFlagsDto {
   flags!: string[];
 }
 
+class UpdateTokenDto {
+  @IsBoolean()
+  isEnabled!: boolean;
+}
+
 class UpdateVenueDto {
   @IsBoolean()
   isEnabled!: boolean;
@@ -159,6 +164,36 @@ export class TokensService {
 
     return updated;
   }
+
+  async toggleEnabled(
+    id: string,
+    isEnabled: boolean,
+    actor: string,
+    ipAddress?: string
+  ) {
+    const current = await prisma.token.findUniqueOrThrow({ where: { id } });
+
+    const updated = await prisma.token.update({
+      where: { id },
+      data: { isEnabled, updatedAt: new Date() },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: "TOKEN_FLAGS_UPDATED",
+        actor,
+        entityType: "token",
+        entityId: id,
+        diff: {
+          before: { isEnabled: current.isEnabled },
+          after: { isEnabled },
+        },
+        ipAddress: ipAddress ?? null,
+      },
+    });
+
+    return updated;
+  }
 }
 
 @Controller("tokens")
@@ -180,6 +215,16 @@ export class TokensController {
     if (!address) throw new BadRequestException("Missing address");
     const parsedChainId = chainId ? Number(chainId) : undefined;
     return this.svc.resolveByAddress(address, parsedChainId);
+  }
+
+  @Patch(":id")
+  @Roles("ADMIN")
+  toggle(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateTokenDto,
+    @CurrentUser() user: JwtPayload
+  ) {
+    return this.svc.toggleEnabled(id, dto.isEnabled, user.sub);
   }
 
   @Patch(":id/flags")

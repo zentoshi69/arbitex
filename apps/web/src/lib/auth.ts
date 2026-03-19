@@ -31,3 +31,11 @@ export function getRole(): JwtPayload["role"] | null {
   return getJwtPayload(token)?.role ?? null;
 }
 
+export function isTokenValid(token: string | null): boolean {
+  const payload = getJwtPayload(token);
+  if (!payload) return false;
+  if (!payload.exp) return true;
+  const nowSec = Math.floor(Date.now() / 1000);
+  return payload.exp > nowSec + 10;
+}
+

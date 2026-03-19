@@ -4,7 +4,7 @@ import { pino } from "pino";
 import { config, getPrimaryRpcConfig } from "@arbitex/config";
 import { prisma } from "@arbitex/db";
 import { createChainClient } from "@arbitex/chain";
-import { UniswapV3Adapter, MockDexAdapter, AdapterRegistry } from "@arbitex/dex-adapters";
+import { UniswapV3Adapter, SushiSwapV2Adapter, MockDexAdapter, AdapterRegistry } from "@arbitex/dex-adapters";
 import { OpportunityEngine } from "@arbitex/opportunity-engine";
 import { RiskEngine } from "@arbitex/risk-engine";
 import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
@@ -38,35 +38,82 @@ const chainClient = createChainClient({
   chainId: config.CHAIN_ID,
 });
 
+// ── Avalanche token addresses ─────────────────────────────────────────────────
+const AVAX_TOKENS = {
+  WAVAX: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+  WRP:   "0xef282b38d1ceab52134ca2cc653a569435744687",
+  USDC:  "0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664",
+  USDT:  "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7",
+} as const;
+
+// ── Fetch native token price from CoinGecko ──────────────────────────────────
+let cachedNativePrice = { usd: 10, fetchedAt: 0 };
+
+async function fetchNativeTokenPriceUsd(): Promise<number> {
+  if (Date.now() - cachedNativePrice.fetchedAt < 60_000) return cachedNativePrice.usd;
+  try {
+    const id = config.CHAIN_ID === 43114 ? "avalanche-2" : "ethereum";
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`);
+    if (res.ok) {
+      const data = await res.json();
+      const price = data[id]?.usd;
+      if (typeof price === "number" && price > 0) {
+        cachedNativePrice = { usd: price, fetchedAt: Date.now() };
+        return price;
+      }
+    }
+  } catch { /* use cached */ }
+  return cachedNativePrice.usd;
+}
+
 // ── Adapter registry ──────────────────────────────────────────────────────────
 const registry = new AdapterRegistry();
 
-if (config.NODE_ENV === "production") {
-  registry.register(new UniswapV3Adapter(chainClient as any));
-  // Add SushiSwap etc.
-} else {
-  // Dev/test: use mock adapters with divergent prices to generate opportunities
-  const mockPoolA = MockDexAdapter.makePool({
-    token0: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
-    token1: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
-    venueId: "mock-uniswap",
-    price0Per1: 2000.0,
-    price1Per0: 0.0005,
-  });
-  const mockPoolB = MockDexAdapter.makePool({
-    token0: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-    token1: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-    venueId: "mock-sushi",
-    price0Per1: 2010.0, // 0.5% higher — creates arb opportunity
-    price1Per0: 0.000497,
+async function registerAdapters() {
+  const venues = await prisma.venue.findMany({
+    where: { chainId: config.CHAIN_ID, isEnabled: true },
   });
 
-  registry.register(
-    new MockDexAdapter("mock-uniswap", "Uniswap V3 (Mock)", 1, [mockPoolA])
-  );
-  registry.register(
-    new MockDexAdapter("mock-sushi", "SushiSwap (Mock)", 1, [mockPoolB])
-  );
+  for (const venue of venues) {
+    if (!venue.factoryAddress || !venue.routerAddress) continue;
+
+    if (venue.protocol === "uniswap_v2") {
+      registry.register(
+        new SushiSwapV2Adapter(chainClient as any, {
+          venueId: venue.id,
+          venueName: venue.name,
+          protocol: venue.protocol,
+          chainId: venue.chainId,
+          factoryAddress: venue.factoryAddress,
+          routerAddress: venue.routerAddress,
+        })
+      );
+      logger.info({ venue: venue.name, chainId: venue.chainId }, "Registered UniswapV2 adapter");
+    } else if (venue.protocol === "uniswap_v3") {
+      registry.register(new UniswapV3Adapter(chainClient as any));
+      logger.info({ venue: venue.name, chainId: venue.chainId }, "Registered UniswapV3 adapter");
+    }
+  }
+
+  if (registry.getAll().length === 0) {
+    logger.warn("No adapters registered from DB — falling back to mock adapters");
+    const mockPoolA = MockDexAdapter.makePool({
+      token0: AVAX_TOKENS.USDC,
+      token1: AVAX_TOKENS.WAVAX,
+      venueId: "mock-pangolin",
+      price0Per1: 10.0,
+      price1Per0: 0.1,
+    });
+    const mockPoolB = MockDexAdapter.makePool({
+      token0: AVAX_TOKENS.USDC,
+      token1: AVAX_TOKENS.WAVAX,
+      venueId: "mock-traderjoe",
+      price0Per1: 10.05,
+      price1Per0: 0.0995,
+    });
+    registry.register(new MockDexAdapter("mock-pangolin", "Pangolin (Mock)", 43114, [mockPoolA]));
+    registry.register(new MockDexAdapter("mock-traderjoe", "TraderJoe (Mock)", 43114, [mockPoolB]));
+  }
 }
 
 // ── Risk engine ───────────────────────────────────────────────────────────────
@@ -93,19 +140,25 @@ const workerOpts = {
   limiter: { max: 10, duration: 1000 },
 };
 
+// ── Target tokens for the configured chain ───────────────────────────────────
+const targetTokens = config.CHAIN_ID === 43114
+  ? [AVAX_TOKENS.WAVAX, AVAX_TOKENS.WRP, AVAX_TOKENS.USDC, AVAX_TOKENS.USDT]
+  : [
+      "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
+      "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
+      "0x6b175474e89094c44da98b954eedeac495271d0f", // DAI
+    ];
+
 // Pool refresh → opportunity scoring
 const poolRefreshWorker = new Worker(
   "pool-refresh",
   async (job: Job) => {
     logger.debug({ jobId: job.id }, "pool-refresh start");
+    const nativePriceUsd = await fetchNativeTokenPriceUsd();
     const candidates = await opportunityEngine.scanForOpportunities({
-      targetTokens: [
-        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
-        "0x6b175474e89094c44da98b954eedeac495271d0f", // DAI
-      ],
+      targetTokens,
       tradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
-      ethPriceUsd: 2000, // TODO: fetch from oracle
+      ethPriceUsd: nativePriceUsd,
       riskConfig,
     });
 
@@ -209,6 +262,9 @@ for (const [name, worker] of [
 async function main() {
   await prisma.$connect();
   logger.info("Database connected");
+
+  await registerAdapters();
+  opportunityEngine.updateAdapters(registry.getAll());
 
   await startSchedulers();
   logger.info("Worker started — opportunity engine running");

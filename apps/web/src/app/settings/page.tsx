@@ -16,10 +16,11 @@ import {
   Tag,
   Skeleton,
 } from "@/components/ui";
-import { Settings, ToggleLeft, ToggleRight, AlertTriangle, ArrowRight, Plus } from "lucide-react";
+import { Settings, ToggleLeft, ToggleRight, AlertTriangle, ArrowRight, Plus, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDexVenueIds } from "@/hooks/useDexVenueIds";
 import { useMemo } from "react";
+import { getRole } from "@/lib/auth";
 
 function VenueRow({ venue }: { venue: any }) {
   const qc = useQueryClient();
@@ -56,17 +57,17 @@ function VenueRow({ venue }: { venue: any }) {
         <span
           className={cn(
             "text-xs font-semibold",
-            venue.isEnabled ? "text-[#4ADE80]" : "text-muted"
+            venue.isEnabled ? "text-[#4DD68C]" : "text-muted"
           )}
         >
           {venue.isEnabled ? "ENABLED" : "DISABLED"}
         </span>
         {confirming ? (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-amber-400">Confirm?</span>
+            <span className="text-xs text-[#F59E0B]">Confirm?</span>
             <button
               onClick={() => mutation.mutate(!venue.isEnabled)}
-              className="rounded-[2px] bg-amber-700 px-2 py-1 text-xs text-white transition-colors hover:bg-amber-600"
+              className="rounded-[2px] bg-[#B45309] px-2 py-1 text-xs text-white transition-colors hover:bg-[#D97706]"
             >
               Yes
             </button>
@@ -85,7 +86,7 @@ function VenueRow({ venue }: { venue: any }) {
               "flex items-center gap-1.5 rounded-[2px] px-3 py-1.5 text-xs font-medium transition-colors duration-[0.12s]",
               venue.isEnabled
                 ? "bg-red/10 text-dim hover:bg-red/20 hover:text-red"
-                : "bg-[#4ADE80]/10 text-[#4ADE80] hover:bg-[#4ADE80]/20"
+                : "bg-[#4DD68C]/10 text-[#4DD68C] hover:bg-[#4DD68C]/20"
             )}
           >
             {venue.isEnabled ? (
@@ -105,6 +106,9 @@ function VenueRow({ venue }: { venue: any }) {
 }
 
 export default function SettingsPage() {
+  const role = useMemo(() => getRole(), []);
+  const isSuperAdmin = role === "SUPER_ADMIN";
+
   const { data: venuesData, isLoading: venuesLoading } = useQuery({
     queryKey: ["venues"],
     queryFn: () => api.venues.list(),
@@ -172,11 +176,29 @@ export default function SettingsPage() {
           label="DEX Venues"
           tag={<Tag variant="gray">{activeCount} Active</Tag>}
         />
+        <div className="mb-3 flex items-start gap-3 rounded-[2px] border border-[var(--border)] bg-[rgba(255,255,255,0.02)] p-4">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--grey1)]" />
+          <div className="text-[12px] leading-[1.7] text-[var(--grey1)]">
+            <p className="mb-1.5 font-medium text-[var(--offwhite)]">What are DEX Venues?</p>
+            <p>
+              A <strong className="text-[var(--offwhite)]">venue</strong> is a decentralized exchange (DEX) that ArbitEx monitors for arbitrage opportunities.
+              Each venue has a <strong className="text-[var(--offwhite)]">factory contract</strong> that creates trading pools and a{" "}
+              <strong className="text-[var(--offwhite)]">router contract</strong> that executes swaps.
+            </p>
+            <p className="mt-1.5">
+              ArbitEx scans all enabled venues for price discrepancies across the same token pairs. When the price on one venue is lower than another,
+              it creates an arbitrage opportunity — buy low on venue A, sell high on venue B — capturing the spread as profit.
+            </p>
+            <p className="mt-1.5 text-[var(--grey2)]">
+              Disabling a venue stops all pool indexing and trade execution for that DEX. Changes take effect on the next poll cycle (~15 seconds).
+            </p>
+          </div>
+        </div>
         <Panel>
           <PanelHeader
             icon={<Settings className="h-3.5 w-3.5" />}
             title="DEX Venues"
-            description="Disable a venue to stop all pool indexing and execution for that DEX. Changes take effect on next poll cycle."
+            description="Enable or disable venues to control which DEXes the system scans."
             action={
               <Button variant="ghost" icon={<Plus className="h-3 w-3" />}>
                 Add venue
@@ -207,49 +229,53 @@ export default function SettingsPage() {
         </Panel>
       </section>
 
-      {/* System Information */}
-      <section>
-        <SectionHeader label="System Information" />
-        <Panel>
-          <PanelHeader
-            icon={<Settings className="h-3.5 w-3.5" />}
-            title="System Info"
-          />
-          <div className="p-4 pt-0">
-            <InfoGrid
-              items={[
-                [
-                  "API URL",
-                  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
-                ],
-                [
-                  "WS URL",
-                  process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001",
-                ],
-                ["Dashboard Version", "v1.0.0-MVP"],
-                ["Environment", process.env.NODE_ENV ?? "development"],
-              ]}
+      {/* System Information — Super Admin only */}
+      {isSuperAdmin && (
+        <section>
+          <SectionHeader label="System Information" />
+          <Panel>
+            <PanelHeader
+              icon={<Settings className="h-3.5 w-3.5" />}
+              title="System Info"
             />
-          </div>
-        </Panel>
-      </section>
+            <div className="p-4 pt-0">
+              <InfoGrid
+                items={[
+                  [
+                    "API URL",
+                    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
+                  ],
+                  [
+                    "WS URL",
+                    process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001",
+                  ],
+                  ["Dashboard Version", "v1.0.0-MVP"],
+                  ["Environment", process.env.NODE_ENV ?? "development"],
+                ]}
+              />
+            </div>
+          </Panel>
+        </section>
+      )}
 
-      {/* Security Reminders */}
-      <section>
-        <SectionHeader label="Security Reminders" />
-        <Alert
-          variant="amber"
-          icon={<AlertTriangle className="h-4 w-4" />}
-          title="Security Reminders"
-        >
-          <p>Private keys are never accessible through this dashboard. Wallet management requires direct server access.</p>
-          <p>All configuration changes are logged to the audit trail with actor, timestamp, and diff.</p>
-          <p>
-            For production deployments, ensure{" "}
-            <code>MOCK_EXECUTION=false</code> and Flashbots relay is configured.
-          </p>
-        </Alert>
-      </section>
+      {/* Security Reminders — Super Admin only */}
+      {isSuperAdmin && (
+        <section>
+          <SectionHeader label="Security Reminders" />
+          <Alert
+            variant="amber"
+            icon={<AlertTriangle className="h-4 w-4" />}
+            title="Security Reminders"
+          >
+            <p>Private keys are never accessible through this dashboard. Wallet management requires direct server access.</p>
+            <p>All configuration changes are logged to the audit trail with actor, timestamp, and diff.</p>
+            <p>
+              For production deployments, ensure{" "}
+              <code>MOCK_EXECUTION=false</code> and Flashbots relay is configured.
+            </p>
+          </Alert>
+        </section>
+      )}
     </div>
   );
 }

@@ -144,54 +144,54 @@ export default function V2LpAdminPage() {
       />
 
       {err && (
-        <div className="bg-red-950/40 border border-red-900 text-red-200 rounded px-4 py-3 text-sm">
+        <div className="bg-[rgba(232,65,66,0.08)] border border-[rgba(232,65,66,0.2)] text-[var(--red)] rounded px-4 py-3 text-sm">
           {err}
         </div>
       )}
 
       <div className="ax-panel p-4 space-y-3">
-        <div className="text-sm font-semibold text-slate-200">1) Configure Avalanche V2 venue</div>
+        <div className="text-sm font-semibold text-[var(--offwhite)]">1) Configure Avalanche V2 venue</div>
 
         {venuesQ.isLoading ? (
           <Skeleton className="h-10 w-full" />
         ) : avalancheVenues.length === 0 ? (
           <div className="space-y-3">
-            <div className="text-xs text-slate-500">
+            <div className="text-xs text-[var(--grey2)]">
               No venues found for chainId {CHAIN_ID}. Create one by providing a **V2 router** + **V2 factory** address.
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="space-y-1">
-                <div className="text-xs text-slate-500 font-medium">Venue name</div>
+                <div className="text-xs text-[var(--grey2)] font-medium">Venue name</div>
                 <input
                   value={venueForm.name}
                   onChange={(e) => setVenueForm((f) => ({ ...f, name: e.target.value }))}
-                  className="w-full h-9 bg-slate-800 border border-slate-700 rounded px-3 text-sm text-slate-200"
+                  className="w-full h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-sm text-[var(--offwhite)]"
                 />
               </label>
               <label className="space-y-1">
-                <div className="text-xs text-slate-500 font-medium">Protocol</div>
+                <div className="text-xs text-[var(--grey2)] font-medium">Protocol</div>
                 <input
                   value={venueForm.protocol}
                   onChange={(e) => setVenueForm((f) => ({ ...f, protocol: e.target.value }))}
-                  className="w-full h-9 bg-slate-800 border border-slate-700 rounded px-3 text-sm text-slate-200 font-mono"
+                  className="w-full h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-sm text-[var(--offwhite)] font-mono"
                 />
               </label>
               <label className="space-y-1">
-                <div className="text-xs text-slate-500 font-medium">Router address (V2)</div>
+                <div className="text-xs text-[var(--grey2)] font-medium">Router address (V2)</div>
                 <input
                   value={venueForm.routerAddress}
                   onChange={(e) => setVenueForm((f) => ({ ...f, routerAddress: e.target.value }))}
                   placeholder="0x…"
-                  className="w-full h-9 bg-slate-800 border border-slate-700 rounded px-3 text-sm text-slate-200 font-mono"
+                  className="w-full h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-sm text-[var(--offwhite)] font-mono"
                 />
               </label>
               <label className="space-y-1">
-                <div className="text-xs text-slate-500 font-medium">Factory address (V2)</div>
+                <div className="text-xs text-[var(--grey2)] font-medium">Factory address (V2)</div>
                 <input
                   value={venueForm.factoryAddress}
                   onChange={(e) => setVenueForm((f) => ({ ...f, factoryAddress: e.target.value }))}
                   placeholder="0x…"
-                  className="w-full h-9 bg-slate-800 border border-slate-700 rounded px-3 text-sm text-slate-200 font-mono"
+                  className="w-full h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-sm text-[var(--offwhite)] font-mono"
                 />
               </label>
             </div>
@@ -200,7 +200,7 @@ export default function V2LpAdminPage() {
               disabled={creatingVenue}
               className={cn(
                 "inline-flex items-center gap-2 px-3 py-2 rounded text-sm font-semibold",
-                creatingVenue ? "bg-slate-800 text-slate-500" : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                creatingVenue ? "bg-[var(--bg3)] text-[var(--grey2)]" : "bg-[#16A34A] hover:opacity-90 text-white"
               )}
             >
               <PlusCircle className="w-4 h-4" />
@@ -209,11 +209,11 @@ export default function V2LpAdminPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="text-xs text-slate-500">Select which Avalanche V2 venue to use.</div>
+            <div className="text-xs text-[var(--grey2)]">Select which Avalanche V2 venue to use.</div>
             <select
               value={venueId}
               onChange={(e) => setVenueId(e.target.value)}
-              className="w-full h-9 bg-slate-800 border border-slate-700 rounded px-3 text-sm text-slate-200"
+              className="w-full h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-sm text-[var(--offwhite)]"
             >
               {avalancheVenues.map((v: Venue) => (
                 <option key={v.id} value={v.id}>
@@ -226,8 +226,8 @@ export default function V2LpAdminPage() {
       </div>
 
       <div className="ax-panel p-4 space-y-3">
-        <div className="text-sm font-semibold text-slate-200">2) Create/Register the 3 pairs</div>
-        <div className="text-xs text-slate-500">
+        <div className="text-sm font-semibold text-[var(--offwhite)]">2) Create/Register the 3 pairs</div>
+        <div className="text-xs text-[var(--grey2)]">
           These are **V2 constant-product** pairs (WRP/AVAX via WAVAX, WRP/USDC, AVAX/USDC via WAVAX).
         </div>
 
@@ -239,8 +239,8 @@ export default function V2LpAdminPage() {
       </div>
 
       <div className="ax-panel p-4 space-y-3">
-        <div className="text-sm font-semibold text-slate-200">3) Manage liquidity (add / remove)</div>
-        <div className="text-xs text-slate-500">
+        <div className="text-sm font-semibold text-[var(--offwhite)]">3) Manage liquidity (add / remove)</div>
+        <div className="text-xs text-[var(--grey2)]">
           Uses the SUPER_ADMIN keystore on the server to sign transactions. Amounts are in **raw units** (wei-like).
           If you want human-friendly inputs (decimals), tell me and I’ll add it.
         </div>
@@ -294,23 +294,23 @@ function PairRow(props: { venueId: string; label: string; tokenA: string; tokenB
   }
 
   return (
-    <div className="flex items-center gap-3 bg-slate-950/40 border border-slate-800 rounded px-3 py-2">
-      <Droplets className="w-4 h-4 text-slate-300" />
+    <div className="flex items-center gap-3 bg-[rgba(255,255,255,0.02)] border border-[var(--border)] rounded px-3 py-2">
+      <Droplets className="w-4 h-4 text-[var(--offwhite)]" />
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-slate-200 font-semibold">{props.label}</div>
-        <div className="text-[11px] text-slate-500 font-mono truncate">
+        <div className="text-sm text-[var(--offwhite)] font-semibold">{props.label}</div>
+        <div className="text-[11px] text-[var(--grey2)] font-mono truncate">
           {props.tokenA} · {props.tokenB}
         </div>
         {pair && (
-          <div className="mt-1 text-[11px] text-slate-400">
+          <div className="mt-1 text-[11px] text-[var(--grey1)]">
             Pair: <AddressCell address={pair} />
           </div>
         )}
-        {err && <div className="mt-1 text-[11px] text-red-300">{err}</div>}
+        {err && <div className="mt-1 text-[11px] text-[var(--red)]">{err}</div>}
       </div>
       <button
         onClick={check}
-        className="text-xs px-3 py-1.5 bg-slate-800 rounded text-slate-300 hover:bg-slate-700"
+        className="text-xs px-3 py-1.5 bg-[var(--bg3)] rounded text-[var(--offwhite)] hover:opacity-90"
       >
         Check
       </button>
@@ -320,7 +320,7 @@ function PairRow(props: { venueId: string; label: string; tokenA: string; tokenB
         className={cn(
           "text-xs px-3 py-1.5 rounded font-semibold",
           status === "done"
-            ? "bg-emerald-700 text-white"
+            ? "bg-[#166534] text-white"
             : "bg-[var(--ax-red)] hover:opacity-90 text-white"
         )}
       >
@@ -527,31 +527,31 @@ function LiquidityRow(props: { venueId: string; label: string; tokenA: string; t
   const lpTot = posQ.data?.lp?.totalSupply ? formatUnits(BigInt(posQ.data.lp.totalSupply), 18) : "—";
 
   return (
-    <div className="bg-slate-950/40 border border-slate-800 rounded p-3 space-y-2">
+    <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--border)] rounded p-3 space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-slate-200">{props.label}</div>
-          <div className="text-[11px] text-slate-500 font-mono truncate">
+          <div className="text-sm font-semibold text-[var(--offwhite)]">{props.label}</div>
+          <div className="text-[11px] text-[var(--grey2)] font-mono truncate">
             {props.tokenA} · {props.tokenB}
           </div>
           {pair && (
-            <div className="text-[11px] text-slate-400 mt-1">
+            <div className="text-[11px] text-[var(--grey1)] mt-1">
               Pair: <AddressCell address={pair} />
             </div>
           )}
           {superAdminWallet && (
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-[11px] text-[var(--grey2)] mt-1">
               SuperAdmin wallet: <AddressCell address={superAdminWallet} />
             </div>
           )}
           {wallet.connected && (
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-[11px] text-[var(--grey2)] mt-1">
               Connected wallet: <AddressCell address={wallet.address!} />
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-[11px] text-slate-500 inline-flex items-center gap-2">
+          <label className="text-[11px] text-[var(--grey2)] inline-flex items-center gap-2">
             <input
               type="checkbox"
               checked={useConnectedWallet}
@@ -559,31 +559,31 @@ function LiquidityRow(props: { venueId: string; label: string; tokenA: string; t
             />
             Use connected wallet
           </label>
-          <label className="text-[11px] text-slate-500">Slippage (bps)</label>
+          <label className="text-[11px] text-[var(--grey2)]">Slippage (bps)</label>
           <input
             value={slippageBps}
             onChange={(e) => setSlippageBps(Number(e.target.value))}
-            className="w-20 h-8 bg-slate-800 border border-slate-700 rounded px-2 text-xs text-slate-200 font-mono"
+            className="w-20 h-8 bg-[var(--bg3)] border border-[var(--border)] rounded px-2 text-xs text-[var(--offwhite)] font-mono"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-        <div className="bg-slate-900 border border-slate-800 rounded p-2">
-          <div className="text-slate-500">Balances (A/B)</div>
-          <div className="font-mono text-slate-200 truncate">
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded p-2">
+          <div className="text-[var(--grey2)]">Balances (A/B)</div>
+          <div className="font-mono text-[var(--offwhite)] truncate">
             {balA} {symA} / {balB} {symB}
           </div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded p-2">
-          <div className="text-slate-500">Reserves (0/1)</div>
-          <div className="font-mono text-slate-200 truncate">
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded p-2">
+          <div className="text-[var(--grey2)]">Reserves (0/1)</div>
+          <div className="font-mono text-[var(--offwhite)] truncate">
             {(posQ.data?.reserves?.reserve0 ?? "—")} / {(posQ.data?.reserves?.reserve1 ?? "—")}
           </div>
         </div>
-        <div className="bg-slate-900 border border-slate-800 rounded p-2">
-          <div className="text-slate-500">LP (bal/total)</div>
-          <div className="font-mono text-slate-200 truncate">
+        <div className="bg-[var(--bg2)] border border-[var(--border)] rounded p-2">
+          <div className="text-[var(--grey2)]">LP (bal/total)</div>
+          <div className="font-mono text-[var(--offwhite)] truncate">
             {lpBal} / {lpTot}
           </div>
         </div>
@@ -594,13 +594,13 @@ function LiquidityRow(props: { venueId: string; label: string; tokenA: string; t
           value={amountA}
           onChange={(e) => setAmountA(e.target.value)}
           placeholder={`Amount ${symA} (human)`}
-          className="h-9 bg-slate-800 border border-slate-700 rounded px-3 text-xs text-slate-200 font-mono"
+          className="h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-xs text-[var(--offwhite)] font-mono"
         />
         <input
           value={amountB}
           onChange={(e) => setAmountB(e.target.value)}
           placeholder={`Amount ${symB} (human)`}
-          className="h-9 bg-slate-800 border border-slate-700 rounded px-3 text-xs text-slate-200 font-mono"
+          className="h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-xs text-[var(--offwhite)] font-mono"
         />
         <button
           onClick={add}
@@ -616,19 +616,18 @@ function LiquidityRow(props: { venueId: string; label: string; tokenA: string; t
           value={liq}
           onChange={(e) => setLiq(e.target.value)}
           placeholder="LP to remove (human, 18 decimals)"
-          className="h-9 bg-slate-800 border border-slate-700 rounded px-3 text-xs text-slate-200 font-mono md:col-span-2"
+          className="h-9 bg-[var(--bg3)] border border-[var(--border)] rounded px-3 text-xs text-[var(--offwhite)] font-mono md:col-span-2"
         />
         <button
           onClick={remove}
-          className="h-9 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-semibold"
+          className="h-9 bg-[#D97706] hover:opacity-90 text-white rounded text-xs font-semibold"
           disabled={!props.venueId}
         >
           Remove liquidity
         </button>
       </div>
 
-      {msg && <div className="text-[11px] text-slate-400 font-mono break-all">{msg}</div>}
+      {msg && <div className="text-[11px] text-[var(--grey1)] font-mono break-all">{msg}</div>}
     </div>
   );
 }
-

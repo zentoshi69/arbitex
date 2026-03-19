@@ -68,6 +68,7 @@ module.exports = {
         sm: "2px",
       },
       fontFamily: {
+        styrene: ["StyreneB", "Helvetica Neue", "sans-serif"],
         sans: ["StyreneB", "Helvetica Neue", "sans-serif"],
         mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },

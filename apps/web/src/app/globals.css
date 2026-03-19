@@ -1,239 +1,238 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ── Styrene B @font-face ──────────────────────────────────────────────────── */
 @font-face {
-  font-family: 'StyreneB';
-  src: url('/fonts/StyreneB-Light.woff2') format('woff2'),
-       url('/fonts/StyreneB-Light.otf') format('opentype');
-  font-weight: 300;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'StyreneB';
-  src: url('/fonts/StyreneB-Regular.woff2') format('woff2'),
-       url('/fonts/StyreneB-Regular.otf') format('opentype');
+  font-family: "StyreneB";
+  src: url("/fonts/StyreneB-Regular.woff2") format("woff2"),
+    url("/fonts/StyreneB-Regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
 }
+
 @font-face {
-  font-family: 'StyreneB';
-  src: url('/fonts/StyreneB-Medium.woff2') format('woff2'),
-       url('/fonts/StyreneB-Medium.otf') format('opentype');
+  font-family: "StyreneB";
+  src: url("/fonts/StyreneB-Medium.woff2") format("woff2"),
+    url("/fonts/StyreneB-Medium.otf") format("opentype");
   font-weight: 500;
   font-style: normal;
 }
+
 @font-face {
-  font-family: 'StyreneB';
-  src: url('/fonts/StyreneB-Bold.woff2') format('woff2'),
-       url('/fonts/StyreneB-Bold.otf') format('opentype');
-  font-weight: 700;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'StyreneB';
-  src: url('/fonts/StyreneB-Black.woff2') format('woff2'),
-       url('/fonts/StyreneB-Black.otf') format('opentype');
+  font-family: "StyreneB";
+  src: url("/fonts/StyreneB-Black.woff2") format("woff2"),
+    url("/fonts/StyreneB-Black.otf") format("opentype");
   font-weight: 900;
   font-style: normal;
 }
 
 @layer base {
   :root {
-    /* ArbitEx palette — exact values */
-    --red:        #E84142;
-    --red-dim:    rgba(232,65,66,0.12);
-    --red-glow:   rgba(232,65,66,0.06);
-    --white:      #FFFFFF;
-    --off-white:  #E8E8E2;
-    --dim:        #888880;
-    --muted:      #444440;
-    --border:     #1A1A18;
-    --border-hi:  #242420;
-    --bg:         #080808;
-    --bg-panel:   #0D0D0B;
-    --bg-card:    #111110;
-    --bg-hover:   #161614;
+    --red: #e84142;
+    --red-glow: rgba(232, 65, 66, 0.18);
+    --black: #080806;
+    --bg: #0c0c0a;
+    --bg2: #111110;
+    --bg3: #181816;
+    --bg-sidebar: #0f0f0d;
+    --border: #1e1e1c;
+    --border2: #2a2a28;
+    --grey1: #888880;
+    --grey2: #555550;
+    --grey3: #303030;
+    --offwhite: #e4e0d8;
 
-    font-family: 'StyreneB', 'Helvetica Neue', sans-serif;
-    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 88%;
+    --input: 0 0% 15%;
+    --ring: 0 0% 30%;
 
-    /* Tailwind HSL compatibility */
-    --background: 0 0% 3%;
-    --foreground: 0 0% 96%;
-    --input: 0 0% 14%;
-    --ring: 0 0% 70%;
-
-    /* Legacy compatibility */
+    /* Compatibility aliases for existing pages/components */
     --ax-red: var(--red);
-    --ax-red-dim: var(--red-dim);
+    --ax-red-dim: rgba(232, 65, 66, 0.08);
     --ax-red-glow: var(--red-glow);
-    --ax-white: var(--white);
-    --ax-off-white: var(--off-white);
-    --ax-dim: var(--dim);
-    --ax-muted: var(--muted);
+    --ax-white: var(--offwhite);
+    --ax-off-white: var(--offwhite);
+    --ax-dim: var(--grey1);
+    --ax-muted: var(--grey2);
     --ax-border: var(--border);
-    --ax-border-hi: var(--border-hi);
+    --ax-border-hi: var(--border2);
     --ax-bg: var(--bg);
-    --ax-bg-panel: var(--bg-panel);
-    --ax-bg-card: var(--bg-card);
-    --ax-bg-hover: var(--bg-hover);
-    --ax-font: 'StyreneB', 'Helvetica Neue', sans-serif;
-    --ax-mono: var(--mono);
+    --ax-bg-panel: var(--bg2);
+    --ax-bg-card: var(--bg3);
+    --ax-bg-hover: rgba(255, 255, 255, 0.03);
+    --ax-font: "StyreneB", "Helvetica Neue", sans-serif;
+    --ax-mono: "JetBrains Mono", "Fira Code", monospace;
   }
-}
 
-@layer base {
-  * { border-color: var(--border); }
-  html, body {
+  * {
+    border-color: var(--border);
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
     background: var(--bg);
-    color: var(--white);
-    font-family: 'StyreneB', 'Helvetica Neue', sans-serif;
-    font-size: 13px;
-    line-height: 1.4;
+    color: var(--offwhite);
+    font-family: "StyreneB", "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+
+  body {
+    position: relative;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0, 0, 0, 0.04) 3px,
+      rgba(0, 0, 0, 0.04) 4px
+    );
+  }
 }
 
-/* ── Scan-line overlay (always on) ───────────────────────────────────────────── */
-.ax-root::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 3px,
-    rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
 }
 
-/* ── Connection dot throb animation ─────────────────────────────────────────── */
-@keyframes ax-throb {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-.ax-throb { animation: ax-throb 1.5s ease-in-out infinite; }
-
-@keyframes ax-ticker {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+@keyframes ticker-loop {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
-/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 3px; height: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
-
-/* ── Legacy helpers (kept for compatibility during migration) ───────────────── */
-.ax-sidebar {
-  background: var(--bg-panel);
-  border-right: 1px solid var(--border);
-  position: relative;
-}
-.ax-sidebar::after {
-  content: '';
-  position: absolute;
-  top: 0; right: 0; bottom: 0;
-  width: 1px;
-  background: linear-gradient(180deg, #E84142 0%, transparent 35%);
-  pointer-events: none;
+@keyframes badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(77, 214, 140, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(77, 214, 140, 0);
+  }
 }
 
-.ax-topbar {
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  position: relative;
+.badge-live {
+  animation: badge-pulse 1.8s infinite;
 }
-.ax-topbar::after {
-  content: '';
-  position: absolute; bottom: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, #E84142 0%, transparent 55%);
-  pointer-events: none;
+
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--grey2);
 }
 
 .ax-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 2px;
   position: relative;
   overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  border-radius: 2px;
 }
+
 .ax-panel::before {
-  content: '';
+  content: "";
   position: absolute;
-  top: 0; left: 0; right: 0;
+  left: 0;
+  right: 0;
+  top: 0;
   height: 1px;
-  background: linear-gradient(90deg, #E84142 0%, transparent 45%);
+  background: linear-gradient(90deg, var(--red) 0%, transparent 45%);
   pointer-events: none;
 }
 
-/* Dense table styles */
-.data-table th {
-  font-size: 8.5px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 12px;
-}
-.data-table td {
-  font-size: 13px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.data-table tr:hover td {
-  background: var(--bg-hover);
-}
-
-/* ── Form inputs ───────────────────────────────────────────────────────────── */
 .ax-field {
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--black);
+  border: 1px solid var(--border2);
   border-radius: 2px;
-  color: var(--off-white);
-  font-family: var(--mono);
+  color: var(--offwhite);
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   outline: none;
-  transition: border-color 0.12s;
+  transition: border-color 120ms;
 }
-.ax-field::placeholder { color: var(--muted); }
-.ax-field:focus { border-color: var(--border-hi); }
 
-/* ── Button variants ───────────────────────────────────────────────────────── */
-.ax-btn {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  color: var(--dim);
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+.ax-field::placeholder {
+  color: var(--grey2);
 }
-.ax-btn:hover { background: var(--bg-hover); border-color: var(--border-hi); color: var(--off-white); }
-.ax-btn:disabled { opacity: 0.4; cursor: default; }
+
+.ax-field:focus {
+  border-color: var(--red);
+}
+
+.ax-btn {
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--grey1);
+  transition: border-color 120ms, color 120ms, background-color 120ms;
+}
+
+.ax-btn:hover {
+  border-color: var(--grey2);
+  color: var(--offwhite);
+  background: rgba(255, 255, 255, 0.04);
+}
 
 .ax-btn-primary {
-  background: #E84142;
-  border: none;
+  border: 0;
   border-radius: 2px;
+  background: var(--red);
   color: #fff;
-  font-family: inherit;
-  cursor: pointer;
-  transition: background 0.12s;
+  transition: opacity 120ms;
 }
-.ax-btn-primary:hover { background: #c93334; }
-.ax-btn-primary:disabled { opacity: 0.4; cursor: default; }
 
-/* State badge animations */
-@keyframes pulse-green {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }
-  50% { box-shadow: 0 0 0 4px rgba(74, 222, 128, 0); }
+.ax-btn-primary:hover {
+  opacity: 0.9;
 }
-.badge-live { animation: pulse-green 2s infinite; }
+
+.data-table th {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-size: 8.5px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--grey2);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 12px;
+}
+
+.data-table td {
+  font-size: 13px;
+  color: var(--grey1);
+  border-bottom: 1px solid var(--border);
+  padding: 9px 12px;
+}
+
+.data-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}

@@ -21,11 +21,11 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-[2px] font-sans text-[11px] font-medium tracking-[0.02em] transition-[background-color,border-color,color] duration-[0.12s]",
+        "inline-flex h-9 items-center justify-center gap-2 rounded-[2px] font-styrene text-[11px] uppercase tracking-[0.08em] transition-[background-color,border-color,color] duration-[0.12s]",
         variant === "primary" &&
-          "bg-red text-white px-3 py-1.5 hover:bg-[#c93334] border-0",
+          "border-0 bg-[var(--red)] px-4 text-white hover:opacity-90",
         variant === "ghost" &&
-          "bg-transparent text-dim border border-border-hi px-3 py-1.5 hover:text-white hover:border-muted",
+          "border border-[var(--border2)] bg-transparent px-4 text-[var(--grey1)] hover:border-[var(--grey2)] hover:text-[var(--offwhite)]",
         className
       )}
       {...props}

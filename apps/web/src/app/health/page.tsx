@@ -3,18 +3,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { SectionHeader, Skeleton } from "@/components/ui";
-import { CheckCircle, XCircle, AlertCircle, Activity } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, Activity, ShieldX } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getRole } from "@/lib/auth";
 
 function StatusDot({ status }: { status: string }) {
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold",
       status === "up" || status === "healthy"
-        ? "bg-emerald-900/50 text-emerald-400"
+        ? "bg-[rgba(77,214,140,0.08)] text-[#4DD68C]"
         : status === "slow" || status === "degraded"
-          ? "bg-amber-900/50 text-amber-400"
-          : "bg-red-900/50 text-red-400"
+          ? "bg-[rgba(245,158,11,0.08)] text-[#F59E0B]"
+          : "bg-[rgba(232,65,66,0.08)] text-[var(--red)]"
     )}>
       {status === "up" || status === "healthy" ? (
         <CheckCircle className="w-3 h-3" />
@@ -29,11 +30,23 @@ function StatusDot({ status }: { status: string }) {
 }
 
 export default function HealthPage() {
+  const role = getRole();
+
   const { data: health, isLoading } = useQuery({
     queryKey: ["health"],
     queryFn: () => api.health(),
     refetchInterval: 10_000,
+    enabled: role === "SUPER_ADMIN",
   });
+
+  if (role !== "SUPER_ADMIN") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-32 text-center">
+        <ShieldX className="h-10 w-10 text-[var(--grey3)]" />
+        <p className="text-sm text-[var(--grey1)]">System Health is restricted to Super Admin access.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-[1000px]">
@@ -54,17 +67,17 @@ export default function HealthPage() {
           <div className={cn(
             "flex items-center gap-4 px-6 py-4 rounded-xl border",
             health.status === "healthy"
-              ? "bg-emerald-950/40 border-emerald-900"
+              ? "bg-[rgba(77,214,140,0.08)] border-[rgba(77,214,140,0.2)]"
               : health.status === "degraded"
-                ? "bg-amber-950/40 border-amber-900"
-                : "bg-red-950/40 border-red-900"
+                ? "bg-[rgba(245,158,11,0.08)] border-[rgba(245,158,11,0.2)]"
+                : "bg-[rgba(232,65,66,0.08)] border-[rgba(232,65,66,0.2)]"
           )}>
             <Activity className="w-8 h-8 text-current opacity-60" />
             <div>
               <p className="text-lg font-bold text-white">
                 System {health.status.charAt(0).toUpperCase() + health.status.slice(1)}
               </p>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-[var(--grey1)]">
                 Uptime: {Math.floor(health.uptime / 3600)}h {Math.floor((health.uptime % 3600) / 60)}m
                 · Checked: {new Date(health.checkedAt).toLocaleTimeString()}
               </p>
@@ -83,17 +96,17 @@ export default function HealthPage() {
             ].map(({ label, status, detail }) => (
               <div key={label} className="ax-panel p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-slate-200">{label}</p>
+                  <p className="text-sm font-medium text-[var(--offwhite)]">{label}</p>
                   <StatusDot status={status} />
                 </div>
-                <p className="text-xs text-slate-500">{detail}</p>
+                <p className="text-xs text-[var(--grey2)]">{detail}</p>
               </div>
             ))}
           </div>
 
           {/* Kill switches */}
           <div className="ax-panel p-5">
-            <h3 className="text-sm font-semibold text-slate-200 mb-3">Kill Switch States</h3>
+            <h3 className="text-sm font-semibold text-[var(--offwhite)] mb-3">Kill Switch States</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Object.entries(health.killSwitches).map(([key, active]) => (
                 <div
@@ -101,7 +114,7 @@ export default function HealthPage() {
                   className={cn(
                     "flex items-center justify-between px-3 py-2 rounded-lg border",
                     active as boolean
-                      ? "bg-red-950/40 border-red-800"
+                      ? "bg-[rgba(232,65,66,0.08)] border-[rgba(232,65,66,0.2)]"
                       : ""
                   )}
                   style={
@@ -110,10 +123,10 @@ export default function HealthPage() {
                       : undefined
                   }
                 >
-                  <span className="text-xs font-mono text-slate-300">{key}</span>
+                  <span className="text-xs font-mono text-[var(--offwhite)]">{key}</span>
                   <span className={cn(
                     "text-[10px] font-bold",
-                    active as boolean ? "text-red-400" : "text-slate-500"
+                    active as boolean ? "text-[var(--red)]" : "text-[var(--grey2)]"
                   )}>
                     {active ? "ON" : "OFF"}
                   </span>
@@ -125,27 +138,27 @@ export default function HealthPage() {
           {/* Queue depths */}
           {Object.keys(health.workerQueueDepths).length > 0 && (
             <div className="ax-panel p-5">
-              <h3 className="text-sm font-semibold text-slate-200 mb-3">Worker Queue Depths</h3>
+              <h3 className="text-sm font-semibold text-[var(--offwhite)] mb-3">Worker Queue Depths</h3>
               <div className="space-y-2">
                 {Object.entries(health.workerQueueDepths).map(([queue, depth]) => (
                   <div key={queue} className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-slate-400 w-48">{queue}</span>
+                    <span className="text-xs font-mono text-[var(--grey1)] w-48">{queue}</span>
                     <div className="flex-1 rounded-full h-2" style={{ background: "rgba(255,255,255,0.04)" }}>
                       <div
                         className={cn(
                           "h-2 rounded-full transition-all",
                           (depth as number) > 100
-                            ? "bg-red-500"
+                            ? "bg-[var(--red)]"
                             : (depth as number) > 50
-                              ? "bg-amber-500"
-                              : "bg-emerald-500"
+                              ? "bg-[#F59E0B]"
+                              : "bg-[#4DD68C]"
                         )}
                         style={{ width: `${Math.min(100, ((depth as number) / 200) * 100)}%` }}
                       />
                     </div>
                     <span className={cn(
                       "text-xs font-mono w-8 text-right",
-                      (depth as number) > 100 ? "text-red-400" : "text-slate-400"
+                      (depth as number) > 100 ? "text-[var(--red)]" : "text-[var(--grey1)]"
                     )}>
                       {depth as number}
                     </span>
@@ -156,7 +169,7 @@ export default function HealthPage() {
           )}
         </div>
       ) : (
-        <div className="text-center py-16 text-slate-500">
+        <div className="text-center py-16 text-[var(--grey2)]">
           Unable to fetch health status
         </div>
       )}

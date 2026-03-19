@@ -20,6 +20,12 @@ async function apiFetch<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("arbitex_token");
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+    }
     throw new Error(body.message ?? `HTTP ${res.status}`);
   }
 
@@ -79,6 +85,11 @@ export const api = {
     list: () => apiFetch<any>("/tokens"),
     resolve: (address: string) =>
       apiFetch<any>(`/tokens/resolve?${new URLSearchParams({ address })}`),
+    toggle: (id: string, isEnabled: boolean) =>
+      apiFetch<any>(`/tokens/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isEnabled }),
+      }),
     updateFlags: (id: string, flags: string[]) =>
       apiFetch<any>(`/tokens/${id}/flags`, {
         method: "PATCH",

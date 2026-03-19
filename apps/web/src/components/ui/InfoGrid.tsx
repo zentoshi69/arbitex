@@ -13,19 +13,19 @@ export function InfoGrid({ items, className }: InfoGridProps) {
   return (
     <div
       className={cn(
-        "grid grid-cols-2 gap-px bg-border",
+        "grid grid-cols-2 gap-px bg-[var(--border)]",
         className
       )}
     >
       {items.map(([label, value], i) => (
         <div
           key={i}
-          className="bg-bg-card px-4 py-3"
+          className="bg-[var(--bg2)] px-4 py-3"
         >
-          <p className="mb-1.5 text-[8.5px] font-medium uppercase tracking-[0.08em] text-muted">
+          <p className="mb-1.5 font-mono text-[8px] uppercase tracking-[0.12em] text-[var(--grey2)]">
             {label}
           </p>
-          <div className="font-mono text-[11.5px] font-medium text-white">
+          <div className="font-mono text-[11.5px] font-medium text-[var(--offwhite)]">
             {value}
           </div>
         </div>

@@ -100,7 +100,7 @@ export default function PoolCreatePage() {
             disabled={!canSubmit || submitState === "submitting"}
             className={cn(
               "inline-flex items-center gap-2 px-3 py-2 rounded text-sm font-semibold",
-              canSubmit ? "bg-[var(--ax-red)] hover:opacity-90 text-white" : "bg-slate-800 text-slate-500 cursor-not-allowed"
+              canSubmit ? "bg-[var(--ax-red)] hover:opacity-90 text-white" : "bg-[var(--bg3)] text-[var(--grey2)] cursor-not-allowed"
             )}
           >
             <PlusCircle className="w-4 h-4" />
@@ -110,7 +110,7 @@ export default function PoolCreatePage() {
       />
 
       {submitError && (
-        <div className="bg-red-950/40 border border-red-900 text-red-200 rounded px-4 py-3 text-sm">
+        <div className="bg-[rgba(232,65,66,0.08)] border border-[rgba(232,65,66,0.2)] text-[var(--red)] rounded px-4 py-3 text-sm">
           {submitError}
         </div>
       )}
@@ -118,7 +118,7 @@ export default function PoolCreatePage() {
       <div className="ax-panel p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="space-y-1">
-            <div className="text-xs text-slate-500 font-medium">Venue</div>
+            <div className="text-xs text-[var(--grey2)] font-medium">Venue</div>
             {venuesQ.isLoading ? (
               <Skeleton className="h-9 w-full" />
             ) : (
@@ -137,7 +137,7 @@ export default function PoolCreatePage() {
           </label>
 
           <label className="space-y-1">
-            <div className="text-xs text-slate-500 font-medium">Fee (bps)</div>
+            <div className="text-xs text-[var(--grey2)] font-medium">Fee (bps)</div>
             <input
               type="number"
               value={form.feeBps}
@@ -147,7 +147,7 @@ export default function PoolCreatePage() {
           </label>
 
           <label className="space-y-1 md:col-span-2">
-            <div className="text-xs text-slate-500 font-medium">Pool address</div>
+            <div className="text-xs text-[var(--grey2)] font-medium">Pool address</div>
             <input
               value={form.poolAddress}
               onChange={(e) => setForm((f) => ({ ...f, poolAddress: e.target.value }))}
@@ -157,7 +157,7 @@ export default function PoolCreatePage() {
           </label>
 
           <label className="space-y-1">
-            <div className="text-xs text-slate-500 font-medium">Token0 address</div>
+            <div className="text-xs text-[var(--grey2)] font-medium">Token0 address</div>
             <input
               value={form.token0Address}
               onChange={(e) => setForm((f) => ({ ...f, token0Address: e.target.value }))}
@@ -167,7 +167,7 @@ export default function PoolCreatePage() {
           </label>
 
           <label className="space-y-1">
-            <div className="text-xs text-slate-500 font-medium">Token1 address</div>
+            <div className="text-xs text-[var(--grey2)] font-medium">Token1 address</div>
             <input
               value={form.token1Address}
               onChange={(e) => setForm((f) => ({ ...f, token1Address: e.target.value }))}
@@ -181,7 +181,7 @@ export default function PoolCreatePage() {
       <div className="ax-panel p-4 space-y-3">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--grey2)]" />
             <input
               value={lookup}
               onChange={(e) => setLookup(e.target.value)}
@@ -194,14 +194,14 @@ export default function PoolCreatePage() {
           </div>
           <button
             onClick={() => runLookup(lookup)}
-            className="px-3 py-2 ax-field text-sm text-slate-200 hover:opacity-90"
+            className="px-3 py-2 ax-field text-sm text-[var(--offwhite)] hover:opacity-90"
           >
             Resolve
           </button>
         </div>
 
         {!lookupResult && (
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-[var(--grey2)]">
             Tip: token addresses will return the token metadata + pools that include it (if already registered).
           </div>
         )}
@@ -209,7 +209,7 @@ export default function PoolCreatePage() {
         {lookupResult && (
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
-              <div className="text-slate-300">
+              <div className="text-[var(--offwhite)]">
                 Result: <span className="font-semibold">{lookupResult.kind}</span>
               </div>
               <AddressCell address={lookupResult.address} />
@@ -217,11 +217,11 @@ export default function PoolCreatePage() {
 
             {lookupResult.token?.data && (
               <div className="rounded-[2px] p-3 border" style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}>
-                <div className="text-xs text-slate-500 mb-1">Token ({lookupResult.token.source})</div>
-                <div className="font-semibold text-slate-100">
+                <div className="text-xs text-[var(--grey2)] mb-1">Token ({lookupResult.token.source})</div>
+                <div className="font-semibold text-[var(--offwhite)]">
                   {lookupResult.token.data.symbol} — {lookupResult.token.data.name}
                 </div>
-                <div className="text-xs text-slate-400 font-mono">
+                <div className="text-xs text-[var(--grey1)] font-mono">
                   {lookupResult.token.data.address} · decimals {lookupResult.token.data.decimals}
                 </div>
               </div>
@@ -229,24 +229,24 @@ export default function PoolCreatePage() {
 
             {lookupResult.pool && (
               <div className="rounded-[2px] p-3 border" style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}>
-                <div className="text-xs text-slate-500 mb-1">Pool</div>
-                <div className="font-semibold text-slate-100">
+                <div className="text-xs text-[var(--grey2)] mb-1">Pool</div>
+                <div className="font-semibold text-[var(--offwhite)]">
                   {lookupResult.pool.token0?.symbol ?? "?"} / {lookupResult.pool.token1?.symbol ?? "?"} · {lookupResult.pool.venue?.name ?? "—"} · {lookupResult.pool.feeBps} bps
                 </div>
-                <div className="text-xs text-slate-400 font-mono">{lookupResult.pool.poolAddress}</div>
+                <div className="text-xs text-[var(--grey1)] font-mono">{lookupResult.pool.poolAddress}</div>
               </div>
             )}
 
             {(lookupResult.pools?.length ?? 0) > 0 && (
-              <div className="bg-slate-950/50 border border-slate-800 rounded p-3">
-                <div className="text-xs text-slate-500 mb-2">Associated pools</div>
+              <div className="bg-[rgba(255,255,255,0.02)] border border-[var(--border)] rounded p-3">
+                <div className="text-xs text-[var(--grey2)] mb-2">Associated pools</div>
                 <div className="space-y-1">
                   {lookupResult.pools.slice(0, 10).map((p: any) => (
                     <div key={p.id} className="flex items-center justify-between text-xs">
-                      <span className="text-slate-200">
+                      <span className="text-[var(--offwhite)]">
                         {p.token0?.symbol} / {p.token1?.symbol} · {p.venue?.name} · {p.feeBps} bps
                       </span>
-                      <span className="text-slate-500 font-mono">{p.poolAddress.slice(0, 6)}…{p.poolAddress.slice(-4)}</span>
+                      <span className="text-[var(--grey2)] font-mono">{p.poolAddress.slice(0, 6)}…{p.poolAddress.slice(-4)}</span>
                     </div>
                   ))}
                 </div>

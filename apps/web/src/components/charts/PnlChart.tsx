@@ -18,11 +18,13 @@ type PnlPoint = {
   trades: number;
 };
 
+const MONO = '"JetBrains Mono", "Fira Code", monospace';
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs shadow-xl">
-      <p className="text-slate-400 mb-1">{label}</p>
+    <div className="bg-[var(--bg2)] border border-[var(--border)] rounded-[2px] px-3 py-2 text-xs shadow-xl">
+      <p className="text-[var(--grey1)] mb-1">{label}</p>
       {payload.map((entry: any) => (
         <p key={entry.name} style={{ color: entry.color }} className="font-mono font-medium">
           {entry.name}: {
@@ -57,7 +59,7 @@ export function PnlChart({
   if (cumulative.length === 0) {
     return (
       <div
-        className="flex items-center justify-center text-slate-600 text-sm"
+        className="flex items-center justify-center text-[var(--grey3)] text-sm"
         style={{ height }}
       >
         No data yet
@@ -75,26 +77,26 @@ export function PnlChart({
           <linearGradient id="pnlGradient" x1="0" y1="0" x2="0" y2="1">
             <stop
               offset="5%"
-              stopColor={isPositive ? "#10b981" : "#ef4444"}
+              stopColor={isPositive ? "#4DD68C" : "#E84142"}
               stopOpacity={0.25}
             />
             <stop
               offset="95%"
-              stopColor={isPositive ? "#10b981" : "#ef4444"}
+              stopColor={isPositive ? "#4DD68C" : "#E84142"}
               stopOpacity={0}
             />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a28" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
+          tick={{ fill: "var(--grey2)", fontSize: 11, fontFamily: MONO }}
           axisLine={false}
           tickLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fill: "#64748b", fontSize: 11, fontFamily: "monospace" }}
+          tick={{ fill: "var(--grey2)", fontSize: 11, fontFamily: MONO }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) => `$${v.toFixed(0)}`}
@@ -104,7 +106,7 @@ export function PnlChart({
         <Area
           type="monotone"
           dataKey="PnL"
-          stroke={isPositive ? "#10b981" : "#ef4444"}
+          stroke={isPositive ? "#4DD68C" : "#E84142"}
           strokeWidth={2}
           fill="url(#pnlGradient)"
           dot={false}
@@ -130,16 +132,16 @@ export function TradeBarChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={formatted} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#2a2a28" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fill: "#64748b", fontSize: 11 }}
+          tick={{ fill: "var(--grey2)", fontSize: 11, fontFamily: MONO }}
           axisLine={false}
           tickLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
-          tick={{ fill: "#64748b", fontSize: 11 }}
+          tick={{ fill: "var(--grey2)", fontSize: 11, fontFamily: MONO }}
           axisLine={false}
           tickLine={false}
           tickFormatter={(v) => `$${v.toFixed(0)}`}
@@ -148,7 +150,7 @@ export function TradeBarChart({
         <Tooltip content={<CustomTooltip />} />
         <Bar
           dataKey="PnL"
-          fill="#6b7280"
+            fill="var(--grey2)"
           radius={[2, 2, 0, 0]}
           maxBarSize={24}
         />

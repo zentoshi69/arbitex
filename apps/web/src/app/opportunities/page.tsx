@@ -64,7 +64,7 @@ export default function OpportunitiesPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--grey2)]" />
           <input
             type="text"
             placeholder="Search tokens, venues…"
@@ -75,11 +75,11 @@ export default function OpportunitiesPage() {
         </div>
 
         <div className="flex items-center gap-1">
-          <Filter className="w-3.5 h-3.5 text-slate-500" />
+          <Filter className="w-3.5 h-3.5 text-[var(--grey2)]" />
           <select
             value={stateFilter}
             onChange={(e) => { setStateFilter(e.target.value); setPage(1); }}
-            className="ax-field text-sm text-slate-200 px-2 py-1.5"
+            className="ax-field text-sm text-[var(--offwhite)] px-2 py-1.5"
           >
             {STATES.map((s) => (
               <option key={s} value={s}>{s}</option>
@@ -92,10 +92,10 @@ export default function OpportunitiesPage() {
           placeholder="Min profit ($)"
           value={minProfit}
           onChange={(e) => { setMinProfit(e.target.value); setPage(1); }}
-          className="ax-field text-sm text-slate-200 px-2 py-1.5 w-32"
+          className="ax-field text-sm text-[var(--offwhite)] px-2 py-1.5 w-32"
         />
 
-        <span className="ml-auto text-xs text-slate-500">
+        <span className="ml-auto text-xs text-[var(--grey2)]">
           {data?.pagination.total ?? 0} total
         </span>
       </div>
@@ -141,29 +141,29 @@ export default function OpportunitiesPage() {
                   className="cursor-pointer"
                 >
                   <td>
-                    <span className="font-semibold text-slate-200">
+                    <span className="font-semibold text-[var(--offwhite)]">
                       {opp.tokenInSymbol} / {opp.tokenOutSymbol}
                     </span>
                   </td>
                   <td>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-[var(--grey1)]">
                       {opp.buyVenueName} → {opp.sellVenueName}
                     </span>
                   </td>
-                  <td className="text-right font-mono text-sm text-slate-300">
+                  <td className="text-right font-mono text-sm text-[var(--offwhite)]">
                     ${Number(opp.tradeSizeUsd).toFixed(0)}
                   </td>
-                  <td className="text-right font-mono text-sm text-slate-300">
+                  <td className="text-right font-mono text-sm text-[var(--offwhite)]">
                     ${Number(opp.grossSpreadUsd).toFixed(4)}
                   </td>
                   <td className="text-right">
                     <ProfitCell value={Number(opp.netProfitUsd)} />
                   </td>
-                  <td className="text-right font-mono text-xs text-slate-400">
+                  <td className="text-right font-mono text-xs text-[var(--grey1)]">
                     {Number(opp.netProfitBps).toFixed(2)}
                   </td>
                   <td><StateBadge state={opp.state} /></td>
-                  <td className="text-xs text-slate-500 font-mono">
+                  <td className="text-xs text-[var(--grey2)] font-mono">
                     {new Date(opp.detectedAt).toLocaleTimeString()}
                   </td>
                 </tr>
@@ -182,7 +182,7 @@ export default function OpportunitiesPage() {
             >
               ← Prev
             </button>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-[var(--grey2)]">
               Page {page} of {data.pagination.totalPages}
             </span>
             <button

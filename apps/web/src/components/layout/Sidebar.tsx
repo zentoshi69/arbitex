@@ -2,136 +2,96 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Zap,
-  PlayCircle,
-  Coins,
-  Droplets,
-  ShieldAlert,
-  Settings,
-  FileText,
-  Activity,
-  AlertTriangle,
-  Shield,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useKillSwitchStatus } from "@/hooks/useKillSwitchStatus";
 import { getRole } from "@/lib/auth";
-import { useSystemHealth } from "@/hooks/useSystemHealth";
+import { useWallet } from "@/components/wallet/WalletProvider";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/opportunities", label: "Opportunities", icon: Zap },
-  { href: "/executions", label: "Executions", icon: PlayCircle },
-  { href: "/tokens", label: "Tokens", icon: Coins },
-  { href: "/pools", label: "Pools", icon: Droplets },
-  { href: "/lp", label: "Liquidity", icon: Droplets },
-  { href: "/risk", label: "Risk Controls", icon: ShieldAlert },
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/audit", label: "Audit Log", icon: FileText },
-  { href: "/health", label: "System Health", icon: Activity },
-];
+  { href: "/", label: "Overview" },
+  { href: "/opportunities", label: "Opportunities" },
+  { href: "/executions", label: "Executions" },
+  { href: "/tokens", label: "Tokens" },
+  { href: "/pools", label: "Pools" },
+  { href: "/lp", label: "Liquidity" },
+  { href: "/risk", label: "Risk Controls" },
+  { href: "/settings", label: "Settings" },
+  { href: "/audit", label: "Audit Log" },
+  { href: "/health", label: "System Health", superAdminOnly: true },
+] as const;
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { anyActive } = useKillSwitchStatus();
   const role = getRole();
-  const { health } = useSystemHealth();
-
-  const statusText =
-    health?.status === "healthy"
-      ? "Connected"
-      : health?.status === "degraded"
-        ? "Degraded"
-        : health?.status === "down"
-          ? "Down"
-          : "Connecting";
-
-  const statusColor =
-    health?.status === "healthy"
-      ? "text-[#4ADE80]"
-      : "text-red";
+  const wallet = useWallet();
+  const operatorAddress = wallet.address ?? (role ? `ROLE:${role}` : "—");
 
   return (
-    <aside className="ax-sidebar flex w-[216px] min-h-screen flex-shrink-0 flex-col">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 border-b border-border px-[18px] py-[18px] pb-[14px]">
+    <aside
+      className="relative flex w-[216px] min-h-screen flex-shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]"
+      style={{
+        boxShadow: "inset -1px 0 0 0 transparent",
+      }}
+    >
+      <div className="absolute left-0 right-0 top-0 h-px bg-[var(--red)]" />
+      <div
+        className="pointer-events-none absolute bottom-0 right-0 top-0 w-px"
+        style={{
+          background:
+            "linear-gradient(180deg, var(--red) 0%, transparent 35%)",
+        }}
+      />
+
+      <div className="flex h-[52px] items-center gap-[10px] border-b border-[var(--border)] px-[18px]">
         <div
-          className="flex h-7 w-7 flex-shrink-0 items-center justify-center"
+          className="h-[28px] w-[28px] flex-shrink-0"
           style={{
-            background: "#E84142",
+            background: "var(--red)",
             clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
           }}
-        >
-          <Shield className="h-3 w-3 text-white" />
-        </div>
-        <span className="text-base font-bold tracking-[-0.03em] text-white">
+        />
+        <span className="font-styrene text-lg font-black tracking-tight text-[var(--offwhite)]">
           ArbitEx
         </span>
-        <span className="ml-auto font-mono text-[8.5px] text-muted">v1.0</span>
+        <span className="ml-auto font-mono text-[8px] text-[var(--grey3)]">v2.0</span>
       </div>
 
-      {/* Connection status */}
-      <div className="flex items-center gap-2 border-b border-border px-[18px] py-[9px]">
+      <div className="flex h-[34px] items-center gap-2 border-b border-[var(--border)] px-[18px]">
         <span
-          className={cn(
-            "h-[5px] w-[5px] rounded-full",
-            health?.status === "healthy" ? "bg-[#4ADE80]" : "bg-red ax-throb"
-          )}
+          className="h-[6px] w-[6px] rounded-full bg-[var(--red)]"
           style={{
-            boxShadow:
-              health?.status === "healthy"
-                ? "0 0 6px rgba(74,222,128,0.7)"
-                : "0 0 6px #E84142",
+            animation: "pulse 1.4s infinite ease-in-out",
+            boxShadow: "0 0 10px var(--red-glow)",
           }}
         />
-        <span
-          className={cn(
-            "text-[9px] font-medium uppercase tracking-[0.1em]",
-            statusColor
-          )}
-        >
-          {statusText}
+        <span className="font-mono text-[8.5px] uppercase tracking-[0.22em] text-[var(--red)]">
+          CONNECTING
         </span>
       </div>
 
-      {/* Kill switch warning */}
-      {anyActive && (
-        <div className="mx-3 mt-3 flex items-center gap-2 rounded-[2px] border border-red/25 bg-red/8 px-3 py-2">
-          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-red-400" />
-          <span className="text-xs font-medium text-red-400">Kill switch active</span>
-        </div>
-      )}
-
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
-        <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-3">
-          <span className="text-[8.5px] font-medium uppercase tracking-[0.14em] text-muted">
+      <nav className="flex-1 overflow-y-auto py-2">
+        <div className="flex items-center gap-2 px-[18px] pb-2 pt-3">
+          <span className="font-mono text-[7.5px] uppercase tracking-[0.18em] text-[var(--grey3)]">
             Platform
           </span>
-          <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
 
         {role === "ADMIN" && (
           <Link
             href="/pools/create"
             className={cn(
-              "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s] mb-0.5",
+              "relative block px-[18px] py-[7px] font-styrene text-[12.5px] font-normal tracking-[-0.01em] transition-colors",
               pathname.startsWith("/pools/create")
-                ? "bg-red-dim font-medium text-white"
-                : "text-dim hover:bg-bg-hover hover:text-white"
+                ? "bg-[rgba(232,65,66,0.08)] font-medium text-[var(--offwhite)]"
+                : "text-[var(--grey1)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--offwhite)]"
             )}
           >
             {pathname.startsWith("/pools/create") && (
               <span
-                className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
-                style={{ background: "#E84142" }}
+                className="absolute left-0 top-1/2 h-[16px] w-[2px] -translate-y-1/2 rounded-r-[1px] bg-[var(--red)]"
               />
             )}
-            <Droplets className="h-4 w-4 flex-shrink-0" />
             Create Pool
-            <span className="ml-auto font-mono text-[8px] text-muted">ADMIN</span>
           </Link>
         )}
 
@@ -139,82 +99,75 @@ export function Sidebar() {
           <Link
             href="/lp/v2"
             className={cn(
-              "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s] mb-0.5",
+              "relative block px-[18px] py-[7px] font-styrene text-[12.5px] font-normal tracking-[-0.01em] transition-colors",
               pathname.startsWith("/lp/v2")
-                ? "bg-red-dim font-medium text-white"
-                : "text-dim hover:bg-bg-hover hover:text-white"
+                ? "bg-[rgba(232,65,66,0.08)] font-medium text-[var(--offwhite)]"
+                : "text-[var(--grey1)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--offwhite)]"
             )}
           >
             {pathname.startsWith("/lp/v2") && (
               <span
-                className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
-                style={{ background: "#E84142" }}
+                className="absolute left-0 top-1/2 h-[16px] w-[2px] -translate-y-1/2 rounded-r-[1px] bg-[var(--red)]"
               />
             )}
-            <Droplets className="h-4 w-4 flex-shrink-0" />
             V2 LP Admin
-            <span className="ml-auto font-mono text-[8px] text-muted">SUPER</span>
           </Link>
         )}
 
-        {NAV_ITEMS.slice(0, 7).map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.slice(0, 7).map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s]",
+                "relative block px-[18px] py-[7px] font-styrene text-[12.5px] font-normal tracking-[-0.01em] transition-colors",
                 active
-                  ? "bg-red-dim font-medium text-white"
-                  : "text-dim hover:bg-bg-hover hover:text-white"
+                  ? "bg-[rgba(232,65,66,0.08)] font-medium text-[var(--offwhite)]"
+                  : "text-[var(--grey1)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--offwhite)]"
               )}
             >
               {active && (
                 <span
-                  className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
-                  style={{ background: "#E84142" }}
+                  className="absolute left-0 top-1/2 h-[16px] w-[2px] -translate-y-1/2 rounded-r-[1px] bg-[var(--red)]"
                 />
               )}
-              <Icon className="h-4 w-4 flex-shrink-0" />
               {label}
-              {href === "/risk" && anyActive && (
-                <span className="ml-auto h-2 w-2 flex-shrink-0 rounded-full bg-red-500" />
-              )}
             </Link>
           );
         })}
 
-        <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-4">
-          <span className="text-[8.5px] font-medium uppercase tracking-[0.14em] text-muted">
+        <div className="flex items-center gap-2 px-[18px] pb-2 pt-4">
+          <span className="font-mono text-[7.5px] uppercase tracking-[0.18em] text-[var(--grey3)]">
             System
           </span>
-          <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
 
-        {NAV_ITEMS.slice(7).map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.slice(7)
+          .filter((item) => !("superAdminOnly" in item && item.superAdminOnly) || role === "SUPER_ADMIN")
+          .map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+          const showSettingsKbd = href === "/settings";
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s]",
+                "relative block px-[18px] py-[7px] font-styrene text-[12.5px] font-normal tracking-[-0.01em] transition-colors",
                 active
-                  ? "bg-red-dim font-medium text-white"
-                  : "text-dim hover:bg-bg-hover hover:text-white"
+                  ? "bg-[rgba(232,65,66,0.08)] font-medium text-[var(--offwhite)]"
+                  : "text-[var(--grey1)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--offwhite)]"
               )}
             >
               {active && (
                 <span
-                  className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
-                  style={{ background: "#E84142" }}
+                  className="absolute left-0 top-1/2 h-[16px] w-[2px] -translate-y-1/2 rounded-r-[1px] bg-[var(--red)]"
                 />
               )}
-              <Icon className="h-4 w-4 flex-shrink-0" />
               {label}
-              {href === "/settings" && (
-                <span className="ml-auto font-mono text-[8px] text-muted tracking-wider">
+              {showSettingsKbd && (
+                <span className="ml-auto font-mono text-[8px] tracking-[0.08em] text-[var(--grey3)]">
                   ⌘,
                 </span>
               )}
@@ -223,17 +176,13 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-border px-[18px] py-3">
-        <p className="text-[8.5px] font-medium uppercase tracking-[0.12em] text-muted">
+      <div className="border-t border-[var(--border)] px-[18px] py-3">
+        <p className="font-mono text-[7.5px] uppercase tracking-[0.18em] text-[var(--grey2)]">
           Operator
         </p>
-        <div className="mt-1 flex items-center gap-1 font-mono text-[9.5px] text-dim">
-          <span
-            className="h-1 w-1 rounded-full"
-            style={{ background: "#E84142" }}
-          />
-          {role}
+        <div className="mt-1 flex items-center gap-[6px] font-mono text-[9.5px] text-[var(--grey1)]">
+          <span className="h-1 w-1 rounded-full bg-[var(--red)]" />
+          <span className="truncate">{operatorAddress}</span>
         </div>
       </div>
     </aside>

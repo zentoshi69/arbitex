@@ -14,11 +14,11 @@ export function Tag({ variant = "gray", children, className }: TagProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center px-1.5 py-0.5 rounded-[2px] text-[8.5px] font-medium tracking-[0.07em] uppercase",
+        "inline-flex items-center rounded-[2px] px-1.5 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em]",
         variant === "gray" &&
-          "bg-white/5 text-muted border border-border",
+          "border border-[var(--border)] bg-[rgba(255,255,255,0.03)] text-[var(--grey2)]",
         variant === "red" &&
-          "bg-red-dim text-red border border-red/20",
+          "border border-[rgba(232,65,66,0.24)] bg-[rgba(232,65,66,0.08)] text-[var(--red)]",
         className
       )}
     >

@@ -83,7 +83,7 @@ This repo includes a production Docker Compose stack in `docker-compose.prod.yml
 **Nameservers:** `ns1.dns-parking.com`, `ns2.dns-parking.com`
 
 At your DNS provider (where the nameservers point), add **A records**:
-- `dashboard.bitrunner3001.com` → your VPS public IP
+- `bitrunner3001.com` → your VPS public IP
 - `api.bitrunner3001.com` → your VPS public IP
 
 ### 2) Create `.env.production`

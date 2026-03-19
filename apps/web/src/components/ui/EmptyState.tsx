@@ -17,12 +17,12 @@ export function EmptyState({ message, hint, className }: EmptyStateProps) {
       )}
     >
       <div className="relative h-7 w-7 opacity-[0.18]">
-        <span className="absolute left-1/2 top-0 block h-full w-px -translate-x-1/2 bg-white" />
-        <span className="absolute left-0 top-1/2 block h-px w-full -translate-y-1/2 bg-white" />
+        <span className="absolute left-1/2 top-0 block h-full w-px -translate-x-1/2 bg-[var(--offwhite)]" />
+        <span className="absolute left-0 top-1/2 block h-px w-full -translate-y-1/2 bg-[var(--offwhite)]" />
       </div>
-      <p className="text-[11.5px] text-muted">{message}</p>
+      <p className="text-[11.5px] text-[var(--grey1)]">{message}</p>
       {hint && (
-        <p className="text-[9.5px] text-muted/60 [&_code]:rounded [&_code]:bg-white/6 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[9.5px]">
+        <p className="text-[9.5px] text-[var(--grey2)] [&_code]:rounded [&_code]:bg-white/6 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[9.5px]">
           {hint}
         </p>
       )}

@@ -31,11 +31,11 @@ export function SectionHeader({
         )}
       >
         <div>
-          <h1 className="text-[20px] font-bold tracking-[-0.03em] text-white">
+          <h1 className="font-styrene text-[38px] font-black leading-none tracking-[-0.03em] text-[var(--offwhite)]">
             {title}
           </h1>
           {description && (
-            <p className="mt-0.5 text-[10.5px] tracking-[0.01em] text-dim">
+            <p className="mt-1 text-[10.5px] tracking-[0.01em] text-[var(--grey2)]">
               {description}
             </p>
           )}
@@ -47,10 +47,10 @@ export function SectionHeader({
 
   return (
     <div className={cn("mb-2.5 flex items-center gap-2", className)}>
-      <span className="text-[8.5px] font-medium uppercase tracking-[0.13em] text-muted">
+      <span className="font-mono text-[7.5px] uppercase tracking-[0.18em] text-[var(--grey3)]">
         {label}
       </span>
-      <span className="h-px flex-1 bg-border" />
+      <span className="h-px flex-1 bg-[var(--border)]" />
       {tag && <span>{tag}</span>}
     </div>
   );

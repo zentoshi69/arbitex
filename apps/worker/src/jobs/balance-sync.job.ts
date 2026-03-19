@@ -6,6 +6,31 @@ import { pino } from "pino";
 
 const logger = pino();
 
+const NATIVE_WRAPPED: Record<string, string> = {
+  WETH: "ethereum",
+  WAVAX: "avalanche-2",
+};
+
+let _nativePrice = { usd: 10, fetchedAt: 0 };
+
+async function getNativePriceUsd(symbol: string): Promise<number> {
+  const cgId = NATIVE_WRAPPED[symbol];
+  if (!cgId) return 1;
+  if (Date.now() - _nativePrice.fetchedAt < 60_000) return _nativePrice.usd;
+  try {
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`);
+    if (res.ok) {
+      const data = await res.json();
+      const price = data[cgId]?.usd;
+      if (typeof price === "number" && price > 0) {
+        _nativePrice = { usd: price, fetchedAt: Date.now() };
+        return price;
+      }
+    }
+  } catch { /* use cached */ }
+  return _nativePrice.usd;
+}
+
 type JobDeps = {
   chainClient: ArbitexPublicClient;
   prisma: PrismaClient;
@@ -24,12 +49,6 @@ export async function processBalanceSyncJob(
   const walletAddress = balances[0]?.walletAddress as `0x${string}` | undefined;
   if (!walletAddress) return;
 
-  const ETH_PRICE_USD = 2000; // TODO: fetch from oracle
-
-  // Check ETH balance
-  const ethBalance = await chainClient.getBalance({ address: walletAddress });
-
-  // Check ERC-20 balances
   for (const bal of balances) {
     try {
       const tokenBalance = await chainClient.readContract({
@@ -39,10 +58,13 @@ export async function processBalanceSyncJob(
         args: [walletAddress],
       });
 
-      const usdValue =
-        bal.token.symbol === "WETH"
-          ? (Number(tokenBalance) / 1e18) * ETH_PRICE_USD
-          : Number(tokenBalance) / 10 ** bal.token.decimals;
+      let usdValue: number;
+      if (NATIVE_WRAPPED[bal.token.symbol]) {
+        const nativePrice = await getNativePriceUsd(bal.token.symbol);
+        usdValue = (Number(tokenBalance) / 10 ** bal.token.decimals) * nativePrice;
+      } else {
+        usdValue = Number(tokenBalance) / 10 ** bal.token.decimals;
+      }
 
       await prisma.walletBalance.update({
         where: { id: bal.id },

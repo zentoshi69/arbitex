@@ -66,11 +66,11 @@ export default function ExecutionsPage() {
         {[
           { label: "Showing", value: `${data?.pagination?.total ?? 0} records` },
           { label: "Landed (page)", value: `${totalLanded} trades` },
-          { label: "PnL (page)", value: `$${totalPnl.toFixed(4)}`, color: totalPnl >= 0 ? "text-emerald-400" : "text-red-400" },
+          { label: "PnL (page)", value: `$${totalPnl.toFixed(4)}`, color: totalPnl >= 0 ? "text-[#4DD68C]" : "text-[var(--red)]" },
         ].map(({ label, value, color }) => (
           <div key={label} className="ax-panel px-4 py-2.5 flex items-center justify-between">
-            <span className="text-xs text-slate-500">{label}</span>
-            <span className={`text-sm font-mono font-semibold ${color ?? "text-slate-200"}`}>{value}</span>
+            <span className="text-xs text-[var(--grey2)]">{label}</span>
+            <span className={`text-sm font-mono font-semibold ${color ?? "text-[var(--offwhite)]"}`}>{value}</span>
           </div>
         ))}
       </div>
@@ -78,7 +78,7 @@ export default function ExecutionsPage() {
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--grey2)]" />
           <input
             type="text"
             placeholder="Search tx hash, tokens…"
@@ -90,7 +90,7 @@ export default function ExecutionsPage() {
         <select
           value={stateFilter}
           onChange={(e) => { setStateFilter(e.target.value); setPage(1); }}
-          className="ax-field text-sm text-slate-200 px-2 py-1.5"
+          className="ax-field text-sm text-[var(--offwhite)] px-2 py-1.5"
         >
           {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -134,10 +134,10 @@ export default function ExecutionsPage() {
                   className="cursor-pointer"
                 >
                   <td>
-                    <span className="font-semibold text-slate-200 text-sm">
+                    <span className="font-semibold text-[var(--offwhite)] text-sm">
                       {exec.opportunity?.tokenInSymbol ?? "?"} / {exec.opportunity?.tokenOutSymbol ?? "?"}
                     </span>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-[var(--grey2)] mt-0.5">
                       {exec.opportunity?.buyVenueName} → {exec.opportunity?.sellVenueName}
                     </p>
                   </td>
@@ -154,28 +154,28 @@ export default function ExecutionsPage() {
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     ) : (
-                      <span className="text-xs text-slate-600">—</span>
+                      <span className="text-xs text-[var(--grey3)]">—</span>
                     )}
                   </td>
                   <td><AddressCell address={exec.walletAddress} /></td>
-                  <td className="text-right font-mono text-xs text-slate-400">
+                  <td className="text-right font-mono text-xs text-[var(--grey1)]">
                     {exec.blockNumber ?? "—"}
                   </td>
-                  <td className="text-right font-mono text-xs text-slate-400">
+                  <td className="text-right font-mono text-xs text-[var(--grey1)]">
                     {exec.gasUsed ? Number(exec.gasUsed).toLocaleString() : "—"}
                   </td>
-                  <td className="text-right font-mono text-xs text-slate-400">
+                  <td className="text-right font-mono text-xs text-[var(--grey1)]">
                     {exec.gasCostUsd !== null ? `$${Number(exec.gasCostUsd).toFixed(4)}` : "—"}
                   </td>
                   <td className="text-right">
                     {exec.pnlUsd !== null ? (
                       <ProfitCell value={Number(exec.pnlUsd)} />
                     ) : (
-                      <span className="text-slate-600 text-xs">—</span>
+                      <span className="text-[var(--grey3)] text-xs">—</span>
                     )}
                   </td>
                   <td><StateBadge state={exec.state} /></td>
-                  <td className="text-xs text-slate-500 font-mono">
+                  <td className="text-xs text-[var(--grey2)] font-mono">
                     {new Date(exec.createdAt).toLocaleTimeString()}
                   </td>
                 </tr>
@@ -191,7 +191,7 @@ export default function ExecutionsPage() {
               disabled={page === 1}
               className="text-xs px-3 py-1.5 ax-btn"
             >← Prev</button>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-[var(--grey2)]">
               Page {page} of {data.pagination.totalPages}
             </span>
             <button

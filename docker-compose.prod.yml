@@ -18,6 +18,8 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
@@ -42,6 +44,9 @@ services:
       AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       OPERATOR_API_KEY: ${OPERATOR_API_KEY:?set OPERATOR_API_KEY}
+      # Bcrypt values contain `$`; in the file passed to `docker compose --env-file`, double each `$` as `$$`
+      # (e.g. $$2b$$12$$...) or Compose treats segments as undefined vars and Redis/API env can break.
+      OPERATOR_PASSWORD_HASH: ${OPERATOR_PASSWORD_HASH:-}
       MOCK_EXECUTION: ${MOCK_EXECUTION:-false}
       SUPERADMIN_KEYSTORE_PATH: /run/secrets/superadmin_keystore.json
       SUPERADMIN_KEYSTORE_PASS: ${SUPERADMIN_KEYSTORE_PASS:-}
@@ -86,6 +91,9 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?set NEXT_PUBLIC_WS_URL}
     restart: unless-stopped
     environment:
       NODE_ENV: production

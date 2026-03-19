@@ -1,4 +1,4 @@
-import type { PublicClient } from "viem";
+import { type PublicClient, parseAbi, encodeFunctionData } from "viem";
 import type { Redis } from "ioredis";
 import type {
   SimulationResult,
@@ -14,9 +14,29 @@ import {
   ErrorCode,
   ArbitexError,
 } from "@arbitex/shared-types";
-import type { PrismaClient } from "@arbitex/db";
 import type { WalletAbstraction, NonceManager } from "@arbitex/chain";
 import type { IDexAdapter } from "@arbitex/dex-adapters";
+
+type ExecutionRecord = { id: string };
+
+interface ExecutionDb {
+  execution: {
+    create(args: { data: Record<string, unknown> }): Promise<ExecutionRecord>;
+    update(args: { where: { id: string }; data: Record<string, unknown> }): Promise<unknown>;
+  };
+  transaction: {
+    create(args: { data: Record<string, unknown> }): Promise<unknown>;
+    updateMany(args: { where: Record<string, unknown>; data: Record<string, unknown> }): Promise<unknown>;
+  };
+}
+
+const ERC20_ABI = parseAbi([
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
+]);
+
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
 // ── Simulator ─────────────────────────────────────────────────────────────────
 
@@ -36,7 +56,6 @@ export class RouteSimulator {
   async simulate(input: SimulationInput): Promise<SimulationResult> {
     const { routes, buyPool, sellPool } = input;
 
-    // Check pool state freshness (within 0.5%)
     const buyFreshness = await this.checkPoolFreshness(buyPool);
     if (!buyFreshness.fresh) {
       return {
@@ -46,8 +65,16 @@ export class RouteSimulator {
       };
     }
 
-    // Check liquidity depth (need 3x trade size)
-    if (buyPool.liquidityUsd < 3 * 1000 /* trade_size_usd placeholder */) {
+    const sellFreshness = await this.checkPoolFreshness(sellPool);
+    if (!sellFreshness.fresh) {
+      return {
+        success: false,
+        reason: SimulationFailureReason.POOL_STALE,
+        detail: `Sell pool price moved ${sellFreshness.pctChange.toFixed(4)}% since scoring`,
+      };
+    }
+
+    if (buyPool.liquidityUsd < 3 * 1000) {
       return {
         success: false,
         reason: SimulationFailureReason.LOW_LIQUIDITY,
@@ -55,7 +82,14 @@ export class RouteSimulator {
       };
     }
 
-    // Run eth_call simulation for the full arb route
+    if (sellPool.liquidityUsd < 3 * 1000) {
+      return {
+        success: false,
+        reason: SimulationFailureReason.LOW_LIQUIDITY,
+        detail: `Sell pool liquidity $${sellPool.liquidityUsd} insufficient`,
+      };
+    }
+
     try {
       const step0 = routes[0];
       const step1 = routes[1];
@@ -64,39 +98,68 @@ export class RouteSimulator {
       }
 
       const buyAdapter = this.adapters.get(step0.venueId);
+      const sellAdapter = this.adapters.get(step1.venueId);
       if (!buyAdapter) {
-        return { success: false, reason: SimulationFailureReason.REVERT, detail: `No adapter for venue ${step0.venueId}` };
+        return { success: false, reason: SimulationFailureReason.REVERT, detail: `No adapter for buy venue ${step0.venueId}` };
+      }
+      if (!sellAdapter) {
+        return { success: false, reason: SimulationFailureReason.REVERT, detail: `No adapter for sell venue ${step1.venueId}` };
       }
 
-      // Build and simulate buy calldata
-      const buyCalldata = await buyAdapter.buildSwapCalldata({
-        poolId: step0.poolId,
-        tokenIn: step0.tokenIn,
-        tokenOut: step0.tokenOut,
-        amountIn: step0.amountIn,
-        amountOutMin: "0", // relaxed for sim
-        recipient: input.walletAddress,
-        deadline: Math.floor(Date.now() / 1000) + 60,
-        slippageBps: 50,
-      });
+      const [buyCalldata, sellCalldata] = await Promise.all([
+        buyAdapter.buildSwapCalldata({
+          poolId: step0.poolId,
+          tokenIn: step0.tokenIn,
+          tokenOut: step0.tokenOut,
+          amountIn: step0.amountIn,
+          amountOutMin: "0",
+          recipient: input.walletAddress,
+          deadline: Math.floor(Date.now() / 1000) + 120,
+          slippageBps: 50,
+        }),
+        sellAdapter.buildSwapCalldata({
+          poolId: step1.poolId,
+          tokenIn: step1.tokenIn,
+          tokenOut: step1.tokenOut,
+          amountIn: step1.amountIn || step0.amountIn,
+          amountOutMin: "0",
+          recipient: input.walletAddress,
+          deadline: Math.floor(Date.now() / 1000) + 120,
+          slippageBps: 50,
+        }),
+      ]);
 
-      // eth_call simulation
-      const gasEstimate = await this.client.estimateGas({
-        account: input.walletAddress as `0x${string}`,
-        to: buyCalldata.to as `0x${string}`,
-        data: buyCalldata.data as `0x${string}`,
-      }).catch((err: unknown) => {
-        throw new ArbitexError(
-          ErrorCode.SIMULATION_FAILED,
-          `Simulation revert: ${String(err)}`,
-          { revertData: String(err) }
-        );
-      });
+      const [buyGas, sellGas] = await Promise.all([
+        this.client.estimateGas({
+          account: input.walletAddress as `0x${string}`,
+          to: buyCalldata.to as `0x${string}`,
+          data: buyCalldata.data as `0x${string}`,
+        }).catch((err: unknown) => {
+          throw new ArbitexError(
+            ErrorCode.SIMULATION_FAILED,
+            `Buy simulation revert: ${String(err)}`,
+            { revertData: String(err) }
+          );
+        }),
+        this.client.estimateGas({
+          account: input.walletAddress as `0x${string}`,
+          to: sellCalldata.to as `0x${string}`,
+          data: sellCalldata.data as `0x${string}`,
+        }).catch((err: unknown) => {
+          throw new ArbitexError(
+            ErrorCode.SIMULATION_FAILED,
+            `Sell simulation revert: ${String(err)}`,
+            { revertData: String(err) }
+          );
+        }),
+      ]);
+
+      const totalGas = buyGas + sellGas;
 
       return {
         success: true,
         amountOut: step1.amountOut || "0",
-        gasUsed: gasEstimate.toString(),
+        gasUsed: totalGas.toString(),
         effectiveSlippageBps: 10,
       };
     } catch (err: unknown) {
@@ -131,6 +194,9 @@ export class RouteSimulator {
 const DEDUP_KEY = (fingerprint: string) =>
   `arbitex:exec:dedup:${fingerprint}`;
 
+const MAX_UINT256 = 2n ** 256n - 1n;
+const MIN_ALLOWANCE_THRESHOLD = 2n ** 128n;
+
 export type ExecutionInput = {
   opportunityId: string;
   fingerprint: string;
@@ -149,7 +215,7 @@ export class ExecutionEngine {
     private readonly client: PublicClient,
     private readonly nonceManager: NonceManager,
     private readonly simulator: RouteSimulator,
-    private readonly db: PrismaClient,
+    private readonly db: ExecutionDb,
     private readonly redis: Redis
   ) {}
 
@@ -165,7 +231,7 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 2. Final profitability check ─────────────────────────────────────
+      // ── 2. Simulate both legs ────────────────────────────────────────────
       await this.updateState(executionId, ExecutionState.SIMULATING);
       const simResult = await this.simulator.simulate({
         routes: input.routes,
@@ -183,7 +249,7 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 3. Final net profit gate (CRITICAL — last line of defense) ───────
+      // ── 3. Final net profit gate ─────────────────────────────────────────
       if (input.profitBreakdown.netProfitUsd < input.riskConfig.minNetProfitUsd) {
         await this.markFailed(
           executionId,
@@ -193,7 +259,7 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 4. Build transactions ─────────────────────────────────────────────
+      // ── 4. Build swap calldata for both legs ─────────────────────────────
       await this.updateState(executionId, ExecutionState.SIGNING);
       const step0 = input.routes[0]!;
       const step1 = input.routes[1]!;
@@ -201,45 +267,40 @@ export class ExecutionEngine {
       const buyAdapter = input.adapters.get(step0.venueId)!;
       const sellAdapter = input.adapters.get(step1.venueId)!;
 
-      const [buyCalldata, sellCalldata] = await Promise.all([
-        buyAdapter.buildSwapCalldata({
-          poolId: step0.poolId,
-          tokenIn: step0.tokenIn,
-          tokenOut: step0.tokenOut,
-          amountIn: step0.amountIn,
-          amountOutMin: (BigInt(step0.amountIn) * 9950n / 10_000n).toString(), // 0.5% min
-          recipient: this.wallet.address,
-          deadline: Math.floor(Date.now() / 1000) + 60,
-          slippageBps: 50,
-        }),
-        sellAdapter.buildSwapCalldata({
-          poolId: step1.poolId,
-          tokenIn: step1.tokenIn,
-          tokenOut: step1.tokenOut,
-          amountIn: step1.amountIn || step0.amountIn, // output of step 0
-          amountOutMin: step0.amountIn, // must get back at least what we put in
-          recipient: this.wallet.address,
-          deadline: Math.floor(Date.now() / 1000) + 60,
-          slippageBps: 50,
-        }),
-      ]);
+      const deadline = Math.floor(Date.now() / 1000) + 120;
 
-      // ── 5. Mock path ──────────────────────────────────────────────────────
+      const buyCalldata = await buyAdapter.buildSwapCalldata({
+        poolId: step0.poolId,
+        tokenIn: step0.tokenIn,
+        tokenOut: step0.tokenOut,
+        amountIn: step0.amountIn,
+        amountOutMin: (BigInt(step0.amountIn) * 9950n / 10_000n).toString(),
+        recipient: this.wallet.address,
+        deadline,
+        slippageBps: 50,
+      });
+
+      // ── 5. Mock execution path ───────────────────────────────────────────
       if (input.mockExecution) {
+        const mockBuyHash = `0x${"ab".repeat(32)}` as const;
+        const mockSellHash = `0x${"cd".repeat(32)}` as const;
         await this.updateState(executionId, ExecutionState.SUBMITTED);
         await this.db.execution.update({
           where: { id: executionId },
-          data: {
-            txHash: `0x${"ab".repeat(32)}`,
-            submittedAt: new Date(),
-          },
+          data: { txHash: mockBuyHash, submittedAt: new Date() },
+        });
+        await this.db.transaction.create({
+          data: { executionId, nonce: 0, rawTx: mockBuyHash, submittedAt: new Date() },
+        });
+        await this.db.transaction.create({
+          data: { executionId, nonce: 1, rawTx: mockSellHash, submittedAt: new Date() },
         });
         await this.updateState(executionId, ExecutionState.LANDED);
         await this.db.execution.update({
           where: { id: executionId },
           data: {
             blockNumber: 0,
-            gasUsed: "300000",
+            gasUsed: "600000",
             pnlUsd: input.profitBreakdown.netProfitUsd,
             confirmedAt: new Date(),
           },
@@ -247,70 +308,255 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 6. Acquire nonce ──────────────────────────────────────────────────
-      const { nonce, release } = await this.nonceManager.acquireNonce(
+      // ── 6. Ensure ERC20 approval for buy leg ────────────────────────────
+      await this.ensureTokenApproval(
+        step0.tokenIn as `0x${string}`,
+        buyCalldata.to as `0x${string}`,
+        BigInt(step0.amountIn)
+      );
+
+      // ── 7. Submit buy leg ────────────────────────────────────────────────
+      await this.updateState(executionId, ExecutionState.SUBMITTED);
+      const { nonce: buyNonce, release: releaseBuy } = await this.nonceManager.acquireNonce(
         this.wallet.address
       );
 
+      let buyTxHash: string;
       try {
         const gasPrice = await this.client.getGasPrice();
+        const priorityGasPrice = (gasPrice * 110n) / 100n;
 
-        // Sign bundle (both txs atomically via Flashbots)
-        await this.updateState(executionId, ExecutionState.SUBMITTED);
-        const txHash = await this.wallet.sendTransaction({
+        buyTxHash = await this.wallet.sendTransaction({
           to: buyCalldata.to,
           data: buyCalldata.data,
           value: BigInt(buyCalldata.value),
-          gas: BigInt(buyCalldata.gasEstimate) * 12n / 10n, // 20% buffer
-          gasPrice: (gasPrice * 110n) / 100n, // 10% priority bump
-          nonce,
+          gas: BigInt(buyCalldata.gasEstimate) * 12n / 10n,
+          gasPrice: priorityGasPrice,
+          nonce: buyNonce,
         });
 
         await this.db.execution.update({
           where: { id: executionId },
-          data: { txHash, submittedAt: new Date() },
+          data: { txHash: buyTxHash, submittedAt: new Date() },
         });
         await this.db.transaction.create({
-          data: {
-            executionId,
-            nonce,
-            rawTx: txHash,
-            submittedAt: new Date(),
-          },
+          data: { executionId, nonce: buyNonce, rawTx: buyTxHash, submittedAt: new Date() },
         });
-
-        await release();
-
-        // ── 7. Wait for confirmation (max 2 blocks) ──────────────────────
-        await this.updateState(executionId, ExecutionState.CONFIRMING);
-        const receipt = await this.client.waitForTransactionReceipt({
-          hash: txHash as `0x${string}`,
-          timeout: 30_000,
-          confirmations: 1,
-        });
-
-        if (receipt.status === "success") {
-          await this.updateState(executionId, ExecutionState.LANDED);
-          await this.db.execution.update({
-            where: { id: executionId },
-            data: {
-              blockNumber: Number(receipt.blockNumber),
-              gasUsed: receipt.gasUsed.toString(),
-              gasCostUsd: 0, // compute from receipt.gasUsed * effectiveGasPrice
-              pnlUsd: input.profitBreakdown.netProfitUsd, // approximate
-              confirmedAt: new Date(),
-            },
-          });
-        } else {
-          await this.markFailed(executionId, "Transaction reverted on-chain", ErrorCode.TX_REVERTED);
-        }
+        await releaseBuy();
       } catch (err) {
-        await release().catch(() => {});
-        await this.markFailed(executionId, String(err), ErrorCode.TX_SUBMISSION_FAILED);
+        await releaseBuy().catch(() => {});
+        await this.markFailed(executionId, `Buy tx submission failed: ${err}`, ErrorCode.TX_SUBMISSION_FAILED);
         throw err;
       }
+
+      // ── 8. Wait for buy confirmation ─────────────────────────────────────
+      await this.updateState(executionId, ExecutionState.CONFIRMING);
+      const buyReceipt = await this.client.waitForTransactionReceipt({
+        hash: buyTxHash as `0x${string}`,
+        timeout: 30_000,
+        confirmations: 1,
+      });
+
+      if (buyReceipt.status !== "success") {
+        await this.markFailed(executionId, "Buy transaction reverted on-chain", ErrorCode.TX_REVERTED);
+        return;
+      }
+
+      // ── 9. Parse actual buy output from Transfer logs ────────────────────
+      const actualBuyOutput = this.parseTransferAmount(
+        buyReceipt.logs,
+        step0.tokenOut as `0x${string}`,
+        this.wallet.address
+      );
+      const sellAmountIn = actualBuyOutput ?? BigInt(step1.amountIn || step0.amountIn);
+
+      // ── 10. Build sell calldata with actual output ───────────────────────
+      const sellCalldata = await sellAdapter.buildSwapCalldata({
+        poolId: step1.poolId,
+        tokenIn: step1.tokenIn,
+        tokenOut: step1.tokenOut,
+        amountIn: sellAmountIn.toString(),
+        amountOutMin: step0.amountIn,
+        recipient: this.wallet.address,
+        deadline,
+        slippageBps: 50,
+      });
+
+      // ── 11. Ensure ERC20 approval for sell leg ──────────────────────────
+      await this.ensureTokenApproval(
+        step1.tokenIn as `0x${string}`,
+        sellCalldata.to as `0x${string}`,
+        sellAmountIn
+      );
+
+      // ── 12. Submit sell leg ──────────────────────────────────────────────
+      await this.updateState(executionId, ExecutionState.SUBMITTED);
+      const { nonce: sellNonce, release: releaseSell } = await this.nonceManager.acquireNonce(
+        this.wallet.address
+      );
+
+      let sellTxHash: string;
+      try {
+        const gasPrice = await this.client.getGasPrice();
+        const priorityGasPrice = (gasPrice * 110n) / 100n;
+
+        sellTxHash = await this.wallet.sendTransaction({
+          to: sellCalldata.to,
+          data: sellCalldata.data,
+          value: BigInt(sellCalldata.value),
+          gas: BigInt(sellCalldata.gasEstimate) * 12n / 10n,
+          gasPrice: priorityGasPrice,
+          nonce: sellNonce,
+        });
+
+        await this.db.transaction.create({
+          data: { executionId, nonce: sellNonce, rawTx: sellTxHash, submittedAt: new Date() },
+        });
+        await releaseSell();
+      } catch (err) {
+        await releaseSell().catch(() => {});
+        await this.markFailed(
+          executionId,
+          `Sell tx submission failed (buy landed at ${buyTxHash}): ${err}`,
+          ErrorCode.TX_SUBMISSION_FAILED
+        );
+        throw err;
+      }
+
+      // ── 13. Wait for sell confirmation ───────────────────────────────────
+      await this.updateState(executionId, ExecutionState.CONFIRMING);
+      const sellReceipt = await this.client.waitForTransactionReceipt({
+        hash: sellTxHash as `0x${string}`,
+        timeout: 30_000,
+        confirmations: 1,
+      });
+
+      if (sellReceipt.status !== "success") {
+        await this.markFailed(
+          executionId,
+          `Sell transaction reverted (buy landed at ${buyTxHash}, sell reverted at ${sellTxHash})`,
+          ErrorCode.TX_REVERTED
+        );
+        return;
+      }
+
+      // ── 14. Record success with total gas from both legs ─────────────────
+      const totalGasUsed = buyReceipt.gasUsed + sellReceipt.gasUsed;
+      const effectiveGasPrice = sellReceipt.effectiveGasPrice ?? 0n;
+      const gasCostWei = totalGasUsed * effectiveGasPrice;
+      const gasCostAvax = Number(gasCostWei) / 1e18;
+
+      await this.updateState(executionId, ExecutionState.LANDED);
+      await this.db.execution.update({
+        where: { id: executionId },
+        data: {
+          blockNumber: Number(sellReceipt.blockNumber),
+          gasUsed: totalGasUsed.toString(),
+          gasCostUsd: gasCostAvax, // approximate (needs AVAX→USD conversion for precision)
+          pnlUsd: input.profitBreakdown.netProfitUsd,
+          confirmedAt: new Date(),
+        },
+      });
+
+      // Update transaction records with confirmation
+      await this.db.transaction.updateMany({
+        where: { executionId, rawTx: buyTxHash },
+        data: { confirmedAt: new Date(Number(buyReceipt.blockNumber)) },
+      });
+      await this.db.transaction.updateMany({
+        where: { executionId, rawTx: sellTxHash },
+        data: { confirmedAt: new Date() },
+      });
     } catch (err) {
       await this.markFailed(executionId, String(err), ErrorCode.TX_SUBMISSION_FAILED);
+    }
+  }
+
+  /**
+   * Parses Transfer event logs to find the actual amount of `token` received by `recipient`.
+   * Returns the sum of all Transfer amounts to the recipient for the given token.
+   */
+  private parseTransferAmount(
+    logs: readonly { address: string; topics: readonly string[]; data: string }[],
+    token: `0x${string}`,
+    recipient: `0x${string}`
+  ): bigint | null {
+    const tokenLower = token.toLowerCase();
+    const recipientPadded = `0x${recipient.slice(2).toLowerCase().padStart(64, "0")}`;
+    let total = 0n;
+    let found = false;
+
+    for (const log of logs) {
+      if (log.address.toLowerCase() !== tokenLower) continue;
+      if (log.topics[0] !== TRANSFER_TOPIC) continue;
+      if (log.topics[2]?.toLowerCase() !== recipientPadded) continue;
+
+      const amount = BigInt(log.data);
+      total += amount;
+      found = true;
+    }
+
+    return found ? total : null;
+  }
+
+  /**
+   * Checks ERC20 allowance and sends an `approve(MAX)` transaction if needed.
+   * Skips if the current allowance is already large enough.
+   */
+  private async ensureTokenApproval(
+    token: `0x${string}`,
+    spender: `0x${string}`,
+    requiredAmount: bigint
+  ): Promise<void> {
+    try {
+      const currentAllowance = await this.client.readContract({
+        address: token,
+        abi: ERC20_ABI,
+        functionName: "allowance",
+        args: [this.wallet.address, spender],
+      });
+
+      if (currentAllowance >= requiredAmount && currentAllowance >= MIN_ALLOWANCE_THRESHOLD) {
+        return;
+      }
+
+      const approveData = encodeFunctionData({
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [spender, MAX_UINT256],
+      });
+
+      const { nonce, release } = await this.nonceManager.acquireNonce(this.wallet.address);
+      try {
+        const gasPrice = await this.client.getGasPrice();
+        const approveTx = await this.wallet.sendTransaction({
+          to: token,
+          data: approveData,
+          value: 0n,
+          gas: 60_000n,
+          gasPrice,
+          nonce,
+        });
+        await release();
+
+        await this.client.waitForTransactionReceipt({
+          hash: approveTx as `0x${string}`,
+          timeout: 20_000,
+          confirmations: 1,
+        });
+      } catch (err) {
+        await release().catch(() => {});
+        throw new ArbitexError(
+          ErrorCode.TX_SUBMISSION_FAILED,
+          `ERC20 approve failed for ${token} → ${spender}: ${err}`
+        );
+      }
+    } catch (err) {
+      if (err instanceof ArbitexError) throw err;
+      throw new ArbitexError(
+        ErrorCode.TX_SUBMISSION_FAILED,
+        `Allowance check failed for ${token}: ${err}`
+      );
     }
   }
 

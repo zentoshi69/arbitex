@@ -44,16 +44,16 @@ function RiskConfigForm({ config }: { config: Record<string, number> }) {
     <div className="ax-panel">
       <div className="px-5 py-4 border-b border-[var(--ax-border)]">
         <h2 className="text-sm font-semibold text-white">Risk Parameters</h2>
-        <p className="text-xs text-slate-400 mt-0.5">
+        <p className="text-xs text-[var(--grey1)] mt-0.5">
           Changes take effect immediately on next evaluation. All changes are audited.
         </p>
       </div>
       <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
         {FIELDS.map(({ key, label, description, unit, min, step }) => (
           <div key={key} className="space-y-1">
-            <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
+            <label className="text-xs font-medium text-[var(--offwhite)] flex items-center justify-between">
               {label}
-              <span className="text-slate-500 font-normal text-[11px]">{unit}</span>
+              <span className="text-[var(--grey2)] font-normal text-[11px]">{unit}</span>
             </label>
             <input
               type="number"
@@ -65,12 +65,12 @@ function RiskConfigForm({ config }: { config: Record<string, number> }) {
               step={step}
               className="w-full ax-field px-3 py-1.5 text-sm font-mono"
             />
-            <p className="text-[11px] text-slate-500">{description}</p>
+            <p className="text-[11px] text-[var(--grey2)]">{description}</p>
           </div>
         ))}
       </div>
       <div className="px-5 py-4 border-t border-[var(--ax-border)] flex items-center justify-between">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-[var(--grey2)]">
           Requires ADMIN role. Change is logged to audit trail.
         </p>
         <button
@@ -108,10 +108,10 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
     <div className="ax-panel">
       <div className="px-5 py-4 border-b border-[var(--ax-border)]">
         <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-red-400" />
+          <ShieldAlert className="w-4 h-4 text-[var(--red)]" />
           Kill Switches
         </h2>
-        <p className="text-xs text-slate-400 mt-0.5">
+        <p className="text-xs text-[var(--grey1)] mt-0.5">
           Instant halts — take effect on next evaluation cycle.
         </p>
       </div>
@@ -122,19 +122,19 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
             <div
               key={key}
               className={`flex items-center justify-between px-5 py-4 ${
-                active ? "bg-red-950/30" : ""
+                active ? "bg-[rgba(232,65,66,0.08)]" : ""
               }`}
             >
               <div>
-                <p className={`text-sm font-medium ${active ? "text-red-300" : "text-slate-200"}`}>
+                <p className={`text-sm font-medium ${active ? "text-[var(--red)]" : "text-[var(--offwhite)]"}`}>
                   {meta.label}
                   {active && (
-                    <span className="ml-2 text-[10px] font-bold text-red-400 bg-red-900/60 px-1.5 py-0.5 rounded">
+                    <span className="ml-2 text-[10px] font-bold text-[var(--red)] bg-[rgba(232,65,66,0.08)] px-1.5 py-0.5 rounded">
                       ACTIVE
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">{meta.description}</p>
+                <p className="text-xs text-[var(--grey2)] mt-0.5">{meta.description}</p>
               </div>
               <button
                 onClick={() => {
@@ -147,10 +147,10 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
                 disabled={mutation.isPending}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                   active
-                    ? "bg-emerald-800 hover:bg-emerald-700 text-emerald-200"
+                    ? "bg-[#166534] hover:opacity-90 text-[#4DD68C]"
                     : meta.danger
-                      ? "bg-red-900 hover:bg-red-800 text-red-200"
-                      : "bg-orange-900 hover:bg-orange-800 text-orange-200"
+                      ? "bg-[rgba(232,65,66,0.08)] hover:opacity-90 text-[var(--red)]"
+                      : "bg-[rgba(249,115,22,0.12)] hover:opacity-90 text-[#F97316]"
                 }`}
               >
                 {active ? (
@@ -169,10 +169,10 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/70">
           <div className="ax-panel p-6 w-96 shadow-2xl" style={{ borderColor: "rgba(232,65,66,0.35)" }}>
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="w-6 h-6 text-red-400" />
+              <AlertTriangle className="w-6 h-6 text-[var(--red)]" />
               <h3 className="text-lg font-bold text-white">Activate Global Kill Switch?</h3>
             </div>
-            <p className="text-sm text-slate-300 mb-6">
+            <p className="text-sm text-[var(--offwhite)] mb-6">
               This will immediately halt ALL opportunity detection and execution across
               all chains. Confirm this action — it will be logged to the audit trail.
             </p>
@@ -225,20 +225,20 @@ function RiskEventsFeed() {
       <div className="divide-y max-h-80 overflow-y-auto" style={{ borderColor: "rgba(30,30,28,0.6)" }}>
         {isLoading && <div className="p-4"><Skeleton className="h-8" /></div>}
         {!isLoading && (!events || events.length === 0) && (
-          <p className="text-center text-slate-500 text-xs py-8">No risk events</p>
+          <p className="text-center text-[var(--grey2)] text-xs py-8">No risk events</p>
         )}
         {events?.map((evt: any) => (
           <div key={evt.id} className="flex items-start gap-3 px-4 py-3">
             <SeverityBadge severity={evt.severity} />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-mono text-slate-300">{evt.eventType}</p>
+              <p className="text-xs font-mono text-[var(--offwhite)]">{evt.eventType}</p>
               {evt.token && (
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-[var(--grey2)] mt-0.5">
                   Token: {evt.token.symbol} ({evt.token.address.slice(0, 10)}…)
                 </p>
               )}
             </div>
-            <span className="text-[11px] text-slate-500 font-mono flex-shrink-0">
+            <span className="text-[11px] text-[var(--grey2)] font-mono flex-shrink-0">
               {new Date(evt.createdAt).toLocaleTimeString()}
             </span>
           </div>

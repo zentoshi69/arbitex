@@ -11,7 +11,7 @@ export function Panel({ children, className }: PanelProps) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-[2px] border border-border bg-bg-card",
+        "relative overflow-hidden rounded-[2px] border border-[var(--border)] bg-[var(--bg2)]",
         className
       )}
     >
@@ -40,19 +40,19 @@ export function PanelHeader({
   action,
 }: PanelHeaderProps) {
   return (
-    <div className="flex items-start justify-between border-b border-border px-4 py-3">
+    <div className="flex items-start justify-between border-b border-[var(--border)] px-4 py-3">
       <div className="flex items-start gap-2">
         {icon && (
-          <span className="mt-0.5 text-red [&>svg]:h-3.5 [&>svg]:w-3.5">
+          <span className="mt-0.5 text-[var(--red)] [&>svg]:h-3.5 [&>svg]:w-3.5">
             {icon}
           </span>
         )}
         <div>
-          <h3 className="text-[12.5px] font-semibold tracking-[-0.01em] text-white">
+          <h3 className="font-styrene text-[28px] font-black leading-none tracking-[-0.03em] text-[var(--offwhite)]">
             {title}
           </h3>
           {description && (
-            <p className="mt-0.5 text-[10px] text-dim">{description}</p>
+            <p className="mt-1 text-[10px] text-[var(--grey2)]">{description}</p>
           )}
         </div>
       </div>

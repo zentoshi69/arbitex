@@ -23,16 +23,16 @@ function LiquidityBar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden w-24">
+      <div className="flex-1 h-1.5 bg-[var(--bg3)] rounded-full overflow-hidden w-24">
         <div
           className={cn(
             "h-full rounded-full",
-            value > 1_000_000 ? "bg-emerald-500" : value > 100_000 ? "bg-slate-400" : "bg-slate-600"
+            value > 1_000_000 ? "bg-[#4DD68C]" : value > 100_000 ? "bg-[var(--grey1)]" : "bg-[var(--grey2)]"
           )}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-mono text-slate-400 w-20 text-right">
+      <span className="text-xs font-mono text-[var(--grey1)] w-20 text-right">
         ${value >= 1_000_000
           ? `${(value / 1_000_000).toFixed(2)}M`
           : value >= 1_000
@@ -44,9 +44,9 @@ function LiquidityBar({ value, max }: { value: number; max: number }) {
 }
 
 function SnapshotAge({ lastUpdated }: { lastUpdated: string | null }) {
-  if (!lastUpdated) return <span className="text-xs text-slate-600">—</span>;
+  if (!lastUpdated) return <span className="text-xs text-[var(--grey3)]">—</span>;
   const ageSecs = (Date.now() - new Date(lastUpdated).getTime()) / 1000;
-  const color = ageSecs < 5 ? "text-emerald-400" : ageSecs < 30 ? "text-amber-400" : "text-red-400";
+  const color = ageSecs < 5 ? "text-[#4DD68C]" : ageSecs < 30 ? "text-[#F59E0B]" : "text-[var(--red)]";
   const label = ageSecs < 60 ? `${ageSecs.toFixed(0)}s ago` : `${(ageSecs / 60).toFixed(1)}m ago`;
   return <span className={`text-xs font-mono ${color}`}>{label}</span>;
 }
@@ -82,7 +82,7 @@ export default function PoolsPage() {
 
       <div className="flex items-center gap-3">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--grey2)]" />
           <input
             type="text"
             placeholder="Filter by pair, venue… or paste 0x… to resolve"
@@ -106,38 +106,38 @@ export default function PoolsPage() {
             className="pl-8 pr-3 py-1.5 ax-field text-sm w-52"
           />
         </div>
-        {resolving && <span className="text-xs text-slate-500">Resolving…</span>}
-        <span className="ml-auto text-xs text-slate-500">{data?.pagination?.total ?? 0} pools</span>
+        {resolving && <span className="text-xs text-[var(--grey2)]">Resolving…</span>}
+        <span className="ml-auto text-xs text-[var(--grey2)]">{data?.pagination?.total ?? 0} pools</span>
       </div>
 
       {resolved && (
         <div className="ax-panel p-4 text-sm space-y-2">
           <div className="flex items-center justify-between">
-            <div className="text-slate-300">
+            <div className="text-[var(--offwhite)]">
               Resolved: <span className="font-semibold">{resolved.kind}</span>
             </div>
             <AddressCell address={resolved.address} />
           </div>
           {resolved.token?.data && (
-            <div className="text-slate-200">
+            <div className="text-[var(--offwhite)]">
               Token ({resolved.token.source}):{" "}
               <span className="font-semibold">{resolved.token.data.symbol}</span>{" "}
-              <span className="text-slate-400">({resolved.token.data.decimals} decimals)</span>
+              <span className="text-[var(--grey1)]">({resolved.token.data.decimals} decimals)</span>
             </div>
           )}
           {resolved.pool && (
-            <div className="text-slate-200">
+            <div className="text-[var(--offwhite)]">
               Pool:{" "}
               <span className="font-semibold">
                 {resolved.pool.token0?.symbol ?? "?"} / {resolved.pool.token1?.symbol ?? "?"}
               </span>{" "}
-              <span className="text-slate-400">
+              <span className="text-[var(--grey1)]">
                 · {resolved.pool.venue?.name ?? "—"} · {resolved.pool.feeBps} bps
               </span>
             </div>
           )}
           {(resolved.pools?.length ?? 0) > 0 && (
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-[var(--grey1)]">
               {resolved.pools.length} associated pools found in DB.
             </div>
           )}
@@ -174,23 +174,23 @@ export default function PoolsPage() {
                   <tr key={pool.id}>
                     <td>
                       <div className="flex items-center gap-1.5">
-                        <Droplets className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
-                        <span className="font-semibold text-slate-200 text-sm">
+                        <Droplets className="w-3.5 h-3.5 text-[var(--offwhite)] flex-shrink-0" />
+                        <span className="font-semibold text-[var(--offwhite)] text-sm">
                           {pool.token0?.symbol ?? "?"} / {pool.token1?.symbol ?? "?"}
                         </span>
                       </div>
                       <AddressCell address={pool.poolAddress} />
                     </td>
                     <td>
-                      <span className="text-sm text-slate-300">{pool.venue?.name ?? "—"}</span>
+                      <span className="text-sm text-[var(--offwhite)]">{pool.venue?.name ?? "—"}</span>
                     </td>
-                    <td className="text-right font-mono text-xs text-slate-400">
+                    <td className="text-right font-mono text-xs text-[var(--grey1)]">
                       {pool.feeBps} bps
                     </td>
                     <td>
                       <LiquidityBar value={liq} max={maxLiquidity} />
                     </td>
-                    <td className="text-right font-mono text-xs text-slate-300">
+                    <td className="text-right font-mono text-xs text-[var(--offwhite)]">
                       {snap ? Number(snap.price0Per1).toFixed(6) : "—"}
                     </td>
                     <td>
@@ -198,9 +198,9 @@ export default function PoolsPage() {
                     </td>
                     <td>
                       <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                        pool.isActive ? "text-emerald-400" : "text-slate-500"
+                        pool.isActive ? "text-[#4DD68C]" : "text-[var(--grey2)]"
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${pool.isActive ? "bg-emerald-400" : "bg-slate-600"}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${pool.isActive ? "bg-[#4DD68C]" : "bg-[var(--grey2)]"}`} />
                         {pool.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
@@ -217,7 +217,7 @@ export default function PoolsPage() {
               className="text-xs px-3 py-1.5 ax-btn">
               ← Prev
             </button>
-            <span className="text-xs text-slate-500">Page {page} / {data.pagination.totalPages}</span>
+            <span className="text-xs text-[var(--grey2)]">Page {page} / {data.pagination.totalPages}</span>
             <button onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))} disabled={page === data.pagination.totalPages}
               className="text-xs px-3 py-1.5 ax-btn">
               Next →

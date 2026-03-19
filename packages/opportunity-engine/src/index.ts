@@ -112,12 +112,19 @@ export function buildOpportunityFingerprint(
 
 export class OpportunityEngine {
   private poolCache = new Map<string, NormalizedPool>();
+  private adapters: IDexAdapter[];
 
   constructor(
-    private readonly adapters: IDexAdapter[],
+    adapters: IDexAdapter[],
     private readonly db: PrismaClient,
     private readonly client: ArbitexPublicClient
-  ) {}
+  ) {
+    this.adapters = adapters;
+  }
+
+  updateAdapters(adapters: IDexAdapter[]): void {
+    this.adapters = adapters;
+  }
 
   /**
    * Refresh all pools from all adapters and return detected candidates.
