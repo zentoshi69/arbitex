@@ -159,6 +159,21 @@ export const api = {
     },
   },
 
+  // Market
+  market: {
+    prices: (params?: { pangolinVenueId?: string; blackholeVenueId?: string }) => {
+      const qs = new URLSearchParams();
+      if (params?.pangolinVenueId) qs.set("pangolinVenueId", params.pangolinVenueId);
+      if (params?.blackholeVenueId) qs.set("blackholeVenueId", params.blackholeVenueId);
+      const q = qs.toString();
+      return apiFetch<any>(`/market/prices${q ? `?${q}` : ""}`);
+    },
+    tokenPrices: () => apiFetch<{
+      updatedAt: string;
+      tokens: Record<string, { usd: number | null; source: string; change24h: number | null }>;
+    }>("/market/tokens"),
+  },
+
   // Health
   health: () => fetch(`${BASE}/health`).then((r) => r.json()),
 };

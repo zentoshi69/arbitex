@@ -12,6 +12,9 @@ function loadEnvFromMonorepoRoot(): void {
     if (existsSync(path.join(root, "pnpm-workspace.yaml"))) {
       loadDotenv({ path: path.join(root, ".env.local") });
       loadDotenv({ path: path.join(root, ".env") });
+      if (existsSync(path.join(root, ".env.secrets"))) {
+        loadDotenv({ path: path.join(root, ".env.secrets") });
+      }
       return;
     }
     root = path.resolve(root, "..");

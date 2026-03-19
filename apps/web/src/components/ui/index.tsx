@@ -104,37 +104,13 @@ export function Skeleton({ className }: { className?: string }) {
   );
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-export function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="py-12 px-6 text-center">
-      <div className="mx-auto w-8 h-8 opacity-20 relative">
-        <div className="absolute inset-x-0 top-1/2 h-px bg-[var(--ax-white)]" />
-        <div className="absolute inset-y-0 left-1/2 w-px bg-[var(--ax-white)]" />
-      </div>
-      <div className="mt-3 text-sm text-[var(--ax-muted)]">{message}</div>
-    </div>
-  );
-}
-
-// ── Section header ────────────────────────────────────────────────────────────
-export function SectionHeader({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description?: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between mb-6 pb-4 border-b border-[var(--ax-border)] relative">
-      <div>
-        <h1 className="text-[22px] font-bold tracking-[-0.03em] text-[var(--ax-white)]">{title}</h1>
-        {description && <p className="text-[11px] text-[var(--ax-dim)] mt-1">{description}</p>}
-      </div>
-      {action && <div>{action}</div>}
-      <span className="absolute -bottom-px left-0 h-px w-[60px]" style={{ background: "var(--ax-red)" }} />
-    </div>
-  );
-}
+// ── New design system components ─────────────────────────────────────────────
+export { Button } from "./Button";
+export { Panel, PanelHeader } from "./Panel";
+export { Tag } from "./Tag";
+export { Alert } from "./Alert";
+export { EmptyState } from "./EmptyState";
+export { InfoGrid } from "./InfoGrid";
+export { SectionHeader } from "./SectionHeader";
+export { PageHeader } from "./PageHeader";
+export { VenueSelect } from "./VenueSelect";

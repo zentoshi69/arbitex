@@ -2,19 +2,31 @@
 .env
 .env.local
 .env.prod
+.env.secrets
 .env.*.local
+
+# Keystore files
+infra/secrets/
 
 # Dependencies
 node_modules/
+.pnpm-store/
 
 # Build
 dist/
 .next/
 *.tsbuildinfo
 
-# IDE
+# TypeScript build output in source dirs (packages emit to src/)
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.d.ts.map
+
+# IDE / run configs
 .idea/
 .vscode/
+.run/
 *.swp
 *.swo
 
@@ -25,6 +37,7 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+.logs/
 
 # Test
 coverage/

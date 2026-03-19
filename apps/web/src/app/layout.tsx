@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { LiveTicker } from "@/components/layout/LiveTicker";
 import { Providers } from "@/components/layout/Providers";
 import { AuthGate } from "@/components/layout/AuthGate";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "ArbitEx — Operator Dashboard",
@@ -17,14 +15,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-slate-950 text-slate-100 antialiased`}>
+      <body className="antialiased">
         <Providers>
           <AuthGate>
-            <div className="flex h-screen overflow-hidden">
+            <div className="ax-root flex h-screen overflow-hidden bg-bg text-white">
               <Sidebar />
-              <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <LiveTicker />
                 <TopBar />
-                <main className="flex-1 overflow-y-auto p-6 bg-slate-950">
+                <main className="min-h-0 flex-1 overflow-y-auto p-6">
                   {children}
                 </main>
               </div>

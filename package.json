@@ -20,9 +20,11 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "keystore:create": "node scripts/create-keystore.mjs"
   },
   "devDependencies": {
+    "@ethereumjs/wallet": "^2.0.3",
     "@playwright/test": "^1.44.0",
     "@types/node": "^20.14.0",
     "eslint": "^9.3.0",
