@@ -27,6 +27,8 @@ loadEnvFromMonorepoRoot();
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
+const optionalUrl = z.string().transform(v => v === "" ? undefined : v).pipe(z.string().url().optional());
+
 const EnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
@@ -42,22 +44,19 @@ const EnvSchema = z.object({
   REDIS_URL: z.string().url("REDIS_URL must be a valid URL"),
 
   // Multi-chain RPC — private QuickNode/Alchemy URLs preferred for all blockchain ops
-  ETHEREUM_RPC_URL: z.string().url().optional(),
-  ETHEREUM_ARCHIVE_RPC_URL: z.string().url().optional(),
-  ETHEREUM_WSS_URL: z.string().url().optional(),
-  AVALANCHE_RPC_URL: z.string().url().optional(),
-  AVALANCHE_ARCHIVE_RPC_URL: z.string().url().optional(),
-  AVALANCHE_WSS_URL: z.string().url().optional(),
-  BSC_RPC_URL: z.string().url().optional(),
-  POLYGON_RPC_URL: z.string().url().optional(),
-  ARBITRUM_RPC_URL: z.string().url().optional(),
-  ARBITRUM_WSS_URL: z.string().url().optional(),
-  BASE_RPC_URL: z.string().url().optional(),
-  BASE_WSS_URL: z.string().url().optional(),
+  ETHEREUM_RPC_URL: optionalUrl,
+  ETHEREUM_ARCHIVE_RPC_URL: optionalUrl,
+  ETHEREUM_WSS_URL: optionalUrl,
+  AVALANCHE_RPC_URL: optionalUrl,
+  AVALANCHE_ARCHIVE_RPC_URL: optionalUrl,
+  AVALANCHE_WSS_URL: optionalUrl,
+  BSC_RPC_URL: optionalUrl,
+  POLYGON_RPC_URL: optionalUrl,
+  ARBITRUM_RPC_URL: optionalUrl,
+  ARBITRUM_WSS_URL: optionalUrl,
+  BASE_RPC_URL: optionalUrl,
+  BASE_WSS_URL: optionalUrl,
   CHAIN_ID: z.coerce.number().int().positive().default(1),
-
-  // Avalanche (optional, used for V2 LP admin)
-  AVALANCHE_RPC_URL: z.string().url().optional(),
 
   // Super Admin signer (for LP actions on-chain)
   SUPERADMIN_KEYSTORE_PATH: z.string().optional(),
