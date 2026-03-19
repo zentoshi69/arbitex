@@ -38,15 +38,23 @@ Caddy provisions Let's Encrypt certificates automatically.
 ```bash
 # 1. Configure env
 cp .env.prod.example .env.prod
-# Edit .env.prod — set all CHANGE_ME values, OPERATOR_PASSWORD_HASH, etc.
+cp .env.secrets.example .env.secrets
+# Edit .env.prod — domains, ACME_EMAIL
+# Edit .env.secrets — all secrets: DB, Redis, JWT, RPC URLs, keystore paths & passphrases
 
-# 2. Run migrations
-docker compose -f docker-compose.prod.yml --env-file .env.prod --profile tools run --rm migrate
+# 2. Create keystores (for production; skip if MOCK_EXECUTION=true)
+pnpm install
+pnpm run keystore:create execution   # Creates infra/secrets/execution-keystore.json
+pnpm run keystore:create superadmin # Creates infra/secrets/superadmin-keystore.json
+# Set EXECUTION_KEYSTORE_FILE, SUPERADMIN_KEYSTORE_FILE, and *_PASS in .env.secrets
 
-# 3. Start stack
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+# 3. Run migrations
+docker compose -f docker-compose.prod.yml --env-file .env.prod --env-file .env.secrets --profile tools run --rm migrate
 
-# 4. Verify
+# 4. Start stack (loads both env files; .env.secrets overrides)
+docker compose -f docker-compose.prod.yml --env-file .env.prod --env-file .env.secrets up -d
+
+# 5. Verify
 curl -s https://bitrunner3001.com | head -5
 curl -s https://api.bitrunner3001.com/health | jq
 ```

@@ -9,7 +9,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        border: "hsl(var(--border))",
+        red: {
+          DEFAULT: "#E84142",
+          dim: "rgba(232,65,66,0.12)",
+          glow: "rgba(232,65,66,0.06)",
+        },
+        dim: "#888880",
+        muted: "#444440",
+        border: {
+          DEFAULT: "#1A1A18",
+          hi: "#242420",
+        },
+        bg: {
+          DEFAULT: "#080808",
+          panel: "#0D0D0B",
+          card: "#111110",
+          hover: "#161614",
+        },
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -47,13 +63,14 @@ module.exports = {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        DEFAULT: "2px",
+        lg: "2px",
+        md: "2px",
+        sm: "2px",
       },
       fontFamily: {
-        sans: ["var(--ax-font)"],
-        mono: ["var(--ax-font)"],
+        sans: ["StyreneB", "Helvetica Neue", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
       animation: {
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",

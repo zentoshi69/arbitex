@@ -3,16 +3,31 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import { SectionHeader, Skeleton } from "@/components/ui";
-import { Settings, ToggleLeft, ToggleRight, AlertTriangle } from "lucide-react";
+import {
+  SectionHeader,
+  PageHeader,
+  Button,
+  Panel,
+  PanelHeader,
+  VenueSelect,
+  EmptyState,
+  InfoGrid,
+  Alert,
+  Tag,
+  Skeleton,
+} from "@/components/ui";
+import { Settings, ToggleLeft, ToggleRight, AlertTriangle, ArrowRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDexVenueIds } from "@/hooks/useDexVenueIds";
+import { useMemo } from "react";
 
 function VenueRow({ venue }: { venue: any }) {
   const qc = useQueryClient();
   const [confirming, setConfirming] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: (isEnabled: boolean) => api.venues.update(venue.id, { isEnabled }),
+    mutationFn: (isEnabled: boolean) =>
+      api.venues.update(venue.id, { isEnabled }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["venues"] });
       setConfirming(false);
@@ -20,34 +35,45 @@ function VenueRow({ venue }: { venue: any }) {
   });
 
   return (
-    <div className={cn(
-      "flex items-center justify-between px-5 py-4 border-b border-[var(--ax-border)] last:border-0",
-      !venue.isEnabled && "opacity-60"
-    )}>
+    <div
+      className={cn(
+        "flex items-center justify-between border-b border-border px-4 py-4 last:border-0",
+        !venue.isEnabled && "opacity-60"
+      )}
+    >
       <div>
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-slate-200">{venue.name}</p>
-          <span className="text-[10px] font-mono text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
+          <p className="text-[13px] font-medium text-white">{venue.name}</p>
+          <span className="rounded-[2px] border border-border bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-muted">
             {venue.protocol}
           </span>
         </div>
-        <p className="text-xs text-slate-500 mt-0.5 font-mono">
+        <p className="mt-0.5 font-mono text-[10.5px] text-dim">
           {venue.routerAddress}
         </p>
       </div>
       <div className="flex items-center gap-3">
-        <span className={`text-xs font-semibold ${venue.isEnabled ? "text-emerald-400" : "text-slate-500"}`}>
+        <span
+          className={cn(
+            "text-xs font-semibold",
+            venue.isEnabled ? "text-[#4ADE80]" : "text-muted"
+          )}
+        >
           {venue.isEnabled ? "ENABLED" : "DISABLED"}
         </span>
         {confirming ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-amber-400">Confirm?</span>
-            <button onClick={() => mutation.mutate(!venue.isEnabled)}
-              className="text-xs px-2 py-1 bg-amber-700 hover:bg-amber-600 rounded text-white transition-colors">
+            <button
+              onClick={() => mutation.mutate(!venue.isEnabled)}
+              className="rounded-[2px] bg-amber-700 px-2 py-1 text-xs text-white transition-colors hover:bg-amber-600"
+            >
               Yes
             </button>
-            <button onClick={() => setConfirming(false)}
-              className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300 transition-colors">
+            <button
+              onClick={() => setConfirming(false)}
+              className="rounded-[2px] bg-bg-hover px-2 py-1 text-xs text-dim transition-colors hover:bg-border-hi"
+            >
               No
             </button>
           </div>
@@ -56,16 +82,21 @@ function VenueRow({ venue }: { venue: any }) {
             onClick={() => setConfirming(true)}
             disabled={mutation.isPending}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-[2px] px-3 py-1.5 text-xs font-medium transition-colors duration-[0.12s]",
               venue.isEnabled
-                ? "bg-slate-800 hover:bg-red-900/60 text-slate-300 hover:text-red-300"
-                : "bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300"
+                ? "bg-red/10 text-dim hover:bg-red/20 hover:text-red"
+                : "bg-[#4ADE80]/10 text-[#4ADE80] hover:bg-[#4ADE80]/20"
             )}
           >
-            {venue.isEnabled
-              ? <><ToggleRight className="w-3.5 h-3.5" /> Disable</>
-              : <><ToggleLeft className="w-3.5 h-3.5" /> Enable</>
-            }
+            {venue.isEnabled ? (
+              <>
+                <ToggleRight className="h-3.5 w-3.5" /> Disable
+              </>
+            ) : (
+              <>
+                <ToggleLeft className="h-3.5 w-3.5" /> Enable
+              </>
+            )}
           </button>
         )}
       </div>
@@ -74,77 +105,151 @@ function VenueRow({ venue }: { venue: any }) {
 }
 
 export default function SettingsPage() {
-  const { data: venues, isLoading: venuesLoading } = useQuery({
+  const { data: venuesData, isLoading: venuesLoading } = useQuery({
     queryKey: ["venues"],
     queryFn: () => api.venues.list(),
   });
 
-  const venueList = venues?.items ?? venues ?? [];
+  const { pangolinVenueId, blackholeVenueId, save } = useDexVenueIds();
+
+  const venueList = Array.isArray(venuesData)
+    ? venuesData
+    : (venuesData as any)?.items ?? [];
+
+  const avaxVenues = useMemo(
+    () => (venueList as any[]).filter((v: any) => v.chainId === 43114),
+    [venueList]
+  );
+
+  const activeCount = (venueList as any[]).filter(
+    (v: any) => v.isEnabled
+  ).length;
 
   return (
-    <div className="space-y-6 max-w-[900px]">
-      <SectionHeader
+    <div className="max-w-[900px] space-y-6">
+      <PageHeader
         title="Settings"
-        description="Venue and chain configuration"
+        subtitle="Venue and chain configuration"
+        actions={
+          <>
+            <Button variant="ghost">Export config</Button>
+            <Button variant="primary" icon={<ArrowRight className="h-3 w-3" />}>
+              Deploy changes
+            </Button>
+          </>
+        }
       />
 
-      {/* Venue toggles */}
-      <div className="ax-panel overflow-hidden">
-        <div className="px-5 py-4 border-b border-[var(--ax-border)]">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Settings className="w-4 h-4 text-[var(--ax-dim)]" />
-            DEX Venues
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Disable a venue to stop all pool indexing and execution for that DEX.
-            Changes take effect on next poll cycle.
+      {/* Live Prices — Venue Selection */}
+      <section>
+        <SectionHeader label="Live Prices — Venue Selection" />
+        <Panel className="p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <VenueSelect
+              label="Pangolin V2 venue"
+              value={pangolinVenueId}
+              options={avaxVenues}
+              onChange={(v) => save({ pangolinVenueId: v, blackholeVenueId })}
+              chainLabel=""
+            />
+            <VenueSelect
+              label="Blackhole V2 venue"
+              value={blackholeVenueId}
+              options={avaxVenues}
+              onChange={(v) => save({ pangolinVenueId, blackholeVenueId: v })}
+              chainLabel=""
+            />
+          </div>
+          <p className="mt-3 text-[9.5px] text-muted">
+            Prices show once the three pools are registered under these venues.
           </p>
-        </div>
-        {venuesLoading ? (
-          <div className="p-4 space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
-          </div>
-        ) : venueList.length === 0 ? (
-          <div className="px-5 py-8 text-center text-slate-500 text-sm">
-            No venues configured. Seed the database to add venues.
-          </div>
-        ) : (
-          venueList.map((venue: any) => <VenueRow key={venue.id} venue={venue} />)
-        )}
-      </div>
+        </Panel>
+      </section>
 
-      {/* System info */}
-      <div className="ax-panel p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-white">System Information</h2>
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          {[
-            ["API URL", process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"],
-            ["WS URL", process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001"],
-            ["Dashboard Version", "v1.0.0-MVP"],
-            ["Environment", process.env.NODE_ENV ?? "development"],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="rounded-[2px] px-3 py-2 border"
-              style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--ax-border)" }}
-            >
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className="text-xs font-mono text-slate-300 mt-0.5 truncate">{value}</p>
+      {/* DEX Venues */}
+      <section>
+        <SectionHeader
+          label="DEX Venues"
+          tag={<Tag variant="gray">{activeCount} Active</Tag>}
+        />
+        <Panel>
+          <PanelHeader
+            icon={<Settings className="h-3.5 w-3.5" />}
+            title="DEX Venues"
+            description="Disable a venue to stop all pool indexing and execution for that DEX. Changes take effect on next poll cycle."
+            action={
+              <Button variant="ghost" icon={<Plus className="h-3 w-3" />}>
+                Add venue
+              </Button>
+            }
+          />
+          {venuesLoading ? (
+            <div className="space-y-3 p-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-[2px]" />
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          ) : venueList.length === 0 ? (
+            <EmptyState
+              message="No venues configured"
+              hint={
+                <>
+                  Seed the database to add venues — see{" "}
+                  <code>pnpm db:seed</code>
+                </>
+              }
+            />
+          ) : (
+            venueList.map((venue: any) => (
+              <VenueRow key={venue.id} venue={venue} />
+            ))
+          )}
+        </Panel>
+      </section>
 
-      {/* Security notes */}
-      <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-950/30 border border-amber-900/50">
-        <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-300 space-y-1">
-          <p className="font-semibold">Security Reminders</p>
+      {/* System Information */}
+      <section>
+        <SectionHeader label="System Information" />
+        <Panel>
+          <PanelHeader
+            icon={<Settings className="h-3.5 w-3.5" />}
+            title="System Info"
+          />
+          <div className="p-4 pt-0">
+            <InfoGrid
+              items={[
+                [
+                  "API URL",
+                  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
+                ],
+                [
+                  "WS URL",
+                  process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001",
+                ],
+                ["Dashboard Version", "v1.0.0-MVP"],
+                ["Environment", process.env.NODE_ENV ?? "development"],
+              ]}
+            />
+          </div>
+        </Panel>
+      </section>
+
+      {/* Security Reminders */}
+      <section>
+        <SectionHeader label="Security Reminders" />
+        <Alert
+          variant="amber"
+          icon={<AlertTriangle className="h-4 w-4" />}
+          title="Security Reminders"
+        >
           <p>Private keys are never accessible through this dashboard. Wallet management requires direct server access.</p>
           <p>All configuration changes are logged to the audit trail with actor, timestamp, and diff.</p>
-          <p>For production deployments, ensure <code className="font-mono bg-amber-950 px-1 rounded">MOCK_EXECUTION=false</code> and Flashbots relay is configured.</p>
-        </div>
-      </div>
+          <p>
+            For production deployments, ensure{" "}
+            <code>MOCK_EXECUTION=false</code> and Flashbots relay is configured.
+          </p>
+        </Alert>
+      </section>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   FileText,
   Activity,
   AlertTriangle,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKillSwitchStatus } from "@/hooks/useKillSwitchStatus";
@@ -47,72 +48,90 @@ export function Sidebar() {
           ? "Down"
           : "Connecting";
 
-  const statusClass =
+  const statusColor =
     health?.status === "healthy"
-      ? "text-emerald-300"
-      : health?.status === "degraded"
-        ? "text-amber-300"
-        : "text-[var(--ax-red)]";
+      ? "text-[#4ADE80]"
+      : "text-red";
 
   return (
-    <aside className="ax-sidebar flex flex-col w-[216px] min-h-screen flex-shrink-0">
+    <aside className="ax-sidebar flex w-[216px] min-h-screen flex-shrink-0 flex-col">
       {/* Logo */}
-      <div className="px-5 py-5 pb-4 border-b border-[var(--ax-border)] flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 border-b border-border px-[18px] py-[18px] pb-[14px]">
         <div
-          className="w-[30px] h-[30px] flex items-center justify-center flex-shrink-0"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center"
           style={{
-            background: "var(--ax-red)",
+            background: "#E84142",
             clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
           }}
         >
-          <Zap className="w-3.5 h-3.5 text-white" />
+          <Shield className="h-3 w-3 text-white" />
         </div>
-        <span className="text-[17px] font-bold tracking-tight text-[var(--ax-white)]">ArbitEx</span>
-        <span className="ml-auto text-[9px] text-[var(--ax-muted)] font-mono tracking-wider">v1.0</span>
+        <span className="text-base font-bold tracking-[-0.03em] text-white">
+          ArbitEx
+        </span>
+        <span className="ml-auto font-mono text-[8.5px] text-muted">v1.0</span>
       </div>
 
-      {/* Status */}
-      <div className="px-5 py-2.5 border-b border-[var(--ax-border)] flex items-center gap-2">
+      {/* Connection status */}
+      <div className="flex items-center gap-2 border-b border-border px-[18px] py-[9px]">
         <span
-          className="w-[5px] h-[5px] rounded-full"
+          className={cn(
+            "h-[5px] w-[5px] rounded-full",
+            health?.status === "healthy" ? "bg-[#4ADE80]" : "bg-red ax-throb"
+          )}
           style={{
-            background: health?.status === "healthy" ? "#4ADE80" : "var(--ax-red)",
-            boxShadow: `0 0 8px ${health?.status === "healthy" ? "rgba(74,222,128,0.7)" : "rgba(232,65,66,0.8)"}`,
+            boxShadow:
+              health?.status === "healthy"
+                ? "0 0 6px rgba(74,222,128,0.7)"
+                : "0 0 6px #E84142",
           }}
         />
-        <span className={cn("text-[9.5px] font-medium tracking-[0.14em] uppercase", statusClass)}>
+        <span
+          className={cn(
+            "text-[9px] font-medium uppercase tracking-[0.1em]",
+            statusColor
+          )}
+        >
           {statusText}
         </span>
       </div>
 
       {/* Kill switch warning */}
       {anyActive && (
-        <div className="mx-3 mt-3 flex items-center gap-2 px-3 py-2 rounded bg-[rgba(232,65,66,0.08)] border border-[rgba(232,65,66,0.25)]">
-          <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-          <span className="text-xs text-red-400 font-medium">Kill switch active</span>
+        <div className="mx-3 mt-3 flex items-center gap-2 rounded-[2px] border border-red/25 bg-red/8 px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 text-red-400" />
+          <span className="text-xs font-medium text-red-400">Kill switch active</span>
         </div>
       )}
 
       {/* Nav */}
-      <nav className="flex-1 px-2 py-2 overflow-y-auto">
-        <div className="px-2 pt-3 pb-1 text-[8.5px] font-medium tracking-[0.14em] uppercase text-[var(--ax-muted)] flex items-center gap-2">
-          Platform
-          <span className="flex-1 h-px bg-[var(--ax-border)]" />
+      <nav className="flex-1 overflow-y-auto px-2 py-2">
+        <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-3">
+          <span className="text-[8.5px] font-medium uppercase tracking-[0.14em] text-muted">
+            Platform
+          </span>
+          <span className="h-px flex-1 bg-border" />
         </div>
 
         {role === "ADMIN" && (
           <Link
             href="/pools/create"
             className={cn(
-              "flex items-center gap-2.5 px-3 py-2 rounded-[3px] text-[12.5px] transition-colors mb-2",
+              "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s] mb-0.5",
               pathname.startsWith("/pools/create")
-                ? "bg-[var(--ax-red-dim)] text-[var(--ax-white)] font-medium"
-                : "text-[var(--ax-dim)] hover:text-[var(--ax-white)] hover:bg-[var(--ax-bg-hover)]"
+                ? "bg-red-dim font-medium text-white"
+                : "text-dim hover:bg-bg-hover hover:text-white"
             )}
           >
-            <Droplets className="w-4 h-4 flex-shrink-0" />
+            {pathname.startsWith("/pools/create") && (
+              <span
+                className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
+                style={{ background: "#E84142" }}
+              />
+            )}
+            <Droplets className="h-4 w-4 flex-shrink-0" />
             Create Pool
-            <span className="ml-auto text-[10px] font-mono text-[var(--ax-muted)]">ADMIN</span>
+            <span className="ml-auto font-mono text-[8px] text-muted">ADMIN</span>
           </Link>
         )}
 
@@ -120,15 +139,21 @@ export function Sidebar() {
           <Link
             href="/lp/v2"
             className={cn(
-              "flex items-center gap-2.5 px-3 py-2 rounded-[3px] text-[12.5px] transition-colors mb-2",
+              "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s] mb-0.5",
               pathname.startsWith("/lp/v2")
-                ? "bg-[var(--ax-red-dim)] text-[var(--ax-white)] font-medium"
-                : "text-[var(--ax-dim)] hover:text-[var(--ax-white)] hover:bg-[var(--ax-bg-hover)]"
+                ? "bg-red-dim font-medium text-white"
+                : "text-dim hover:bg-bg-hover hover:text-white"
             )}
           >
-            <Droplets className="w-4 h-4 flex-shrink-0" />
+            {pathname.startsWith("/lp/v2") && (
+              <span
+                className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
+                style={{ background: "#E84142" }}
+              />
+            )}
+            <Droplets className="h-4 w-4 flex-shrink-0" />
             V2 LP Admin
-            <span className="ml-auto text-[10px] font-mono text-[var(--ax-muted)]">SUPER</span>
+            <span className="ml-auto font-mono text-[8px] text-muted">SUPER</span>
           </Link>
         )}
 
@@ -139,30 +164,32 @@ export function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-[3px] text-[12.5px] transition-colors relative",
+                "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s]",
                 active
-                  ? "bg-[var(--ax-red-dim)] text-[var(--ax-white)] font-medium"
-                  : "text-[var(--ax-dim)] hover:text-[var(--ax-white)] hover:bg-[var(--ax-bg-hover)]"
+                  ? "bg-red-dim font-medium text-white"
+                  : "text-dim hover:bg-bg-hover hover:text-white"
               )}
             >
               {active && (
                 <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r"
-                  style={{ background: "var(--ax-red)" }}
+                  className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
+                  style={{ background: "#E84142" }}
                 />
               )}
-              <Icon className="w-4 h-4 flex-shrink-0" />
+              <Icon className="h-4 w-4 flex-shrink-0" />
               {label}
               {href === "/risk" && anyActive && (
-                <span className="ml-auto w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                <span className="ml-auto h-2 w-2 flex-shrink-0 rounded-full bg-red-500" />
               )}
             </Link>
           );
         })}
 
-        <div className="px-2 pt-4 pb-1 text-[8.5px] font-medium tracking-[0.14em] uppercase text-[var(--ax-muted)] flex items-center gap-2">
-          System
-          <span className="flex-1 h-px bg-[var(--ax-border)]" />
+        <div className="flex items-center gap-2 px-2.5 pb-1.5 pt-4">
+          <span className="text-[8.5px] font-medium uppercase tracking-[0.14em] text-muted">
+            System
+          </span>
+          <span className="h-px flex-1 bg-border" />
         </div>
 
         {NAV_ITEMS.slice(7).map(({ href, label, icon: Icon }) => {
@@ -172,33 +199,40 @@ export function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-[3px] text-[12.5px] transition-colors relative",
+                "relative flex items-center gap-2.5 rounded-[2px] px-2.5 py-[7px] text-[12.5px] transition-colors duration-[0.12s]",
                 active
-                  ? "bg-[var(--ax-red-dim)] text-[var(--ax-white)] font-medium"
-                  : "text-[var(--ax-dim)] hover:text-[var(--ax-white)] hover:bg-[var(--ax-bg-hover)]"
+                  ? "bg-red-dim font-medium text-white"
+                  : "text-dim hover:bg-bg-hover hover:text-white"
               )}
             >
               {active && (
                 <span
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r"
-                  style={{ background: "var(--ax-red)" }}
+                  className="absolute left-0 top-1/2 h-[14px] w-0.5 -translate-y-1/2 rounded-r"
+                  style={{ background: "#E84142" }}
                 />
               )}
-              <Icon className="w-4 h-4 flex-shrink-0" />
+              <Icon className="h-4 w-4 flex-shrink-0" />
               {label}
               {href === "/settings" && (
-                <span className="ml-auto text-[8px] font-mono text-[var(--ax-muted)] tracking-wider">⌘,</span>
+                <span className="ml-auto font-mono text-[8px] text-muted tracking-wider">
+                  ⌘,
+                </span>
               )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom */}
-      <div className="px-5 py-3 border-t border-[var(--ax-border)]">
-        <p className="text-[8.5px] text-[var(--ax-muted)] font-medium tracking-[0.14em] uppercase">Operator</p>
-        <div className="mt-1 text-[9.5px] text-[var(--ax-dim)] font-mono flex items-center gap-2">
-          <span className="w-1 h-1 rounded-full" style={{ background: "var(--ax-red)" }} />
+      {/* Footer */}
+      <div className="border-t border-border px-[18px] py-3">
+        <p className="text-[8.5px] font-medium uppercase tracking-[0.12em] text-muted">
+          Operator
+        </p>
+        <div className="mt-1 flex items-center gap-1 font-mono text-[9.5px] text-dim">
+          <span
+            className="h-1 w-1 rounded-full"
+            style={{ background: "#E84142" }}
+          />
           {role}
         </div>
       </div>
