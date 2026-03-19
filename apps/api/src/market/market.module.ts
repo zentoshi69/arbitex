@@ -168,6 +168,75 @@ class MarketService {
       },
     };
   }
+
+  async tokenPrices(): Promise<{
+    updatedAt: string;
+    tokens: Record<string, { usd: number | null; source: string; change24h: number | null }>;
+  }> {
+    const tokens: Record<string, { usd: number | null; source: string; change24h: number | null }> = {
+      WRP: { usd: null, source: "none", change24h: null },
+      AVAX: { usd: null, source: "none", change24h: null },
+    };
+
+    // Try on-chain WRP/USDC price from any enabled Avalanche venue
+    try {
+      const avaxVenues = await prisma.venue.findMany({
+        where: { chainId: 43114, isEnabled: true },
+        select: { id: true, factoryAddress: true, name: true },
+      });
+      const wrp = "0xB80d374AE04a4147Cf1269Aad5cA1ea8F97b38f8";
+      const usdc = "0xc3aAB273A055AD9Bc4e781A9c385b9fed5Bb677e";
+      const wavax = "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7";
+
+      for (const v of avaxVenues) {
+        if (!v.factoryAddress || !isHexAddress(v.factoryAddress)) continue;
+        try {
+          const pair = await this.getPairAddress(43114, v.factoryAddress, wrp, usdc);
+          if (!pair || String(pair).toLowerCase() === ZERO) continue;
+          const data = await this.priceFromPair(43114, String(pair));
+          const price = Number(data.price1Per0);
+          if (Number.isFinite(price) && price > 0) {
+            tokens.WRP = { usd: price, source: `on-chain:${v.name}`, change24h: null };
+            break;
+          }
+        } catch { /* try next venue */ }
+      }
+
+      // AVAX/USDC on-chain
+      for (const v of avaxVenues) {
+        if (!v.factoryAddress || !isHexAddress(v.factoryAddress)) continue;
+        try {
+          const pair = await this.getPairAddress(43114, v.factoryAddress, wavax, usdc);
+          if (!pair || String(pair).toLowerCase() === ZERO) continue;
+          const data = await this.priceFromPair(43114, String(pair));
+          const price = Number(data.price1Per0);
+          if (Number.isFinite(price) && price > 0) {
+            tokens.AVAX = { usd: price, source: `on-chain:${v.name}`, change24h: null };
+            break;
+          }
+        } catch { /* try next venue */ }
+      }
+    } catch { /* on-chain failed, fall through to CoinGecko */ }
+
+    // CoinGecko fallback for AVAX (and reference data)
+    try {
+      const cgRes = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd&include_24hr_change=true"
+      );
+      if (cgRes.ok) {
+        const cg = await cgRes.json();
+        const avaxCg = cg["avalanche-2"];
+        if (avaxCg?.usd && (!tokens.AVAX.usd || tokens.AVAX.source === "none")) {
+          tokens.AVAX = { usd: avaxCg.usd, source: "coingecko", change24h: avaxCg.usd_24h_change ?? null };
+        }
+        if (tokens.AVAX.usd && avaxCg?.usd_24h_change != null && tokens.AVAX.change24h === null) {
+          tokens.AVAX.change24h = avaxCg.usd_24h_change;
+        }
+      }
+    } catch { /* CoinGecko unavailable */ }
+
+    return { updatedAt: new Date().toISOString(), tokens };
+  }
 }
 
 @Controller("market")
@@ -176,14 +245,22 @@ export class MarketController {
 
   @Get("prices")
   @Public()
-  prices(
+  async prices(
     @Query("pangolinVenueId") pangolinVenueId: string | undefined,
     @Query("blackholeVenueId") blackholeVenueId: string | undefined,
     @Query("traderjoeVenueId") traderjoeVenueId: string | undefined,
     @Query("uniswapVenueId") uniswapVenueId: string | undefined
   ) {
-    // Hardcoded token addresses for now (your project tokens)
-    const venueIds = [pangolinVenueId, blackholeVenueId, traderjoeVenueId, uniswapVenueId].filter(Boolean) as string[];
+    let venueIds = [pangolinVenueId, blackholeVenueId, traderjoeVenueId, uniswapVenueId].filter(Boolean) as string[];
+
+    if (venueIds.length === 0) {
+      const avaxVenues = await prisma.venue.findMany({
+        where: { chainId: 43114, isEnabled: true },
+        select: { id: true },
+      });
+      venueIds = avaxVenues.map((v) => v.id);
+    }
+
     return this.svc.prices({
       chainId: 43114,
       venueIds,
@@ -191,6 +268,12 @@ export class MarketController {
       usdc: "0xc3aAB273A055AD9Bc4e781A9c385b9fed5Bb677e",
       wavax: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
     });
+  }
+
+  @Get("tokens")
+  @Public()
+  async tokenPrices() {
+    return this.svc.tokenPrices();
   }
 }
 

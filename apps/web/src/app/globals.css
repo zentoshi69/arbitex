@@ -193,6 +193,44 @@
   background: var(--bg-hover);
 }
 
+/* ── Form inputs ───────────────────────────────────────────────────────────── */
+.ax-field {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--off-white);
+  font-family: var(--mono);
+  outline: none;
+  transition: border-color 0.12s;
+}
+.ax-field::placeholder { color: var(--muted); }
+.ax-field:focus { border-color: var(--border-hi); }
+
+/* ── Button variants ───────────────────────────────────────────────────────── */
+.ax-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--dim);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.ax-btn:hover { background: var(--bg-hover); border-color: var(--border-hi); color: var(--off-white); }
+.ax-btn:disabled { opacity: 0.4; cursor: default; }
+
+.ax-btn-primary {
+  background: #E84142;
+  border: none;
+  border-radius: 2px;
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.ax-btn-primary:hover { background: #c93334; }
+.ax-btn-primary:disabled { opacity: 0.4; cursor: default; }
+
 /* State badge animations */
 @keyframes pulse-green {
   0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }

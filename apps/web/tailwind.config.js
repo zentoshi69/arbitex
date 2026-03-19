@@ -15,7 +15,6 @@ module.exports = {
           glow: "rgba(232,65,66,0.06)",
         },
         dim: "#888880",
-        muted: "#444440",
         border: {
           DEFAULT: "#1A1A18",
           hi: "#242420",
@@ -26,25 +25,25 @@ module.exports = {
           card: "#111110",
           hover: "#161614",
         },
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        input: "#242420",
+        ring: "#444440",
+        background: "#080808",
+        foreground: "#F5F5F5",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#E84142",
+          foreground: "#FFFFFF",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "#444440",
+          foreground: "#888880",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "#1A1A18",
+          foreground: "#E8E8E2",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "#E84142",
+          foreground: "#FFFFFF",
         },
         // Override Tailwind "slate" palette to neutral greys so existing UI
         // classes like bg-slate-800 / text-slate-400 don't introduce blue hues.

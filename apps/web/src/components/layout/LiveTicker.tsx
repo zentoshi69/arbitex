@@ -2,21 +2,16 @@
 
 import { useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useMarketPrices } from "@/hooks/useMarketPrices";
-import { useDexVenueIds } from "@/hooks/useDexVenueIds";
+import { useTokenPrices, useMarketPrices } from "@/hooks/useMarketPrices";
 import { cn } from "@/lib/utils";
 
 type CoinGeckoSimplePrice = Record<string, { usd?: number; usd_24h_change?: number }>;
 
 export function LiveTicker() {
-  const { pangolinVenueId, blackholeVenueId } = useDexVenueIds();
-  const prevRef = useRef<{ btc?: number; avax?: number; wrp?: number }>({});
+  const prevRef = useRef<Record<string, number>>({});
 
-  const pricesQ = useMarketPrices({
-    pangolinVenueId: pangolinVenueId || undefined,
-    blackholeVenueId: blackholeVenueId || undefined,
-  });
-  const prices = pricesQ.data;
+  const tokenPricesQ = useTokenPrices();
+  const pricesQ = useMarketPrices();
 
   const cgQ = useQuery({
     queryKey: ["coingecko", "btc-avax"],
@@ -26,75 +21,81 @@ export function LiveTicker() {
       );
       return (await res.json()) as CoinGeckoSimplePrice;
     },
-    refetchInterval: 10_000,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
   });
 
   const wrpUsd = useMemo(() => {
-    const items = (prices?.items ?? []) as any[];
+    const tp = tokenPricesQ.data?.tokens?.WRP;
+    if (tp?.usd && tp.usd > 0) return tp.usd;
+
+    const items = (pricesQ.data?.items ?? []) as any[];
     const wrpUsdc =
-      items.find((it) => String(it.label).toUpperCase().includes("WRP/USDC")) ??
-      items.find((it) => String(it.label).toUpperCase().includes("USDC/WRP"));
+      items.find((it: any) => String(it.label).toUpperCase().includes("WRP/USDC")) ??
+      items.find((it: any) => String(it.label).toUpperCase().includes("USDC/WRP"));
     const raw = wrpUsdc?.ok ? Number(wrpUsdc?.data?.price1Per0 ?? "0") : 0;
     return Number.isFinite(raw) && raw > 0 ? raw : null;
-  }, [prices?.items]);
+  }, [tokenPricesQ.data, pricesQ.data]);
+
+  const avaxUsd = useMemo(() => {
+    const tp = tokenPricesQ.data?.tokens?.AVAX;
+    if (tp?.usd && tp.usd > 0) return { price: tp.usd, change: tp.change24h };
+
+    const cg = cgQ.data?.["avalanche-2"];
+    if (cg?.usd) return { price: cg.usd, change: cg.usd_24h_change ?? null };
+
+    return { price: null as number | null, change: null as number | null };
+  }, [tokenPricesQ.data, cgQ.data]);
 
   const tickerItems = useMemo(() => {
     const btc = cgQ.data?.bitcoin?.usd ?? null;
-    const avax = cgQ.data?.["avalanche-2"]?.usd ?? null;
+    const btcChange = cgQ.data?.bitcoin?.usd_24h_change ?? null;
+    const avax = avaxUsd.price;
+    const avaxChange = avaxUsd.change;
     const wrp = wrpUsd;
 
-    const pctFromPrev = (key: "btc" | "avax" | "wrp", v: number | null) => {
+    const pctFromPrev = (key: string, v: number | null) => {
       if (v === null) return null;
       const prev = prevRef.current[key];
       if (!prev || !Number.isFinite(prev) || prev <= 0) return null;
       return ((v - prev) / prev) * 100;
     };
 
-    const btcPct = pctFromPrev("btc", btc);
-    const avaxPct = pctFromPrev("avax", avax);
     const wrpPct = pctFromPrev("wrp", wrp);
-
     if (btc !== null) prevRef.current.btc = btc;
     if (avax !== null) prevRef.current.avax = avax;
     if (wrp !== null) prevRef.current.wrp = wrp;
 
     const fmtUsd = (v: number | null) =>
-      v === null ? "—" : `$${v.toLocaleString(undefined, { maximumFractionDigits: v >= 100 ? 2 : 6 })}`;
+      v === null
+        ? "—"
+        : `$${v.toLocaleString(undefined, { maximumFractionDigits: v >= 100 ? 2 : v >= 1 ? 4 : 6 })}`;
     const fmtPct = (v: number | null) =>
-      v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+      v === null ? "" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 
     return [
-      { label: "BTC", value: fmtUsd(btc), pct: btcPct },
-      { label: "AVAX", value: fmtUsd(avax), pct: avaxPct },
-      { label: "WRP", value: fmtUsd(wrp), pct: wrpPct },
+      { label: "BTC", value: fmtUsd(btc), pct: btcChange, fmtPct: fmtPct(btcChange) },
+      { label: "AVAX", value: fmtUsd(avax), pct: avaxChange, fmtPct: fmtPct(avaxChange) },
+      { label: "WRP", value: fmtUsd(wrp), pct: wrpPct, fmtPct: fmtPct(wrpPct) },
     ];
-  }, [cgQ.data, wrpUsd]);
+  }, [cgQ.data, avaxUsd, wrpUsd]);
 
-  // Duplicate for seamless loop
   const items = [...tickerItems, ...tickerItems];
 
   return (
     <div className="relative h-[22px] overflow-hidden border-b border-border bg-bg-panel">
-      {/* Fade masks */}
       <div
         className="pointer-events-none absolute left-0 top-0 z-[1] h-full w-[30px]"
-        style={{
-          background: "linear-gradient(90deg, var(--bg-panel) 0%, transparent 100%)",
-        }}
+        style={{ background: "linear-gradient(90deg, var(--bg-panel) 0%, transparent 100%)" }}
       />
       <div
         className="pointer-events-none absolute right-0 top-0 z-[1] h-full w-[30px]"
-        style={{
-          background: "linear-gradient(270deg, var(--bg-panel) 0%, transparent 100%)",
-        }}
+        style={{ background: "linear-gradient(270deg, var(--bg-panel) 0%, transparent 100%)" }}
       />
 
-      {/* Scrolling track */}
       <div
         className="inline-flex h-[22px] items-center whitespace-nowrap will-change-transform"
-        style={{
-          animation: "ax-ticker 30s linear infinite",
-        }}
+        style={{ animation: "ax-ticker 30s linear infinite" }}
       >
         {items.map((it, i) => (
           <div
@@ -103,15 +104,17 @@ export function LiveTicker() {
           >
             <span className="text-muted">{it.label}</span>
             <span className="text-white">{it.value}</span>
-            <span
-              className={cn(
-                it.pct === null && "text-muted",
-                it.pct !== null && it.pct > 0 && "text-[#4ADE80]",
-                it.pct !== null && it.pct < 0 && "text-red"
-              )}
-            >
-              {it.pct === null ? "—" : `${it.pct >= 0 ? "+" : ""}${it.pct?.toFixed(2)}%`}
-            </span>
+            {it.fmtPct && (
+              <span
+                className={cn(
+                  it.pct !== null && it.pct > 0 && "text-[#4ADE80]",
+                  it.pct !== null && it.pct < 0 && "text-red",
+                  it.pct === null && "text-muted"
+                )}
+              >
+                {it.fmtPct}
+              </span>
+            )}
           </div>
         ))}
       </div>

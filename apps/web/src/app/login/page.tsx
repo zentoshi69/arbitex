@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Shield } from "lucide-react";
 
 const BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
 
@@ -27,7 +28,6 @@ export default function LoginPage() {
 
       localStorage.setItem("arbitex_token", body.token);
       router.replace("/");
-      // Ensure WS provider reconnects with token
       window.location.reload();
     } catch (err: any) {
       setError(err?.message ?? "Login failed");
@@ -37,47 +37,66 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-6">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-6">
-        <h1 className="text-lg font-semibold text-white">ArbitEx Operator Login</h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Enter the operator password to access the dashboard.
-        </p>
-
-        <form onSubmit={onSubmit} className="mt-5 space-y-3">
-          <div className="space-y-1.5">
-            <label className="text-xs text-slate-400">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded-md bg-slate-950 border border-slate-800 text-slate-100 text-sm outline-none focus:ring-2 focus:ring-blue-600/60"
-              placeholder="••••••••"
-              autoFocus
-              autoComplete="current-password"
-            />
-          </div>
-
-          {error && (
-            <div className="text-xs text-red-300 bg-red-950/40 border border-red-900/50 rounded-md px-3 py-2">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading || password.length < 8}
-            className="w-full py-2 rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-sm font-semibold transition-colors"
+    <div className="min-h-screen flex items-center justify-center bg-bg px-6">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-2.5 mb-8">
+          <div
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center"
+            style={{
+              background: "#E84142",
+              clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+            }}
           >
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
+            <Shield className="h-3.5 w-3.5 text-white" />
+          </div>
+          <span className="text-xl font-bold tracking-[-0.03em] text-white">
+            ArbitEx
+          </span>
+        </div>
 
-        <p className="text-[11px] text-slate-500 mt-4">
-          This system is for operator use only. Activity is audited.
+        <div className="ax-panel p-6">
+          <h1 className="text-sm font-semibold text-white">Operator Login</h1>
+          <p className="text-[10px] text-dim mt-1">
+            Enter the operator password to access the dashboard.
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-5 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-medium uppercase tracking-[0.12em] text-muted">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 ax-field text-sm"
+                placeholder="••••••••"
+                autoFocus
+                autoComplete="current-password"
+              />
+            </div>
+
+            {error && (
+              <div className="text-xs text-red-300 bg-red/8 border border-red/25 rounded-[2px] px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || password.length < 8}
+              className="w-full py-2 ax-btn-primary text-sm font-semibold"
+            >
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        </div>
+
+        <p className="text-center text-[9px] text-muted mt-4 tracking-[0.04em]">
+          Operator use only — activity is audited
         </p>
       </div>
     </div>
   );
 }
-
