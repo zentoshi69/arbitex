@@ -4,8 +4,6 @@ import {
   ExecutionContext,
   UnauthorizedException,
   ForbiddenException,
-  SetMetadata,
-  createParamDecorator,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Module } from "@nestjs/common";
@@ -13,25 +11,9 @@ import * as jose from "jose";
 import { config } from "@arbitex/config";
 import type { UserRole } from "@arbitex/shared-types";
 import { AuthController } from "./auth.controller.js";
+import { ROLES_KEY, type JwtPayload } from "./auth.decorators.js";
 
-// ── Metadata keys ─────────────────────────────────────────────────────────────
-export const ROLES_KEY = "roles";
-export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
-export const Public = () => SetMetadata("isPublic", true);
-
-// ── Current user decorator ────────────────────────────────────────────────────
-export type JwtPayload = {
-  sub: string;
-  role: UserRole;
-  email?: string;
-};
-
-export const CurrentUser = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): JwtPayload => {
-    const request = ctx.switchToHttp().getRequest();
-    return request.user as JwtPayload;
-  }
-);
+export { Public, Roles, CurrentUser, ROLES_KEY, type JwtPayload } from "./auth.decorators.js";
 
 // ── JWT Guard ─────────────────────────────────────────────────────────────────
 @Injectable()

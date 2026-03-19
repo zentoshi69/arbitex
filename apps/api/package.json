@@ -6,7 +6,7 @@
   "main": "./dist/bootstrap.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch src/bootstrap.ts",
+    "dev": "node --import @swc-node/register/esm-register --watch src/bootstrap.ts",
     "start": "node dist/bootstrap.js",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
@@ -38,6 +38,8 @@
   "devDependencies": {
     "@arbitex/chain": "workspace:*",
     "@nestjs/testing": "^11.1.14",
+    "@swc-node/register": "^1.11.1",
+    "@swc/core": "^1.15.18",
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20.14.0",
     "tsx": "^4.15.1",

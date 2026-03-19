@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UnauthorizedException } from "@nestjs/common";
 import { IsString, MinLength } from "class-validator";
-import { Public } from "./auth.module.js";
+import { Public } from "./auth.decorators.js";
 import { config } from "@arbitex/config";
 import * as jose from "jose";
 import bcrypt from "bcryptjs";
