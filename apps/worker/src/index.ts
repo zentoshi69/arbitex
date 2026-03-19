@@ -1,4 +1,4 @@
-import { Worker, Queue, QueueScheduler, type Job } from "bullmq";
+import { Worker, Queue, type Job } from "bullmq";
 import IORedis from "ioredis";
 import { pino } from "pino";
 import { config, getPrimaryRpcConfig } from "@arbitex/config";
@@ -16,8 +16,9 @@ import { processBalanceSyncJob } from "./jobs/balance-sync.job.js";
 const logger = pino({ level: config.LOG_LEVEL });
 
 // ── Redis connection ──────────────────────────────────────────────────────────
-const connection = new IORedis(config.REDIS_URL, {
-  maxRetriesPerRequest: null, // Required by BullMQ
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const connection: any = new (IORedis as any).default(config.REDIS_URL, {
+  maxRetriesPerRequest: null,
   enableReadyCheck: false,
 });
 
@@ -34,7 +35,7 @@ export const queues = {
 const primaryRpc = getPrimaryRpcConfig();
 const chainClient = createChainClient({
   rpcUrl: primaryRpc.rpcUrl,
-  archiveRpcUrl: primaryRpc.archiveRpcUrl,
+  ...(primaryRpc.archiveRpcUrl ? { archiveRpcUrl: primaryRpc.archiveRpcUrl } : {}),
   chainId: config.CHAIN_ID,
 });
 
@@ -55,7 +56,7 @@ async function fetchNativeTokenPriceUsd(): Promise<number> {
     const id = config.CHAIN_ID === 43114 ? "avalanche-2" : "ethereum";
     const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`);
     if (res.ok) {
-      const data = await res.json();
+      const data = (await res.json()) as Record<string, any>;
       const price = data[id]?.usd;
       if (typeof price === "number" && price > 0) {
         cachedNativePrice = { usd: price, fetchedAt: Date.now() };

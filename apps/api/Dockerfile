@@ -16,6 +16,7 @@ COPY . .
 RUN pnpm --filter @arbitex/shared-types build
 RUN pnpm --filter @arbitex/config build
 RUN pnpm --filter @arbitex/db generate
+RUN pnpm --filter @arbitex/db build
 RUN pnpm --filter @arbitex/chain build
 RUN pnpm --filter @arbitex/risk-engine build
 RUN pnpm --filter @arbitex/api build

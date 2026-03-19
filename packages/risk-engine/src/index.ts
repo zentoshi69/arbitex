@@ -183,7 +183,7 @@ export class RiskEngine {
       "BLACKLISTED",
     ];
 
-    const activeBlockedFlags = token.flags.filter((f) =>
+    const activeBlockedFlags = token.flags.filter((f: string) =>
       blockedFlags.includes(f as TokenFlag)
     );
 

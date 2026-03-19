@@ -94,7 +94,7 @@ class LpService {
       }
       return createChainClient({ rpcUrl: config.AVALANCHE_RPC_URL, chainId });
     }
-    return createChainClient({ rpcUrl: config.ETHEREUM_RPC_URL, chainId });
+    return createChainClient({ rpcUrl: config.ETHEREUM_RPC_URL ?? "", chainId });
   }
 
   private async superAdminWallet(chainId: number) {

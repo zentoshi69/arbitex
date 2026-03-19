@@ -69,7 +69,7 @@ class CreateVenueDto {
 @Injectable()
 export class TokensService {
   private readonly client = createChainClient({
-    rpcUrl: config.ETHEREUM_RPC_URL,
+    rpcUrl: config.ETHEREUM_RPC_URL ?? "",
     chainId: config.CHAIN_ID,
   });
 

@@ -6,7 +6,7 @@ import type { RiskConfig } from "@arbitex/shared-types";
 import type { ArbitexPublicClient } from "@arbitex/chain";
 import { NonceManager, loadWalletFromKeystore, createMockWallet } from "@arbitex/chain";
 import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { config, getRpcConfig } from "@arbitex/config";
 import { pino } from "pino";
 

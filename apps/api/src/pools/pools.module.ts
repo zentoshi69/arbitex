@@ -48,7 +48,7 @@ class CreatePoolDto {
 @Injectable()
 export class PoolsService {
   private readonly client = createChainClient({
-    rpcUrl: config.ETHEREUM_RPC_URL,
+    rpcUrl: config.ETHEREUM_RPC_URL ?? "",
     chainId: config.CHAIN_ID,
   });
 

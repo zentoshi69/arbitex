@@ -81,7 +81,7 @@ export class HealthService {
   private async checkRpc(): Promise<"up" | "down" | "slow"> {
     try {
       const client = createChainClient({
-        rpcUrl: config.ETHEREUM_RPC_URL,
+        rpcUrl: config.ETHEREUM_RPC_URL ?? "",
         chainId: config.CHAIN_ID,
       });
       const start = Date.now();

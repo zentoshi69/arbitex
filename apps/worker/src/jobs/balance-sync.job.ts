@@ -20,7 +20,7 @@ async function getNativePriceUsd(symbol: string): Promise<number> {
   try {
     const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd`);
     if (res.ok) {
-      const data = await res.json();
+      const data = (await res.json()) as Record<string, any>;
       const price = data[cgId]?.usd;
       if (typeof price === "number" && price > 0) {
         _nativePrice = { usd: price, fetchedAt: Date.now() };
