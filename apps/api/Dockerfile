@@ -27,9 +27,12 @@ RUN addgroup --system --gid 1001 arbitex && \
     adduser --system --uid 1001 --ingroup arbitex arbitex
 WORKDIR /app
 
-COPY --from=builder --chown=arbitex:arbitex /app/apps/api/dist ./apps/api/dist
-COPY --from=builder --chown=arbitex:arbitex /app/node_modules ./node_modules
-COPY --from=builder --chown=arbitex:arbitex /app/packages ./packages
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/package.json ./package.json
+RUN npm install --no-save reflect-metadata && chown -R arbitex:arbitex /app
 
 USER arbitex
 ENV NODE_ENV=production
