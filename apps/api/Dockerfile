@@ -8,7 +8,6 @@ FROM base AS deps
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/ ./packages/
-# Hoist deps into flat node_modules so they survive Docker COPY to runner
 RUN echo "shamefully-hoist=true" > .npmrc
 RUN pnpm install --filter @arbitex/api...
 
@@ -22,8 +21,6 @@ RUN pnpm --filter @arbitex/db build || true
 RUN pnpm --filter @arbitex/chain build
 RUN pnpm --filter @arbitex/risk-engine build || true
 RUN pnpm --filter @arbitex/api build || true
-# Prune to production deps only
-RUN pnpm prune --prod || true
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
@@ -31,9 +28,18 @@ RUN addgroup --system --gid 1001 arbitex && \
     adduser --system --uid 1001 --ingroup arbitex arbitex
 WORKDIR /app
 
+# Copy external deps (flat hoisted node_modules)
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+# Copy built workspace packages
 COPY --from=builder /app/packages ./packages
+# Copy API dist
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+
+# Re-link workspace packages so @arbitex/* resolves to packages/*
+RUN rm -rf node_modules/@arbitex && mkdir -p node_modules/@arbitex && \
+    for pkg in shared-types config db chain risk-engine; do \
+      ln -sf ../../packages/$pkg node_modules/@arbitex/$pkg; \
+    done
 
 RUN chown -R arbitex:arbitex /app
 USER arbitex
