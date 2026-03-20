@@ -10,6 +10,11 @@ const NAV_ITEMS = [
   { href: "/", label: "Overview" },
   { href: "/opportunities", label: "Opportunities" },
   { href: "/executions", label: "Executions" },
+  { href: "/pnl", label: "PnL" },
+  { href: "/trading-brain", label: "Trading Brain" },
+  { href: "/fair-value", label: "Fair Value" },
+  { href: "/regime", label: "Market Regime" },
+  { href: "/v3-pools", label: "V3 Pools" },
   { href: "/tokens", label: "Tokens" },
   { href: "/pools", label: "Pools" },
   { href: "/lp", label: "Liquidity" },
@@ -114,7 +119,7 @@ export function Sidebar() {
           </Link>
         )}
 
-        {NAV_ITEMS.slice(0, 7).map(({ href, label }) => {
+        {NAV_ITEMS.slice(0, 11).map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
           return (
             <Link
@@ -144,7 +149,7 @@ export function Sidebar() {
           <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
 
-        {NAV_ITEMS.slice(7)
+        {NAV_ITEMS.slice(11)
           .filter((item) => !("superAdminOnly" in item && item.superAdminOnly) || role === "SUPER_ADMIN")
           .map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));

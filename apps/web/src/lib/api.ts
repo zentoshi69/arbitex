@@ -64,6 +64,21 @@ export const api = {
     summary: () => apiFetch<any>("/pnl/summary"),
     timeseries: (days?: number) =>
       apiFetch<any>(`/pnl/timeseries${days ? `?days=${days}` : ""}`),
+    cumulative: () => apiFetch<any>("/pnl/cumulative"),
+    byVenue: (days?: number) =>
+      apiFetch<any>(`/pnl/by-venue${days ? `?days=${days}` : ""}`),
+  },
+
+  // Fair Value
+  fairValue: {
+    all: () => apiFetch<any>("/fair-value"),
+    token: (symbol: string) => apiFetch<any>(`/fair-value/token?symbol=${symbol}`),
+  },
+
+  // Market Regime
+  regime: {
+    current: () => apiFetch<any>("/regime"),
+    configs: () => apiFetch<any>("/regime/configs"),
   },
 
   // Risk
