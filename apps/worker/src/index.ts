@@ -114,16 +114,38 @@ async function registerAdapters() {
       venueId: "mock-pangolin",
       price0Per1: 10.0,
       price1Per0: 0.1,
+      feeBps: 30,
+      liquidityUsd: 500_000,
     });
     const mockPoolB = MockDexAdapter.makePool({
       token0: AVAX_TOKENS.USDC,
       token1: AVAX_TOKENS.WAVAX,
       venueId: "mock-traderjoe",
-      price0Per1: 10.05,
-      price1Per0: 0.0995,
+      price0Per1: 10.15,
+      price1Per0: 0.0985,
+      feeBps: 30,
+      liquidityUsd: 500_000,
     });
-    registry.register(new MockDexAdapter("mock-pangolin", "Pangolin (Mock)", 43114, [mockPoolA]));
-    registry.register(new MockDexAdapter("mock-traderjoe", "TraderJoe (Mock)", 43114, [mockPoolB]));
+    const mockPoolC = MockDexAdapter.makePool({
+      token0: AVAX_TOKENS.USDC,
+      token1: AVAX_TOKENS.WRP,
+      venueId: "mock-pangolin",
+      price0Per1: 0.042,
+      price1Per0: 23.81,
+      feeBps: 30,
+      liquidityUsd: 200_000,
+    });
+    const mockPoolD = MockDexAdapter.makePool({
+      token0: AVAX_TOKENS.USDC,
+      token1: AVAX_TOKENS.WRP,
+      venueId: "mock-traderjoe",
+      price0Per1: 0.0435,
+      price1Per0: 22.99,
+      feeBps: 30,
+      liquidityUsd: 200_000,
+    });
+    registry.register(new MockDexAdapter("mock-pangolin", "Pangolin (Mock)", 43114, [mockPoolA, mockPoolC]));
+    registry.register(new MockDexAdapter("mock-traderjoe", "TraderJoe (Mock)", 43114, [mockPoolB, mockPoolD]));
   }
 }
 
@@ -297,17 +319,17 @@ async function startSchedulers() {
     { repeat: { every: 60_000 }, removeOnComplete: 5, removeOnFail: false }
   );
 
-  // Opportunity cleanup every 5 minutes
+  // Opportunity cleanup every 10 minutes — expire stale opportunities older than 5 min
   setInterval(async () => {
-    const thirtySecsAgo = new Date(Date.now() - 30_000);
+    const fiveMinAgo = new Date(Date.now() - 300_000);
     await prisma.opportunity.updateMany({
       where: {
         state: { in: [OpportunityState.DETECTED, OpportunityState.QUOTED] },
-        detectedAt: { lt: thirtySecsAgo },
+        detectedAt: { lt: fiveMinAgo },
       },
       data: { state: OpportunityState.EXPIRED },
     });
-  }, 300_000);
+  }, 600_000);
 }
 
 // ── Error handling ────────────────────────────────────────────────────────────

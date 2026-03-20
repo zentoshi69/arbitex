@@ -57,7 +57,7 @@ export function computeProfitBreakdown(params: {
   failureGasEstimateUsd: number;
 }): ProfitBreakdown {
   const gasEth =
-    Number(params.gasUnits * params.gasPriceGwei) / 1e18;
+    Number(params.gasUnits * params.gasPriceGwei) / 1e9;
   const gasEstimateUsd = gasEth * params.ethPriceUsd;
 
   const venueFeesUsd =
@@ -264,7 +264,7 @@ export class OpportunityEngine {
         slippageBufferFactor: cfg.riskConfig.slippageBufferFactor,
         failureBufferFactor: cfg.riskConfig.failureBufferFactor,
         failureGasEstimateUsd:
-          (Number(350_000n * gasPriceGwei) / 1e18) * cfg.ethPriceUsd,
+          (Number(350_000n * gasPriceGwei) / 1e9) * cfg.ethPriceUsd,
       });
 
       if (profitBreakdown.netProfitUsd < cfg.riskConfig.minNetProfitUsd) {

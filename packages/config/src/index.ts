@@ -101,10 +101,10 @@ const EnvSchema = z.object({
     .default("true"),
 
   // Risk defaults
-  DEFAULT_MAX_TRADE_SIZE_USD: z.coerce.number().positive().default(1_000),
-  DEFAULT_MIN_NET_PROFIT_USD: z.coerce.number().positive().default(5),
+  DEFAULT_MAX_TRADE_SIZE_USD: z.coerce.number().positive().default(5_000),
+  DEFAULT_MIN_NET_PROFIT_USD: z.coerce.number().positive().default(0.5),
   DEFAULT_MAX_GAS_GWEI: z.coerce.number().positive().default(100),
-  DEFAULT_MIN_POOL_LIQUIDITY_USD: z.coerce.number().positive().default(100_000),
+  DEFAULT_MIN_POOL_LIQUIDITY_USD: z.coerce.number().positive().default(50_000),
 }).refine(
   (data) => {
     const keys = CHAIN_RPC_KEYS[data.CHAIN_ID];

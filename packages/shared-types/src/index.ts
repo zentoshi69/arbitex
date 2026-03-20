@@ -212,14 +212,14 @@ export type ExecutionStatus = z.infer<typeof ExecutionStatusSchema>;
 export const RiskConfigSchema = z.object({
   maxTradeSizeUsd: z.number().positive().default(10_000),
   maxTokenExposureUsd: z.number().positive().default(25_000),
-  minPoolLiquidityUsd: z.number().positive().default(100_000),
+  minPoolLiquidityUsd: z.number().positive().default(50_000),
   maxSlippageBps: z.number().positive().default(50),
   maxFailedTxPerHour: z.number().int().positive().default(5),
   maxGasGwei: z.number().positive().default(100),
   tokenCooldownSeconds: z.number().int().positive().default(300),
-  minNetProfitUsd: z.number().positive().default(5),
-  failureBufferFactor: z.number().min(0).max(1).default(0.1),
-  slippageBufferFactor: z.number().min(0).max(0.1).default(0.005),
+  minNetProfitUsd: z.number().positive().default(0.5),
+  failureBufferFactor: z.number().min(0).max(1).default(0.05),
+  slippageBufferFactor: z.number().min(0).max(0.1).default(0.002),
 });
 export type RiskConfig = z.infer<typeof RiskConfigSchema>;
 

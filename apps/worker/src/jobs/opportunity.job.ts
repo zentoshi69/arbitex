@@ -65,7 +65,7 @@ export async function processOpportunityJob(
       buyVenueName: candidate.buyPool.venueName,
       sellVenueName: candidate.sellPool.venueName,
       fingerprint: candidate.fingerprint,
-      expiresAt: new Date(Date.now() + 30_000),
+      expiresAt: new Date(Date.now() + 300_000),
     },
   });
 
