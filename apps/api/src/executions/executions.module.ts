@@ -106,23 +106,64 @@ export class PnlService {
       this.getPnlForPeriod(36500),
     ]);
     const successRate = await this.getSuccessRate(30);
-    return { today, week, month, allTime, successRate };
+    const gasBreakdown = await this.getGasBreakdown(30);
+    return { today, week, month, allTime, successRate, gasBreakdown };
   }
 
   async getTimeseries(days = 30) {
     const since = new Date(Date.now() - days * 86400_000);
     const rows = await prisma.$queryRaw<
-      Array<{ date: Date; pnl: number; trades: number }>
+      Array<{ date: Date; pnl: number; trades: number; gas_cost: number }>
     >`
       SELECT
         DATE_TRUNC('day', confirmed_at) AS date,
         SUM(pnl_usd)::float             AS pnl,
-        COUNT(*)::int                   AS trades
+        COUNT(*)::int                   AS trades,
+        COALESCE(SUM(gas_cost_usd)::float, 0) AS gas_cost
       FROM executions
       WHERE state = 'LANDED'
         AND confirmed_at >= ${since}
       GROUP BY DATE_TRUNC('day', confirmed_at)
       ORDER BY date ASC
+    `;
+
+    let cumulative = 0;
+    return rows.map((r) => {
+      cumulative += r.pnl;
+      return { ...r, cumulativePnl: Math.round(cumulative * 100) / 100 };
+    });
+  }
+
+  async getCumulative() {
+    const result = await prisma.execution.aggregate({
+      _sum: { pnlUsd: true, gasCostUsd: true },
+      _count: { id: true },
+      where: { state: "LANDED" },
+    });
+    return {
+      totalPnlUsd: Number(result._sum.pnlUsd ?? 0),
+      totalGasCostUsd: Number(result._sum.gasCostUsd ?? 0),
+      netAfterGasUsd: Number(result._sum.pnlUsd ?? 0) - Number(result._sum.gasCostUsd ?? 0),
+      tradeCount: result._count.id,
+    };
+  }
+
+  async getByVenue(days = 30) {
+    const since = new Date(Date.now() - days * 86400_000);
+    const rows = await prisma.$queryRaw<
+      Array<{ venue: string; pnl: number; trades: number; gas_cost: number }>
+    >`
+      SELECT
+        o.buy_venue_name AS venue,
+        SUM(e.pnl_usd)::float AS pnl,
+        COUNT(*)::int AS trades,
+        COALESCE(SUM(e.gas_cost_usd)::float, 0) AS gas_cost
+      FROM executions e
+      JOIN opportunities o ON o.id = e.opportunity_id
+      WHERE e.state = 'LANDED'
+        AND e.confirmed_at >= ${since}
+      GROUP BY o.buy_venue_name
+      ORDER BY pnl DESC
     `;
     return rows;
   }
@@ -130,13 +171,35 @@ export class PnlService {
   private async getPnlForPeriod(days: number) {
     const since = new Date(Date.now() - days * 86400_000);
     const result = await prisma.execution.aggregate({
-      _sum: { pnlUsd: true },
+      _sum: { pnlUsd: true, gasCostUsd: true },
       _count: { id: true },
       where: { state: "LANDED", confirmedAt: { gte: since } },
     });
     return {
       pnlUsd: Number(result._sum.pnlUsd ?? 0),
+      gasCostUsd: Number(result._sum.gasCostUsd ?? 0),
       tradeCount: result._count.id,
+    };
+  }
+
+  private async getGasBreakdown(days: number) {
+    const since = new Date(Date.now() - days * 86400_000);
+    const landed = await prisma.execution.findMany({
+      where: { state: "LANDED", confirmedAt: { gte: since } },
+      select: { gasUsed: true, gasCostUsd: true },
+    });
+
+    const gasCosts = landed
+      .map((e) => Number(e.gasCostUsd ?? 0))
+      .filter((v) => v > 0);
+
+    return {
+      totalGasUsd: gasCosts.reduce((a, b) => a + b, 0),
+      avgGasUsd: gasCosts.length > 0
+        ? gasCosts.reduce((a, b) => a + b, 0) / gasCosts.length
+        : 0,
+      maxGasUsd: gasCosts.length > 0 ? Math.max(...gasCosts) : 0,
+      tradeCount: gasCosts.length,
     };
   }
 
@@ -165,10 +228,21 @@ export class PnlController {
   timeseries(@Query("days", new DefaultValuePipe(30), ParseIntPipe) days: number) {
     return this.svc.getTimeseries(days);
   }
+
+  @Get("cumulative")
+  cumulative() {
+    return this.svc.getCumulative();
+  }
+
+  @Get("by-venue")
+  byVenue(@Query("days", new DefaultValuePipe(30), ParseIntPipe) days: number) {
+    return this.svc.getByVenue(days);
+  }
 }
 
 @Module({
   controllers: [PnlController],
   providers: [PnlService],
+  exports: [PnlService],
 })
 export class PnlModule {}

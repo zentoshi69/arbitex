@@ -14,6 +14,8 @@ import { PoolsModule } from "./pools/pools.module.js";
 import { ChainModule } from "./chain/chain.module.js";
 import { LpModule } from "./lp/lp.module.js";
 import { MarketModule } from "./market/market.module.js";
+import { FairValueModule } from "./fair-value/fair-value.module.js";
+import { RegimeModule } from "./regime/regime.module.js";
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { MarketModule } from "./market/market.module.js";
     ChainModule,
     LpModule,
     MarketModule,
+    FairValueModule,
+    RegimeModule,
   ],
 })
 export class AppModule {}
