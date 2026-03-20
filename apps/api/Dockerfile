@@ -8,6 +8,8 @@ FROM base AS deps
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/ ./packages/
+# Hoist deps into flat node_modules so they survive Docker COPY to runner
+RUN echo "shamefully-hoist=true" > .npmrc
 RUN pnpm install --filter @arbitex/api...
 
 # ── Builder ───────────────────────────────────────────────────────────────────
@@ -20,8 +22,8 @@ RUN pnpm --filter @arbitex/db build || true
 RUN pnpm --filter @arbitex/chain build
 RUN pnpm --filter @arbitex/risk-engine build || true
 RUN pnpm --filter @arbitex/api build || true
-# Create flat node_modules (resolves pnpm symlinks)
-RUN cp -rL /app/node_modules /app/flat_modules || true
+# Prune to production deps only
+RUN pnpm prune --prod || true
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
@@ -29,7 +31,7 @@ RUN addgroup --system --gid 1001 arbitex && \
     adduser --system --uid 1001 --ingroup arbitex arbitex
 WORKDIR /app
 
-COPY --from=builder /app/flat_modules ./node_modules
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/packages ./packages
 
