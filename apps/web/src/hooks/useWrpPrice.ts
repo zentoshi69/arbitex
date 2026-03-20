@@ -54,7 +54,8 @@ export type WrpPriceData = {
 };
 
 async function fetchWrpPrice(): Promise<WrpPriceData> {
-  // 1. Try WRP/WAVAX from known factories (both 18 decimals → ratio is simple)
+  const errors: string[] = [];
+
   for (const fac of FACTORIES) {
     try {
       const pair = await publicClient.readContract({
@@ -64,7 +65,10 @@ async function fetchWrpPrice(): Promise<WrpPriceData> {
         args: [WRP, WAVAX],
       });
 
-      if (!pair || pair === ZERO_ADDR) continue;
+      if (!pair || pair === ZERO_ADDR) {
+        errors.push(`${fac.name}: no pair`);
+        continue;
+      }
 
       const [token0, reserves] = await Promise.all([
         publicClient.readContract({ address: pair, abi: PAIR_ABI, functionName: "token0" }),
@@ -72,7 +76,10 @@ async function fetchWrpPrice(): Promise<WrpPriceData> {
       ]);
 
       const [r0, r1] = reserves;
-      if (r0 === 0n || r1 === 0n) continue;
+      if (r0 === 0n || r1 === 0n) {
+        errors.push(`${fac.name}: zero reserves`);
+        continue;
+      }
 
       const isWrpToken0 = token0.toLowerCase() === WRP.toLowerCase();
       const wrpR = Number(isWrpToken0 ? r0 : r1);
@@ -84,12 +91,12 @@ async function fetchWrpPrice(): Promise<WrpPriceData> {
         wrpUsd: null,
         source: fac.name,
       };
-    } catch {
+    } catch (e) {
+      errors.push(`${fac.name}: ${e instanceof Error ? e.message : "unknown"}`);
       continue;
     }
   }
 
-  // 2. Try Blackhole WRP/USDC pool (WRP=18dec, USDC=6dec)
   try {
     const [token0, reserves] = await Promise.all([
       publicClient.readContract({ address: BLACKHOLE_PAIR, abi: PAIR_ABI, functionName: "token0" }),
@@ -109,8 +116,17 @@ async function fetchWrpPrice(): Promise<WrpPriceData> {
           source: "Blackhole",
         };
       }
+      errors.push("Blackhole: zero amounts after conversion");
+    } else {
+      errors.push("Blackhole: zero reserves");
     }
-  } catch { /* pool not available */ }
+  } catch (e) {
+    errors.push(`Blackhole: ${e instanceof Error ? e.message : "unknown"}`);
+  }
+
+  if (errors.length > 0) {
+    console.warn("[useWrpPrice] All sources failed:", errors.join("; "));
+  }
 
   return { avaxPerWrp: null, wrpPerAvax: null, wrpUsd: null, source: "none" };
 }
@@ -121,6 +137,7 @@ export function useWrpPrice() {
     queryFn: fetchWrpPrice,
     refetchInterval: 30_000,
     staleTime: 20_000,
-    retry: 2,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
   });
 }

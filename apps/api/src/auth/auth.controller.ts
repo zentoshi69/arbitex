@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 
 class LoginDto {
   @IsString()
-  @MinLength(8)
+  @MinLength(4)
   password!: string;
 }
 
@@ -17,18 +17,35 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto) {
-    const configuredHash = process.env["OPERATOR_PASSWORD_HASH"];
-    const configuredPassword = process.env["OPERATOR_PASSWORD"];
+    const hashEnv = process.env["OPERATOR_PASSWORD_HASH"] ?? "";
+    const plainEnv = process.env["OPERATOR_PASSWORD"] ?? "";
+    const hashesEnv = process.env["OPERATOR_PASSWORD_HASHES"] ?? "";
 
-    if (!configuredHash && !configuredPassword) {
+    const hashes = [hashEnv, ...hashesEnv.split(",")]
+      .map((h) => h.trim())
+      .filter((h) => h.length > 10);
+
+    const plains = plainEnv
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    if (hashes.length === 0 && plains.length === 0) {
       throw new UnauthorizedException("Login is not configured");
     }
 
-    const ok = configuredHash
-      ? await bcrypt.compare(dto.password, configuredHash)
-      : dto.password === configuredPassword;
+    let matched = false;
+    for (const hash of hashes) {
+      if (await bcrypt.compare(dto.password, hash)) {
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      matched = plains.includes(dto.password);
+    }
 
-    if (!ok) throw new UnauthorizedException("Invalid credentials");
+    if (!matched) throw new UnauthorizedException("Invalid credentials");
 
     const secret = new TextEncoder().encode(config.JWT_SECRET);
 

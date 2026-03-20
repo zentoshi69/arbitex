@@ -20,6 +20,8 @@ RUN pnpm --filter @arbitex/db build || true
 RUN pnpm --filter @arbitex/chain build
 RUN pnpm --filter @arbitex/risk-engine build || true
 RUN pnpm --filter @arbitex/api build || true
+# Create flat node_modules (resolves pnpm symlinks)
+RUN cp -rL /app/node_modules /app/flat_modules || true
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
@@ -27,13 +29,11 @@ RUN addgroup --system --gid 1001 arbitex && \
     adduser --system --uid 1001 --ingroup arbitex arbitex
 WORKDIR /app
 
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/flat_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
-COPY --from=builder /app/package.json ./package.json
-RUN npm install --no-save reflect-metadata && chown -R arbitex:arbitex /app
 
+RUN chown -R arbitex:arbitex /app
 USER arbitex
 ENV NODE_ENV=production
 EXPOSE 3001

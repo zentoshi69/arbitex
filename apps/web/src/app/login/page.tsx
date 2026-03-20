@@ -48,8 +48,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-6">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-bg px-6">
+      <div className="w-full max-w-sm -mt-20">
         {/* Logo */}
         <div className="flex items-center justify-center gap-2.5 mb-8">
           <div
@@ -96,7 +96,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || password.length < 8}
+              disabled={loading || password.length < 4}
               className="w-full py-2 ax-btn-primary text-sm font-semibold"
             >
               {loading ? "Signing in…" : "Sign in"}

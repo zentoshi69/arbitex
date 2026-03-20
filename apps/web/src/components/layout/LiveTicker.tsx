@@ -77,11 +77,18 @@ export function LiveTicker() {
     },
     refetchInterval: 30_000,
     staleTime: 25_000,
+    retry: 3,
   });
 
   const marketQ = useQuery({
     queryKey: ["ui", "market-tokens"],
-    queryFn: () => api.market.tokenPrices(),
+    queryFn: async () => {
+      try {
+        return await api.market.tokenPrices();
+      } catch {
+        return null;
+      }
+    },
     refetchInterval: 15_000,
     staleTime: 10_000,
     retry: 2,
@@ -91,6 +98,7 @@ export function LiveTicker() {
 
   const btcUsd = cgQ.data?.bitcoin?.usd ?? null;
   const btcChange = cgQ.data?.bitcoin?.usd_24h_change ?? null;
+
   const avaxUsd =
     marketQ.data?.tokens?.AVAX?.usd ??
     cgQ.data?.["avalanche-2"]?.usd ??
@@ -100,7 +108,6 @@ export function LiveTicker() {
     cgQ.data?.["avalanche-2"]?.usd_24h_change ??
     null;
 
-  // WRP price: prefer API → then on-chain WRP/USDC → then derive from on-chain WRP/AVAX × AVAX/USD
   const apiWrpUsd = marketQ.data?.tokens?.WRP?.usd ?? null;
   const onchainWrpUsd = wrpQ.data?.wrpUsd ?? null;
   const derivedWrpUsd =
@@ -111,10 +118,15 @@ export function LiveTicker() {
 
   const wrpChange = marketQ.data?.tokens?.WRP?.change24h ?? null;
 
-  // WRP/AVAX ratio: prefer on-chain direct ratio, else derive from USD prices
-  const wrpPerAvax =
+  const wrpAvaxRatio =
     wrpQ.data?.wrpPerAvax ??
     (avaxUsd && wrpUsd && wrpUsd > 0 ? avaxUsd / wrpUsd : null);
+
+  const avaxPerWrp =
+    wrpQ.data?.avaxPerWrp ??
+    (avaxUsd && wrpUsd && avaxUsd > 0 ? wrpUsd / avaxUsd : null);
+
+  const wrpLoading = wrpQ.isLoading || (marketQ.isLoading && !wrpQ.data);
 
   return (
     <div className="relative flex h-[80px] flex-shrink-0 items-stretch overflow-hidden border-b border-[var(--border)] bg-[var(--black)]">
@@ -130,13 +142,21 @@ export function LiveTicker() {
       />
       <PriceCell
         label="WRP"
-        price={formatUsd(wrpUsd, 4)}
+        price={wrpLoading ? "..." : formatUsd(wrpUsd, 4)}
         change={formatChange(wrpChange)}
       />
       <PriceCell
         label="WRP / AVAX"
-        price={wrpPerAvax !== null ? wrpPerAvax.toFixed(2) : "—"}
-        change=""
+        price={
+          wrpLoading
+            ? "..."
+            : avaxPerWrp !== null
+              ? avaxPerWrp.toFixed(6)
+              : wrpAvaxRatio !== null
+                ? `1:${wrpAvaxRatio.toFixed(2)}`
+                : "—"
+        }
+        change={wrpQ.data?.source ? `via ${wrpQ.data.source}` : ""}
         border={false}
       />
     </div>

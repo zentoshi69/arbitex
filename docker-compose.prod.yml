@@ -44,9 +44,9 @@ services:
       AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       OPERATOR_API_KEY: ${OPERATOR_API_KEY:?set OPERATOR_API_KEY}
-      # Bcrypt values contain `$`; in the file passed to `docker compose --env-file`, double each `$` as `$$`
-      # (e.g. $$2b$$12$$...) or Compose treats segments as undefined vars and Redis/API env can break.
       OPERATOR_PASSWORD_HASH: ${OPERATOR_PASSWORD_HASH:-}
+      OPERATOR_PASSWORD_HASHES: ${OPERATOR_PASSWORD_HASHES:-}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-}
       MOCK_EXECUTION: ${MOCK_EXECUTION:-false}
       SUPERADMIN_KEYSTORE_PATH: /run/secrets/superadmin_keystore.json
       SUPERADMIN_KEYSTORE_PASS: ${SUPERADMIN_KEYSTORE_PASS:-}
