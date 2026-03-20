@@ -118,7 +118,13 @@ export default function PoolCreatePage() {
       <div className="ax-panel p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="space-y-1">
-            <div className="text-xs text-[var(--grey2)] font-medium">Venue</div>
+            <div className="text-xs text-[var(--grey2)] font-medium relative group inline-flex items-center gap-1 cursor-help">
+              Venue
+              <span className="inline-block w-3.5 h-3.5 rounded-full border border-[var(--grey2)] text-[10px] leading-[13px] text-center">?</span>
+              <div className="absolute bottom-full left-0 mb-2 w-72 p-3 rounded bg-[var(--bg2)] border border-[var(--border)] text-xs text-[var(--offwhite)] leading-relaxed opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50 shadow-lg">
+                <strong className="text-[var(--ax-red)]">Venue</strong> is a DEX (Decentralized Exchange) where the pool lives — for example <em>Pangolin</em>, <em>Trader Joe</em>, or <em>SushiSwap</em>. Each venue has its own smart contract factory and router. ArbitEx monitors price differences <em>between</em> venues to find arbitrage opportunities.
+              </div>
+            </div>
             {venuesQ.isLoading ? (
               <Skeleton className="h-9 w-full" />
             ) : (

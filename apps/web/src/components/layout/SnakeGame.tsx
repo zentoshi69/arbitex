@@ -145,8 +145,8 @@ export function SnakeGame() {
         ctx.fillRect(x * CELL, y * CELL, CELL - 1, CELL - 1);
       }
 
-      const pulse = 0.35 + 0.3 * Math.sin(ts * 0.005);
-      ctx.fillStyle = `rgba(232, 65, 66, ${pulse})`;
+      const pulse = 0.5 + 0.4 * Math.sin(ts * 0.005);
+      ctx.fillStyle = `rgba(77, 214, 140, ${pulse})`;
       ctx.beginPath();
       ctx.arc(
         food[0] * CELL + CELL / 2,

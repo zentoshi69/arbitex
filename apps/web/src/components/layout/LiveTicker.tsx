@@ -41,7 +41,7 @@ function PriceCell({
         border && "border-r border-[var(--border)]"
       )}
     >
-      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--grey2)]">
+      <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--grey1)]">
         {label}
       </span>
       <div className="mt-1 flex items-baseline gap-2.5">

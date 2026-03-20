@@ -58,7 +58,7 @@ export function TopBar() {
 
       <div className="flex h-full items-stretch">
         <div className="flex min-w-[94px] flex-col justify-center border-l border-[var(--border)] px-3">
-          <div className="font-mono text-[7px] uppercase tracking-[0.1em] text-[var(--grey2)]">
+          <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--grey1)]">
             Status
           </div>
           <div className={cn("font-mono text-[11px]", statusColor)}>
@@ -67,7 +67,7 @@ export function TopBar() {
         </div>
 
         <div className="flex min-w-[84px] flex-col justify-center border-l border-[var(--border)] px-3">
-          <div className="font-mono text-[7px] uppercase tracking-[0.1em] text-[var(--grey2)]">
+          <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--grey1)]">
             Gas (Gwei)
           </div>
           <div className="font-mono text-[11px] text-[var(--offwhite)]">
@@ -76,7 +76,7 @@ export function TopBar() {
         </div>
 
         <div className="flex min-w-[176px] flex-col justify-center border-l border-[var(--border)] px-3">
-          <div className="font-mono text-[7px] uppercase tracking-[0.1em] text-[var(--grey2)]">
+          <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--grey1)]">
             UTC
           </div>
           <div className="font-mono text-[11px] text-[var(--offwhite)]">
