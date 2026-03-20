@@ -12,6 +12,8 @@ import { RiskConfigSchema, OpportunityState, ExecutionState } from "@arbitex/sha
 import { processOpportunityJob } from "./jobs/opportunity.job.js";
 import { processExecutionJob } from "./jobs/execution.job.js";
 import { processBalanceSyncJob } from "./jobs/balance-sync.job.js";
+import { readV3PoolFull } from "./dex-adapters/v3-pool-reader.js";
+import { watchLPEvents, type WatcherHandle } from "./watchers/lp-event-watcher.js";
 
 const logger = pino({ level: config.LOG_LEVEL });
 
@@ -150,11 +152,67 @@ const targetTokens = config.CHAIN_ID === 43114
       "0x6b175474e89094c44da98b954eedeac495271d0f", // DAI
     ];
 
+// ── V3 pool state cache ──────────────────────────────────────────────────────
+import type { V3PoolState, TickData } from "@arbitex/shared-types";
+
+const v3PoolCache = new Map<string, { state: V3PoolState; ticks: TickData[]; ts: number }>();
+let lpWatcherHandle: WatcherHandle | null = null;
+
+async function refreshV3PoolStates() {
+  const v3Venues = await prisma.venue.findMany({
+    where: { chainId: config.CHAIN_ID, isEnabled: true, protocol: "uniswap_v3" },
+    include: { pools: { where: { isActive: true }, take: 50 } },
+  });
+
+  for (const venue of v3Venues) {
+    for (const pool of venue.pools) {
+      try {
+        const result = await readV3PoolFull(
+          chainClient,
+          pool.poolAddress as `0x${string}`,
+          { venueId: venue.id, venueName: venue.name, chainId: venue.chainId }
+        );
+        v3PoolCache.set(pool.poolAddress.toLowerCase(), {
+          state: result.state,
+          ticks: result.ticks,
+          ts: Date.now(),
+        });
+      } catch (err) {
+        logger.warn({ pool: pool.poolAddress, err }, "V3 pool read failed");
+      }
+    }
+  }
+  logger.debug({ count: v3PoolCache.size }, "V3 pool states refreshed");
+}
+
+function startLPWatcher() {
+  const poolAddrs = Array.from(v3PoolCache.keys()) as `0x${string}`[];
+  if (poolAddrs.length === 0) return;
+
+  lpWatcherHandle?.stop();
+  lpWatcherHandle = watchLPEvents(
+    chainClient,
+    poolAddrs,
+    (evt) => {
+      logger.info(
+        { pool: evt.pool, type: evt.type, tickLower: evt.tickLower, tickUpper: evt.tickUpper },
+        "LP event detected — marking pool stale"
+      );
+      v3PoolCache.delete(evt.pool.toLowerCase());
+    },
+    4_000
+  );
+  logger.info({ pools: poolAddrs.length }, "LP event watcher started");
+}
+
 // Pool refresh → opportunity scoring
 const poolRefreshWorker = new Worker(
   "pool-refresh",
   async (job: Job) => {
     logger.debug({ jobId: job.id }, "pool-refresh start");
+
+    await refreshV3PoolStates();
+
     const nativePriceUsd = await fetchNativeTokenPriceUsd();
     const candidates = await opportunityEngine.scanForOpportunities({
       targetTokens,
@@ -168,14 +226,14 @@ const poolRefreshWorker = new Worker(
         "score",
         candidate,
         {
-          jobId: `opp-${candidate.fingerprint}`, // dedup
+          jobId: `opp-${candidate.fingerprint}`,
           removeOnComplete: 100,
           removeOnFail: false,
           attempts: 1,
         }
       );
     }
-    logger.info({ count: candidates.length }, "Opportunities queued");
+    logger.info({ count: candidates.length, v3Pools: v3PoolCache.size }, "Opportunities queued");
   },
   workerOpts
 );
@@ -267,12 +325,16 @@ async function main() {
   await registerAdapters();
   opportunityEngine.updateAdapters(registry.getAll());
 
+  await refreshV3PoolStates();
+  startLPWatcher();
+
   await startSchedulers();
-  logger.info("Worker started — opportunity engine running");
+  logger.info({ v3Pools: v3PoolCache.size }, "Worker started — opportunity engine running");
 
   // Graceful shutdown
   process.on("SIGTERM", async () => {
     logger.info("SIGTERM received — shutting down workers");
+    lpWatcherHandle?.stop();
     await Promise.allSettled([
       poolRefreshWorker.close(),
       opportunityScoreWorker.close(),
