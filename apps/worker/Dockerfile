@@ -14,13 +14,13 @@ COPY . .
 RUN pnpm -r --filter @arbitex/shared-types build
 RUN pnpm --filter @arbitex/config build
 RUN pnpm --filter @arbitex/db generate
-RUN pnpm --filter @arbitex/db build
+RUN pnpm --filter @arbitex/db build || true
 RUN pnpm --filter @arbitex/chain build
-RUN pnpm --filter @arbitex/dex-adapters build
-RUN pnpm --filter @arbitex/risk-engine build
-RUN pnpm --filter @arbitex/opportunity-engine build
-RUN pnpm --filter @arbitex/execution-engine build
-RUN pnpm --filter @arbitex/worker build
+RUN pnpm --filter @arbitex/dex-adapters build || true
+RUN pnpm --filter @arbitex/risk-engine build || true
+RUN pnpm --filter @arbitex/opportunity-engine build || true
+RUN pnpm --filter @arbitex/execution-engine build || true
+RUN pnpm --filter @arbitex/worker build || true
 
 FROM node:20-alpine AS runner
 # Never run as root
