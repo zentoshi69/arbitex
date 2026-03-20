@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { Shield } from "lucide-react";
 import { isTokenValid } from "@/lib/auth";
 
-const BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 export default function LoginPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -27,7 +25,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${BASE}/api/v1/auth/login`, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: password.trim() }),

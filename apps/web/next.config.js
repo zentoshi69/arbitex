@@ -22,7 +22,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              `connect-src 'self' ${API_URL} ${WS_URL} https://api.coingecko.com https://api.snowtrace.io`,
+              `connect-src 'self' ${API_URL} ${WS_URL} https://api.coingecko.com https://api.snowtrace.io https://api.avax.network`,
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",

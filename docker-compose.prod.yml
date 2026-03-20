@@ -99,6 +99,9 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?set NEXT_PUBLIC_WS_URL}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRY: ${JWT_EXPIRY:-24h}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-}
     depends_on:
       - api
     expose:
