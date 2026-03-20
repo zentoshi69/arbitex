@@ -597,3 +597,5 @@ export class ExecutionEngine {
     });
   }
 }
+
+export { FlashArbExecutor, type FlashArbConfig, type FlashArbInput } from "./flash-arb-executor.js";

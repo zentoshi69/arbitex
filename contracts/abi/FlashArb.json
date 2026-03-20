@@ -1,0 +1,140 @@
+[
+  {
+    "type": "constructor",
+    "inputs": [
+      { "name": "_addressesProvider", "type": "address" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "executeArb",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "asset", "type": "address" },
+      { "name": "amount", "type": "uint256" },
+      {
+        "name": "buyLeg",
+        "type": "tuple",
+        "components": [
+          { "name": "dexType", "type": "uint8" },
+          { "name": "router", "type": "address" },
+          { "name": "tokenIn", "type": "address" },
+          { "name": "tokenOut", "type": "address" },
+          { "name": "fee", "type": "uint24" },
+          { "name": "amountOutMin", "type": "uint256" },
+          { "name": "v2Path", "type": "address[]" }
+        ]
+      },
+      {
+        "name": "sellLeg",
+        "type": "tuple",
+        "components": [
+          { "name": "dexType", "type": "uint8" },
+          { "name": "router", "type": "address" },
+          { "name": "tokenIn", "type": "address" },
+          { "name": "tokenOut", "type": "address" },
+          { "name": "fee", "type": "uint24" },
+          { "name": "amountOutMin", "type": "uint256" },
+          { "name": "v2Path", "type": "address[]" }
+        ]
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "executeOperation",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "asset", "type": "address" },
+      { "name": "amount", "type": "uint256" },
+      { "name": "premium", "type": "uint256" },
+      { "name": "initiator", "type": "address" },
+      { "name": "params", "type": "bytes" }
+    ],
+    "outputs": [{ "type": "bool" }]
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "token", "type": "address" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "withdrawAll",
+    "stateMutability": "nonpayable",
+    "inputs": [{ "name": "token", "type": "address" }],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "withdrawNative",
+    "stateMutability": "nonpayable",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "type": "function",
+    "name": "ADDRESSES_PROVIDER",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "type": "function",
+    "name": "POOL",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "type": "event",
+    "name": "ArbExecuted",
+    "inputs": [
+      { "name": "asset", "type": "address", "indexed": true },
+      { "name": "borrowed", "type": "uint256", "indexed": false },
+      { "name": "profit", "type": "uint256", "indexed": false },
+      { "name": "buyRouter", "type": "address", "indexed": false },
+      { "name": "sellRouter", "type": "address", "indexed": false }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "Withdrawn",
+    "inputs": [
+      { "name": "token", "type": "address", "indexed": true },
+      { "name": "amount", "type": "uint256", "indexed": false },
+      { "name": "to", "type": "address", "indexed": false }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotPool",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotSelf",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ArbNotProfitable",
+    "inputs": [
+      { "name": "repayAmount", "type": "uint256" },
+      { "name": "balance", "type": "uint256" }
+    ]
+  }
+]

@@ -5,7 +5,7 @@ import type { AdapterRegistry } from "@arbitex/dex-adapters";
 import type { RiskConfig } from "@arbitex/shared-types";
 import type { ArbitexPublicClient } from "@arbitex/chain";
 import { NonceManager, loadWalletFromKeystore, createMockWallet } from "@arbitex/chain";
-import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
+import { ExecutionEngine, RouteSimulator, FlashArbExecutor } from "@arbitex/execution-engine";
 import type { Redis } from "ioredis";
 import { config, getRpcConfig } from "@arbitex/config";
 import { pino } from "pino";
@@ -31,7 +31,6 @@ export async function processExecutionJob(
 
   logger.info({ opportunityId, jobId: job.id }, "Execution job started");
 
-  // Load wallet
   const wallet = mockExecution
     ? createMockWallet("0x1234567890123456789012345678901234567890")
     : await loadWalletFromKeystore({
@@ -45,37 +44,73 @@ export async function processExecutionJob(
   const adapterMap = new Map(
     registry.getAll().map((a) => [a.venueId, a])
   );
-  const simulator = new RouteSimulator(chainClient as any, adapterMap);
 
-  const engine = new ExecutionEngine(
-    wallet,
-    chainClient as any,
-    nonceManager,
-    simulator,
-    prisma,
-    connection
-  );
+  const useFlashArb =
+    candidate.isFlashArb === true && !!config.FLASH_ARB_ADDRESS;
 
   try {
-    await engine.execute({
-      opportunityId,
-      fingerprint: candidate.fingerprint,
-      routes: candidate.routes,
-      buyPool: candidate.buyPool,
-      sellPool: candidate.sellPool,
-      profitBreakdown: candidate.profitBreakdown,
-      adapters: adapterMap,
-      riskConfig,
-      mockExecution,
-    });
+    if (useFlashArb) {
+      // ── Flash Arb path ─────────────────────────────────────────────────
+      const flashExecutor = new FlashArbExecutor(
+        wallet,
+        chainClient as any,
+        nonceManager,
+        prisma,
+        connection,
+        {
+          flashArbAddress: config.FLASH_ARB_ADDRESS as `0x${string}`,
+          aavePoolProvider: config.AAVE_POOL_PROVIDER as `0x${string}`,
+        }
+      );
 
-    // Record success for risk metrics
+      const routes = candidate.routes;
+      const result = await flashExecutor.execute({
+        opportunityId,
+        fingerprint: candidate.fingerprint,
+        asset: routes[0].tokenIn,
+        amount: routes[0].amountIn,
+        buyStep: routes[0],
+        sellStep: routes[1],
+        buyPool: candidate.buyPool,
+        sellPool: candidate.sellPool,
+        profitBreakdown: candidate.profitBreakdown,
+        mockExecution,
+      });
+
+      logger.info(
+        { opportunityId, txHash: result.txHash, profit: result.profit, state: result.state },
+        "Flash arb execution completed"
+      );
+    } else {
+      // ── Standard two-leg path ──────────────────────────────────────────
+      const simulator = new RouteSimulator(chainClient as any, adapterMap);
+      const engine = new ExecutionEngine(
+        wallet,
+        chainClient as any,
+        nonceManager,
+        simulator,
+        prisma,
+        connection
+      );
+
+      await engine.execute({
+        opportunityId,
+        fingerprint: candidate.fingerprint,
+        routes: candidate.routes,
+        buyPool: candidate.buyPool,
+        sellPool: candidate.sellPool,
+        profitBreakdown: candidate.profitBreakdown,
+        adapters: adapterMap,
+        riskConfig,
+        mockExecution,
+      });
+    }
+
     await deps.riskEngine.recordSuccessfulTx(candidate.buyPool.chainId);
-    logger.info({ opportunityId }, "Execution completed");
+    logger.info({ opportunityId, flashArb: useFlashArb }, "Execution completed");
   } catch (err) {
-    // Record failure for risk metrics
     await deps.riskEngine.recordFailedTx(candidate.buyPool.chainId);
     logger.error({ opportunityId, err }, "Execution failed");
-    throw err; // BullMQ will handle retry
+    throw err;
   }
 }

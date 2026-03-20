@@ -66,6 +66,10 @@ const EnvSchema = z.object({
   EXECUTION_WALLET_KEYSTORE_PATH: z.string().optional(),
   EXECUTION_WALLET_KEYSTORE_PASS: z.string().optional(),
 
+  // FlashArb contract
+  FLASH_ARB_ADDRESS: z.string().optional(),
+  AAVE_POOL_PROVIDER: z.string().default("0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb"),
+
   // Flashbots
   FLASHBOTS_AUTH_KEY: z.string().optional(),
   FLASHBOTS_RELAY_URL: z
