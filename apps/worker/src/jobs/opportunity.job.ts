@@ -4,6 +4,7 @@ import type { RiskEngine } from "@arbitex/risk-engine";
 import type { OpportunityCandidate } from "@arbitex/opportunity-engine";
 import type { RiskConfig } from "@arbitex/shared-types";
 import { OpportunityState } from "@arbitex/shared-types";
+import type { ArbitexPublicClient } from "@arbitex/chain";
 import type { queues } from "../index.js";
 import { pino } from "pino";
 
@@ -14,6 +15,7 @@ type JobDeps = {
   prisma: PrismaClient;
   queues: typeof queues;
   riskConfig: RiskConfig;
+  chainClient: ArbitexPublicClient;
 };
 
 export async function processOpportunityJob(
@@ -89,8 +91,13 @@ export async function processOpportunityJob(
   );
 
   // ── Risk evaluation ────────────────────────────────────────────────────────
-  // Get current gas price from chain for risk check
-  const gasGwei = 30; // TODO: fetch live from chain client
+  let gasGwei = 25; // fallback for Avalanche C-Chain
+  try {
+    const gasPriceWei = await deps.chainClient.getGasPrice();
+    gasGwei = Number(gasPriceWei / 1_000_000_000n);
+  } catch (err) {
+    logger.warn({ err }, "Failed to fetch live gas price, using fallback");
+  }
 
   const riskDecision = await riskEngine.evaluate({
     opportunityId: opp.id,

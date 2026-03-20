@@ -93,7 +93,15 @@ async function registerAdapters() {
       );
       logger.info({ venue: venue.name, chainId: venue.chainId }, "Registered UniswapV2 adapter");
     } else if (venue.protocol === "uniswap_v3") {
-      registry.register(new UniswapV3Adapter(chainClient as any));
+      registry.register(
+        UniswapV3Adapter.fromVenue(chainClient as any, {
+          id: venue.id,
+          name: venue.name,
+          chainId: venue.chainId,
+          factoryAddress: venue.factoryAddress,
+          routerAddress: venue.routerAddress,
+        })
+      );
       logger.info({ venue: venue.name, chainId: venue.chainId }, "Registered UniswapV3 adapter");
     }
   }
@@ -242,7 +250,7 @@ const poolRefreshWorker = new Worker(
 const opportunityScoreWorker = new Worker(
   "opportunity-score",
   async (job: Job) => {
-    await processOpportunityJob(job, { riskEngine, prisma, queues, riskConfig });
+    await processOpportunityJob(job, { riskEngine, prisma, queues, riskConfig, chainClient });
   },
   { ...workerOpts, concurrency: 5 }
 );

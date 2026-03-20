@@ -59,20 +59,76 @@ const UNISWAP_V3_MAINNET: UniswapV3Config = {
   feeTiers: [500, 3000, 10000],
 };
 
+const UNISWAP_V3_AVALANCHE: UniswapV3Config = {
+  venueId: "uniswap-v3-avalanche",
+  chainId: 43114,
+  factoryAddress: "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baF",
+  quoterV2Address: "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F",
+  routerAddress: "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE",
+  feeTiers: [500, 3000, 10000],
+};
+
+const TRADERJOE_V2_1_AVALANCHE: UniswapV3Config = {
+  venueId: "traderjoe-v2.1-avalanche",
+  chainId: 43114,
+  factoryAddress: "0x8e42f2F4101563bF679975178e880FD87d3eFd4e",
+  quoterV2Address: "0xd76019A16606FDa4651f636D9751f500Ed776250",
+  routerAddress: "0xb4315e873dBcf96Ffd0acd8EA43f689D8c20fB30",
+  feeTiers: [500, 2500, 10000],
+};
+
+const V3_CONFIGS_BY_CHAIN: Record<number, UniswapV3Config[]> = {
+  1: [UNISWAP_V3_MAINNET],
+  43114: [UNISWAP_V3_AVALANCHE, TRADERJOE_V2_1_AVALANCHE],
+};
+
 // ── Adapter ───────────────────────────────────────────────────────────────────
 
 export class UniswapV3Adapter implements IDexAdapter {
   readonly venueId: string;
-  readonly venueName = "Uniswap V3";
+  readonly venueName: string;
   readonly chainId: number;
   readonly protocol = "uniswap_v3";
 
   constructor(
     private readonly client: PublicClient,
-    private readonly cfg: UniswapV3Config = UNISWAP_V3_MAINNET
+    private readonly cfg: UniswapV3Config = UNISWAP_V3_MAINNET,
+    venueName?: string,
   ) {
     this.venueId = cfg.venueId;
     this.chainId = cfg.chainId;
+    this.venueName = venueName ?? "Uniswap V3";
+  }
+
+  /**
+   * Create an adapter from a DB venue record.
+   * Matches factory address to known presets, or builds a config from the venue data.
+   */
+  static fromVenue(
+    client: PublicClient,
+    venue: { id: string; name: string; chainId: number; factoryAddress: string; routerAddress: string },
+  ): UniswapV3Adapter {
+    const presets = V3_CONFIGS_BY_CHAIN[venue.chainId] ?? [];
+    const match = presets.find(
+      (p) => p.factoryAddress.toLowerCase() === venue.factoryAddress.toLowerCase(),
+    );
+
+    if (match) {
+      return new UniswapV3Adapter(client, { ...match, venueId: venue.id }, venue.name);
+    }
+
+    return new UniswapV3Adapter(
+      client,
+      {
+        venueId: venue.id,
+        chainId: venue.chainId,
+        factoryAddress: venue.factoryAddress,
+        quoterV2Address: venue.routerAddress,
+        routerAddress: venue.routerAddress,
+        feeTiers: [500, 3000, 10000],
+      },
+      venue.name,
+    );
   }
 
   async getPools(tokens?: Address[]): Promise<NormalizedPool[]> {
@@ -295,4 +351,4 @@ export class UniswapV3Adapter implements IDexAdapter {
   }
 }
 
-export { UNISWAP_V3_MAINNET };
+export { UNISWAP_V3_MAINNET, UNISWAP_V3_AVALANCHE, TRADERJOE_V2_1_AVALANCHE, V3_CONFIGS_BY_CHAIN };

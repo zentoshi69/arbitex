@@ -56,7 +56,7 @@ const EnvSchema = z.object({
   ARBITRUM_WSS_URL: optionalUrl,
   BASE_RPC_URL: optionalUrl,
   BASE_WSS_URL: optionalUrl,
-  CHAIN_ID: z.coerce.number().int().positive().default(1),
+  CHAIN_ID: z.coerce.number().int().positive().default(43114),
 
   // Super Admin signer (for LP actions on-chain)
   SUPERADMIN_KEYSTORE_PATH: z.string().optional(),
