@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./trading-brain.js";
+
 // ── Primitives ────────────────────────────────────────────────────────────────
 
 export const AddressSchema = z

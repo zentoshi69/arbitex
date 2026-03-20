@@ -11,6 +11,11 @@ import type { IDexAdapter } from "@arbitex/dex-adapters";
 import type { PrismaClient } from "@arbitex/db";
 import type { ArbitexPublicClient } from "@arbitex/chain";
 
+export * from "./v3-math.js";
+export * from "./v3-simulator.js";
+export * from "./lp-band-builder.js";
+export * from "./optimal-sizer.js";
+
 export type OpportunityCandidate = {
   id: string;
   fingerprint: string;
