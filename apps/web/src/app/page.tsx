@@ -8,6 +8,8 @@ import { api } from "@/lib/api";
 import { Wallet } from "lucide-react";
 
 type CoinGeckoSimplePrice = Record<string, { usd?: number; usd_24h_change?: number }>;
+type PnlSummary = { today?: number; last7d?: number; last30d?: number; allTime?: number; successRate30d?: number };
+type RegimeCurrent = { regime?: string; sizeMultiplier?: number; hurdleBps?: number; algorithm?: string };
 
 function HeroChip({
   label,
@@ -76,10 +78,30 @@ export default function OverviewPage() {
     retry: 2,
   });
 
+  const pnlQ = useQuery<PnlSummary>({
+    queryKey: ["ui", "pnl-overview"],
+    queryFn: () => api.pnl.summary(),
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+    retry: 1,
+  });
+
+  const regimeQ = useQuery<RegimeCurrent>({
+    queryKey: ["ui", "regime-overview"],
+    queryFn: () => api.regime.current(),
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+    retry: 1,
+  });
+
   const avaxUsd = marketQ.data?.tokens?.AVAX?.usd ?? cgQ.data?.["avalanche-2"]?.usd ?? null;
   const avaxChange = marketQ.data?.tokens?.AVAX?.change24h ?? cgQ.data?.["avalanche-2"]?.usd_24h_change ?? null;
   const wrpUsd = marketQ.data?.tokens?.WRP?.usd ?? null;
   const wrpChange = marketQ.data?.tokens?.WRP?.change24h ?? null;
+
+  const todayPnl = pnlQ.data?.today ?? null;
+  const successRate = pnlQ.data?.successRate30d ?? null;
+  const hurdleBps = regimeQ.data?.hurdleBps ?? null;
 
   const formatUsd = (v: number | null, digits = 2) =>
     v !== null && Number.isFinite(v) ? `$${v.toFixed(digits)}` : "—";
@@ -106,16 +128,16 @@ export default function OverviewPage() {
       tone: toneFor(wrpChange),
     },
     {
-      label: "Net Edge",
-      value: "+24.3 bps",
-      change: "+6.2%",
-      tone: "up" as const,
+      label: "Hurdle Rate",
+      value: hurdleBps !== null ? `${hurdleBps} bps` : "—",
+      change: regimeQ.data?.regime ?? "loading",
+      tone: "neutral" as const,
     },
     {
-      label: "Mock PnL",
-      value: "$0.00",
-      change: "0.00%",
-      tone: "neutral" as const,
+      label: "Today PnL",
+      value: formatUsd(todayPnl),
+      change: successRate !== null ? `${successRate.toFixed(1)}% win (30d)` : "pending",
+      tone: toneFor(todayPnl),
     },
   ];
 
@@ -200,18 +222,20 @@ export default function OverviewPage() {
         </div>
 
         <div className="relative z-[7] flex h-[28px] items-center gap-5 border-t border-[var(--border)] bg-[var(--bg)] px-5 font-mono text-[8.5px] uppercase tracking-[0.07em] text-[var(--grey2)]">
-          <div className="text-[var(--red)]">● CONNECTING</div>
-          <div>
-            MOCK_EXECUTION = <span className="text-[var(--offwhite)]">true</span>
+          <div className={marketQ.data ? "text-[#4DD68C]" : "text-[var(--red)]"}>
+            ● {marketQ.data ? "CONNECTED" : "CONNECTING"}
           </div>
           <div>
-            EXECUTION_ENABLED = <span className="text-[var(--offwhite)]">false</span>
+            REGIME = <span className="text-[var(--offwhite)]">{regimeQ.data?.regime ?? "—"}</span>
+          </div>
+          <div>
+            ALGO = <span className="text-[var(--offwhite)]">{regimeQ.data?.algorithm ?? "—"}</span>
           </div>
           <div className="flex-1" />
           <div>
             Chain <span className="text-[var(--offwhite)]">43114</span>
           </div>
-          <div className="text-[#4DD68C]">Phase A Shadow Mode</div>
+          <div className="text-[#4DD68C]">Shadow Mode Active</div>
         </div>
       </div>
 
