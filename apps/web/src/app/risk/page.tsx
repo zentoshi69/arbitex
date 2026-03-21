@@ -30,8 +30,9 @@ function RiskConfigForm({ config }: { config: Record<string, number> }) {
     min: number;
     step: number;
   }> = [
+    { key: "baseTradeSizeUsd", label: "Base Trade Size", description: "Trade size before regime adjustment", unit: "$", min: 10, step: 100 },
     { key: "minNetProfitUsd", label: "Min Net Profit", description: "Minimum net profit to execute a trade", unit: "$", min: 0.01, step: 0.5 },
-    { key: "maxTradeSizeUsd", label: "Max Trade Size", description: "Maximum USD per single trade", unit: "$", min: 100, step: 100 },
+    { key: "maxTradeSizeUsd", label: "Max Trade Size", description: "Maximum USD per single trade (hard cap)", unit: "$", min: 100, step: 100 },
     { key: "maxTokenExposureUsd", label: "Max Token Exposure", description: "Max simultaneous exposure per token", unit: "$", min: 1000, step: 1000 },
     { key: "minPoolLiquidityUsd", label: "Min Pool Liquidity", description: "Minimum pool TVL to trade against", unit: "$", min: 10000, step: 10000 },
     { key: "maxGasGwei", label: "Max Gas Price", description: "Gas price ceiling — pause if exceeded", unit: "Gwei", min: 10, step: 5 },
@@ -99,6 +100,7 @@ function KillSwitchPanel({ switches }: { switches: Record<string, boolean> }) {
 
   const SWITCH_LABELS: Record<string, { label: string; description: string; danger: boolean }> = {
     GLOBAL: { label: "Global Kill Switch", description: "Halts ALL detection and execution immediately", danger: true },
+    CHAIN_43114: { label: "Avalanche C-Chain", description: "Halts all activity on Avalanche", danger: false },
     CHAIN_1: { label: "Ethereum Mainnet", description: "Halts all activity on chain 1", danger: false },
     CHAIN_8453: { label: "Base Network", description: "Halts all activity on Base", danger: false },
     CHAIN_42161: { label: "Arbitrum One", description: "Halts all activity on Arbitrum", danger: false },

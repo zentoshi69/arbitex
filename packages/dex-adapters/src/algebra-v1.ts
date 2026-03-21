@@ -13,6 +13,7 @@ import type {
   Address,
 } from "@arbitex/shared-types";
 import { ArbitexError, ErrorCode } from "@arbitex/shared-types";
+import { estimateV3LiquidityUsd } from "./liquidity-estimator.js";
 
 const ALGEBRA_POOL_ABI = parseAbi([
   "function globalState() external view returns (uint160 price, int24 tick, uint16 lastFee, uint8 pluginConfig, uint16 communityFee, bool unlocked)",
@@ -122,6 +123,10 @@ export class AlgebraV1Adapter implements IDexAdapter {
         ]);
 
         const price0Per1 = this.sqrtPriceX96ToPrice(sqrtPrice, t0Meta.decimals, t1Meta.decimals);
+        const liq = liquidity as bigint;
+        const liquidityUsd = estimateV3LiquidityUsd(
+          liq, sqrtPrice, t0Meta.decimals, t1Meta.decimals, t0Meta.symbol, t1Meta.symbol
+        );
 
         pools.push({
           poolId: poolAddress.toLowerCase(),
@@ -135,7 +140,7 @@ export class AlgebraV1Adapter implements IDexAdapter {
           token0Decimals: t0Meta.decimals,
           token1Decimals: t1Meta.decimals,
           feeBps: Math.round(lastFee / 100),
-          liquidityUsd: 0,
+          liquidityUsd,
           price0Per1,
           price1Per0: price0Per1 > 0 ? 1 / price0Per1 : 0,
           sqrtPriceX96: sqrtPrice.toString(),

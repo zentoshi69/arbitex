@@ -63,6 +63,7 @@ const EnvSchema = z.object({
   SUPERADMIN_KEYSTORE_PASS: z.string().optional(),
 
   // Execution wallet — absent in web/api, present in worker
+  EXECUTION_WALLET_PRIVATE_KEY: z.string().optional(),
   EXECUTION_WALLET_KEYSTORE_PATH: z.string().optional(),
   EXECUTION_WALLET_KEYSTORE_PASS: z.string().optional(),
 

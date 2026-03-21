@@ -15,6 +15,7 @@ import type {
   Address,
 } from "@arbitex/shared-types";
 import { ArbitexError, ErrorCode } from "@arbitex/shared-types";
+import { estimateV3LiquidityUsd } from "./liquidity-estimator.js";
 
 // ── ABIs (minimal) ────────────────────────────────────────────────────────────
 
@@ -194,6 +195,7 @@ export class UniswapV3Adapter implements IDexAdapter {
               });
 
             const sqrtPrice = BigInt((slot0 as any)[0]);
+            const liq = liquidity as bigint;
             const price0Per1 = this.sqrtPriceX96ToPrice(sqrtPrice);
 
             const t0Addr = (token0 as string).toLowerCase() as Address;
@@ -202,6 +204,10 @@ export class UniswapV3Adapter implements IDexAdapter {
               this.resolveTokenMeta(t0Addr as ViemAddress),
               this.resolveTokenMeta(t1Addr as ViemAddress),
             ]);
+
+            const liquidityUsd = estimateV3LiquidityUsd(
+              liq, sqrtPrice, t0Meta.decimals, t1Meta.decimals, t0Meta.symbol, t1Meta.symbol
+            );
 
             pools.push({
               poolId: poolAddress.toLowerCase(),
@@ -215,7 +221,7 @@ export class UniswapV3Adapter implements IDexAdapter {
               token0Decimals: t0Meta.decimals,
               token1Decimals: t1Meta.decimals,
               feeBps: fee / 100,
-              liquidityUsd: 0,
+              liquidityUsd,
               price0Per1,
               price1Per0: price0Per1 > 0 ? 1 / price0Per1 : 0,
               sqrtPriceX96: sqrtPrice.toString(),

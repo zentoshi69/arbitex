@@ -24,6 +24,7 @@ const RedisCtor: new (...args: any[]) => RedisClient =
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 class UpdateRiskConfigDto {
+  @IsOptional() @IsNumber() @IsPositive() baseTradeSizeUsd?: number;
   @IsOptional() @IsNumber() @IsPositive() maxTradeSizeUsd?: number;
   @IsOptional() @IsNumber() @IsPositive() minNetProfitUsd?: number;
   @IsOptional() @IsNumber() @IsPositive() maxGasGwei?: number;
@@ -52,6 +53,7 @@ export class RiskService {
       this.redis,
       prisma,
       RiskConfigSchema.parse({
+        baseTradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
         maxTradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
         minNetProfitUsd: config.DEFAULT_MIN_NET_PROFIT_USD,
         maxGasGwei: config.DEFAULT_MAX_GAS_GWEI,
@@ -63,6 +65,7 @@ export class RiskService {
   async getConfig(): Promise<RiskConfig> {
     const overrides = await prisma.configOverride.findMany();
     const base = RiskConfigSchema.parse({
+      baseTradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
       maxTradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
       minNetProfitUsd: config.DEFAULT_MIN_NET_PROFIT_USD,
       maxGasGwei: config.DEFAULT_MAX_GAS_GWEI,

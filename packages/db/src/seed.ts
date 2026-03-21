@@ -295,10 +295,11 @@ async function main() {
 
   // ── Config overrides ───────────────────────────────────────────────────────
   const defaults = [
+    { key: "baseTradeSizeUsd", value: "500" },
     { key: "maxTradeSizeUsd", value: "1000" },
-    { key: "minNetProfitUsd", value: "5" },
+    { key: "minNetProfitUsd", value: "0.5" },
     { key: "maxGasGwei", value: "100" },
-    { key: "minPoolLiquidityUsd", value: "100000" },
+    { key: "minPoolLiquidityUsd", value: "1000" },
     { key: "maxFailedTxPerHour", value: "5" },
     { key: "maxSlippageBps", value: "50" },
     { key: "maxTokenExposureUsd", value: "25000" },

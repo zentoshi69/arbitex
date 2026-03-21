@@ -14,6 +14,7 @@ import type {
   Address,
 } from "@arbitex/shared-types";
 import { ArbitexError, ErrorCode } from "@arbitex/shared-types";
+import { estimateV2LiquidityUsd } from "./liquidity-estimator.js";
 
 // ── ABIs ──────────────────────────────────────────────────────────────────────
 
@@ -147,9 +148,13 @@ export class SolidlyV2Adapter implements IDexAdapter {
             const r0 = Number(reserve0);
             const r1 = Number(reserve1);
 
-            const price0Per1 = r1 > 0 ? r0 / r1 : 0;
-            const price1Per0 = r0 > 0 ? r1 / r0 : 0;
-            const liquidityUsd = Math.sqrt(r0 * r1) / 1e12;
+            const adj0 = r0 / 10 ** t0Meta.decimals;
+            const adj1 = r1 / 10 ** t1Meta.decimals;
+            const price0Per1 = adj1 > 0 ? adj0 / adj1 : 0;
+            const price1Per0 = adj0 > 0 ? adj1 / adj0 : 0;
+            const liquidityUsd = estimateV2LiquidityUsd(
+              reserve0, reserve1, t0Meta.decimals, t1Meta.decimals, t0Meta.symbol, t1Meta.symbol
+            );
 
             const feeBps = isStable ? 2 : 30;
 

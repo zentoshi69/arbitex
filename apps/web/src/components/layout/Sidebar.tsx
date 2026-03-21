@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { getRole } from "@/lib/auth";
 import { useWallet } from "@/components/wallet/WalletProvider";
 import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { useTokenContext } from "@/contexts/TokenContext";
+import { api } from "@/lib/api";
 
 const NAV_ITEMS = [
   { href: "/", label: "Overview" },
+  { href: "/trading", label: "Trading" },
   { href: "/opportunities", label: "Opportunities" },
   { href: "/executions", label: "Executions" },
   { href: "/pnl", label: "PnL" },
@@ -32,6 +35,13 @@ export function Sidebar() {
   const { health } = useSystemHealth();
   const { activeTokenId, setActiveTokenId, trackedTokens, isAll } = useTokenContext();
   const operatorAddress = wallet.address ?? (role ? `ROLE:${role}` : "—");
+
+  const { data: tradingStatus } = useQuery({
+    queryKey: ["trading", "status"],
+    queryFn: () => api.trading.status(),
+    refetchInterval: 10_000,
+    retry: false,
+  });
 
   const isConnected = health?.status === "healthy" || health?.status === "degraded";
   const statusColor = isConnected ? "#4DD68C" : "var(--red)";
@@ -140,14 +150,17 @@ export function Sidebar() {
           <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
 
-        {NAV_ITEMS.slice(0, 10).map(({ href, label }) => {
+        {NAV_ITEMS.slice(0, 11).map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+          const isTrading = href === "/trading";
+          const tradingActive = tradingStatus?.tradingEnabled && !tradingStatus?.mockExecution;
+          const tradingMock = tradingStatus?.tradingEnabled && tradingStatus?.mockExecution;
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "relative block px-[18px] py-[7px] font-styrene text-[12.5px] font-normal tracking-[-0.01em] transition-colors",
+                "relative flex items-center gap-2 px-[18px] py-[7px] font-styrene text-[12.5px] font-normal tracking-[-0.01em] transition-colors",
                 active
                   ? "bg-[rgba(232,65,66,0.08)] font-medium text-[var(--offwhite)]"
                   : "text-[var(--grey1)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--offwhite)]"
@@ -159,6 +172,16 @@ export function Sidebar() {
                 />
               )}
               {label}
+              {isTrading && (
+                <span
+                  className={cn(
+                    "ml-auto h-[6px] w-[6px] rounded-full flex-shrink-0",
+                    tradingActive ? "bg-emerald-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]"
+                      : tradingMock ? "bg-amber-400 animate-pulse"
+                      : "bg-red-400/50"
+                  )}
+                />
+              )}
             </Link>
           );
         })}
@@ -170,7 +193,7 @@ export function Sidebar() {
           <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
 
-        {NAV_ITEMS.slice(10)
+        {NAV_ITEMS.slice(11)
           .filter((item) => !("superAdminOnly" in item && item.superAdminOnly) || role === "SUPER_ADMIN")
           .map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));

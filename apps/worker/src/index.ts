@@ -220,14 +220,30 @@ async function registerAdapters() {
 }
 
 // ── Risk engine ───────────────────────────────────────────────────────────────
-const riskConfig = RiskConfigSchema.parse({
+const defaultRiskConfig = RiskConfigSchema.parse({
+  baseTradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
   maxTradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
   minNetProfitUsd: config.DEFAULT_MIN_NET_PROFIT_USD,
   maxGasGwei: config.DEFAULT_MAX_GAS_GWEI,
   minPoolLiquidityUsd: config.DEFAULT_MIN_POOL_LIQUIDITY_USD,
 });
 
-const riskEngine = new RiskEngine(connection, prisma, riskConfig);
+async function loadLiveRiskConfig() {
+  try {
+    const overrides = await prisma.configOverride.findMany();
+    const overrideMap = Object.fromEntries(
+      overrides
+        .filter((o) => !o.key.startsWith("execution_wallet"))
+        .map((o) => [o.key, JSON.parse(o.value)])
+    );
+    return RiskConfigSchema.parse({ ...defaultRiskConfig, ...overrideMap });
+  } catch (err) {
+    logger.warn({ err }, "Failed to load live risk config, using defaults");
+    return defaultRiskConfig;
+  }
+}
+
+const riskEngine = new RiskEngine(connection, prisma, defaultRiskConfig);
 const regimeClassifier = new RegimeClassifier(prisma);
 
 // ── Opportunity engine ────────────────────────────────────────────────────────
@@ -315,13 +331,14 @@ const poolRefreshWorker = new Worker(
       return;
     }
 
-    const baseTradeSizeUsd = config.DEFAULT_MAX_TRADE_SIZE_USD;
+    const liveConfig = await loadLiveRiskConfig();
+    const baseTradeSizeUsd = liveConfig.baseTradeSizeUsd;
     const adjustedTradeSize = baseTradeSizeUsd * sizeMultiplier;
     const adjustedMinProfit = (hurdleBps / 10_000) * adjustedTradeSize;
 
     const adjustedRiskConfig = {
-      ...riskConfig,
-      minNetProfitUsd: Math.max(riskConfig.minNetProfitUsd, adjustedMinProfit),
+      ...liveConfig,
+      minNetProfitUsd: Math.max(liveConfig.minNetProfitUsd, adjustedMinProfit),
       maxTradeSizeUsd: adjustedTradeSize,
     };
 
@@ -358,7 +375,8 @@ const poolRefreshWorker = new Worker(
 const opportunityScoreWorker = new Worker(
   "opportunity-score",
   async (job: Job) => {
-    await processOpportunityJob(job, { riskEngine, prisma, queues, riskConfig, chainClient });
+    const liveRisk = await loadLiveRiskConfig();
+    await processOpportunityJob(job, { riskEngine, prisma, queues, riskConfig: liveRisk, chainClient });
   },
   { ...workerOpts, concurrency: 5 }
 );
@@ -367,13 +385,14 @@ const opportunityScoreWorker = new Worker(
 const executionWorker = new Worker(
   "execution",
   async (job: Job) => {
+    const liveRisk = await loadLiveRiskConfig();
     await processExecutionJob(job, {
       chainClient,
       registry,
       riskEngine,
       prisma,
       connection,
-      riskConfig,
+      riskConfig: liveRisk,
       mockExecution: config.MOCK_EXECUTION,
     });
   },

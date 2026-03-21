@@ -225,6 +225,7 @@ export type ExecutionStatus = z.infer<typeof ExecutionStatusSchema>;
 // ── Risk Engine Types ─────────────────────────────────────────────────────────
 
 export const RiskConfigSchema = z.object({
+  baseTradeSizeUsd: z.number().positive().default(5_000),
   maxTradeSizeUsd: z.number().positive().default(10_000),
   maxTokenExposureUsd: z.number().positive().default(25_000),
   minPoolLiquidityUsd: z.number().positive().default(50_000),

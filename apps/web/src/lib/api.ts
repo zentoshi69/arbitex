@@ -211,6 +211,18 @@ export const api = {
     }>("/market/tokens"),
   },
 
+  // Trading
+  trading: {
+    status: () => apiFetch<any>("/trading/status"),
+    setWallet: (privateKey: string) =>
+      apiFetch<{ address: string }>("/trading/wallet", {
+        method: "POST",
+        body: JSON.stringify({ privateKey }),
+      }),
+    removeWallet: () =>
+      apiFetch<void>("/trading/wallet", { method: "DELETE" }),
+  },
+
   // Health
   health: () => fetch(`${BASE}/health`).then((r) => r.json()),
 };

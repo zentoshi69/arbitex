@@ -65,6 +65,43 @@ export async function loadWalletFromKeystore(
 }
 
 /**
+ * Load wallet directly from a hex private key (0x-prefixed).
+ * Simpler alternative to keystore — use when key is provided via env var or encrypted DB field.
+ */
+export function loadWalletFromPrivateKey(
+  privateKey: Hex,
+  rpcUrl: string,
+  chainId: number
+): WalletAbstraction {
+  const account = privateKeyToAccount(privateKey);
+  const chain = getChain(chainId);
+
+  const client = createWalletClient({
+    account,
+    chain,
+    transport: http(rpcUrl),
+  });
+
+  return {
+    address: account.address,
+    signTransaction: async (txRequest) => {
+      return client.signTransaction(txRequest as any);
+    },
+    sendTransaction: async (txRequest) => {
+      return client.sendTransaction(txRequest as any);
+    },
+    client,
+  };
+}
+
+/**
+ * Derive an address from a hex private key without creating a full wallet client.
+ */
+export function deriveAddressFromPrivateKey(privateKey: Hex): `0x${string}` {
+  return privateKeyToAccount(privateKey).address;
+}
+
+/**
  * Mock wallet for testing — signs with a dev key, never submits.
  */
 export function createMockWallet(address: `0x${string}`): WalletAbstraction {
