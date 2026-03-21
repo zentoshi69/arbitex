@@ -27,7 +27,7 @@ loadEnvFromMonorepoRoot();
 
 // ── Schema ─────────────────────────────────────────────────────────────────────
 
-const optionalUrl = z.string().transform(v => v === "" ? undefined : v).pipe(z.string().url().optional());
+const optionalUrl = z.string().optional().transform(v => (!v || v === "") ? undefined : v).pipe(z.string().url().optional());
 
 const EnvSchema = z.object({
   NODE_ENV: z
