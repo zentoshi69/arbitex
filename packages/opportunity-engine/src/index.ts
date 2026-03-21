@@ -225,9 +225,10 @@ export class OpportunityEngine {
   ): Array<{ buyPool: NormalizedPool; sellPool: NormalizedPool }> {
     const pairs: Array<{ buyPool: NormalizedPool; sellPool: NormalizedPool }> = [];
 
-    const pools = Array.from(this.poolCache.values());
+    const MIN_POOL_LIQUIDITY = 1_000;
+    const pools = Array.from(this.poolCache.values())
+      .filter((p) => p.liquidityUsd >= MIN_POOL_LIQUIDITY);
 
-    // Group pools by token pair (normalized order)
     const byPair = new Map<string, NormalizedPool[]>();
     for (const pool of pools) {
       const key = [pool.token0, pool.token1]
