@@ -16,14 +16,36 @@ import { paginatedResponse } from "@arbitex/shared-types";
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser } from "../auth/auth.module.js";
 import type { JwtPayload } from "../auth/auth.module.js";
 import { createChainClient } from "@arbitex/chain";
-import { config } from "@arbitex/config";
+import { config, getRpcConfig } from "@arbitex/config";
 
 const isHexAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v);
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const ERC20_ABI = [
   { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
   { type: "function", name: "decimals", stateMutability: "view", inputs: [], outputs: [{ type: "uint8" }] },
+] as const;
+
+const V2_FACTORY_ABI = [
+  {
+    type: "function",
+    name: "getPair",
+    stateMutability: "view",
+    inputs: [{ type: "address" }, { type: "address" }],
+    outputs: [{ type: "address" }],
+  },
+] as const;
+
+const V3_FACTORY_ABI = [
+  {
+    type: "function",
+    name: "getPool",
+    stateMutability: "view",
+    inputs: [{ type: "address" }, { type: "address" }, { type: "uint24" }],
+    outputs: [{ type: "address" }],
+  },
 ] as const;
 
 class CreatePoolDto {
@@ -45,10 +67,26 @@ class CreatePoolDto {
   feeBps!: number;
 }
 
+class DiscoverPoolDto {
+  @IsString()
+  venueId!: string;
+
+  @IsString()
+  token0Address!: string;
+
+  @IsString()
+  token1Address!: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  feeBps!: number;
+}
+
 @Injectable()
 export class PoolsService {
   private readonly client = createChainClient({
-    rpcUrl: config.ETHEREUM_RPC_URL ?? "",
+    rpcUrl: getRpcConfig(config.CHAIN_ID).rpcUrl,
     chainId: config.CHAIN_ID,
   });
 
@@ -131,30 +169,102 @@ export class PoolsService {
       });
     }
 
-    // If token not in DB, try chain metadata so UI can display something useful.
     let tokenResolved: any = token;
     let tokenSource: "db" | "chain" | "unknown" = token ? "db" : "unknown";
     if (!token) {
-      const tokenAddress = addr as `0x${string}`;
-      const [name, symbol, decimals] = await Promise.all([
-        this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "name" }).catch(() => null),
-        this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "symbol" }).catch(() => null),
-        this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "decimals" }).catch(() => null),
-      ]);
-      if (name && symbol && decimals !== null) {
-        tokenResolved = {
-          chainId: config.CHAIN_ID,
-          address: addr,
-          name,
-          symbol,
-          decimals: Number(decimals),
-        };
-        tokenSource = "chain";
-      }
+      tokenResolved = await this.readTokenMetadata(addr);
+      if (tokenResolved) tokenSource = "chain";
     }
 
     const kind = pool ? "pool" : tokenResolved ? "token" : "unknown";
     return { kind, address: addr, token: tokenResolved ? { source: tokenSource, data: tokenResolved } : null, pool, pools };
+  }
+
+  async discoverPool(dto: DiscoverPoolDto) {
+    const { venueId, token0Address, token1Address, feeBps } = dto;
+
+    if (!isHexAddress(token0Address) || !isHexAddress(token1Address)) {
+      throw new BadRequestException("Invalid token address");
+    }
+
+    const venue = await prisma.venue.findUnique({ where: { id: venueId } });
+    if (!venue) throw new BadRequestException("Unknown venueId");
+    if (!venue.factoryAddress) throw new BadRequestException("Venue has no factory address");
+
+    const factory = venue.factoryAddress as `0x${string}`;
+    const t0 = token0Address as `0x${string}`;
+    const t1 = token1Address as `0x${string}`;
+    const isV3 = venue.protocol.includes("v3");
+
+    let poolAddress: string | null = null;
+
+    try {
+      if (isV3) {
+        const feeUnits = feeBps * 100; // bps → V3 fee units (30 bps = 3000)
+        const result = await this.client.readContract({
+          address: factory,
+          abi: V3_FACTORY_ABI,
+          functionName: "getPool",
+          args: [t0, t1, feeUnits],
+        });
+        poolAddress = result as string;
+      } else {
+        const result = await this.client.readContract({
+          address: factory,
+          abi: V2_FACTORY_ABI,
+          functionName: "getPair",
+          args: [t0, t1],
+        });
+        poolAddress = result as string;
+      }
+    } catch (err) {
+      return { found: false, poolAddress: null, error: `Factory query failed: ${err}` };
+    }
+
+    if (!poolAddress || poolAddress === ZERO_ADDRESS) {
+      return { found: false, poolAddress: null, error: "Pool does not exist on this venue for the given tokens/fee" };
+    }
+
+    // Also resolve token metadata for convenience
+    const [token0Meta, token1Meta] = await Promise.all([
+      this.resolveTokenMeta(token0Address),
+      this.resolveTokenMeta(token1Address),
+    ]);
+
+    return {
+      found: true,
+      poolAddress,
+      venue: { id: venue.id, name: venue.name, protocol: venue.protocol },
+      token0: token0Meta,
+      token1: token1Meta,
+      feeBps,
+    };
+  }
+
+  private async readTokenMetadata(address: string) {
+    const addr = address as `0x${string}`;
+    try {
+      const [name, symbol, decimals] = await Promise.all([
+        this.client.readContract({ address: addr, abi: ERC20_ABI, functionName: "name" }),
+        this.client.readContract({ address: addr, abi: ERC20_ABI, functionName: "symbol" }),
+        this.client.readContract({ address: addr, abi: ERC20_ABI, functionName: "decimals" }),
+      ]);
+      if (name && symbol && decimals !== null) {
+        return { chainId: config.CHAIN_ID, address, name, symbol, decimals: Number(decimals) };
+      }
+    } catch {
+      // not an ERC20 or unreachable
+    }
+    return null;
+  }
+
+  private async resolveTokenMeta(address: string) {
+    const existing = await prisma.token.findFirst({
+      where: { chainId: config.CHAIN_ID, address: { equals: address, mode: "insensitive" } },
+      select: { symbol: true, name: true, decimals: true, address: true },
+    });
+    if (existing) return existing;
+    return this.readTokenMetadata(address);
   }
 
   private async upsertToken(address: string) {
@@ -164,20 +274,16 @@ export class PoolsService {
     });
     if (existing) return existing;
 
-    const tokenAddress = addr as `0x${string}`;
-    const [name, symbol, decimals] = await Promise.all([
-      this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "name" }),
-      this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "symbol" }),
-      this.client.readContract({ address: tokenAddress, abi: ERC20_ABI, functionName: "decimals" }),
-    ]);
+    const meta = await this.readTokenMetadata(addr);
+    if (!meta) throw new BadRequestException(`Cannot read ERC20 metadata for ${addr} — is it a valid token on chain ${config.CHAIN_ID}?`);
 
     return prisma.token.create({
       data: {
         chainId: config.CHAIN_ID,
         address: addr,
-        name,
-        symbol,
-        decimals: Number(decimals),
+        name: meta.name,
+        symbol: meta.symbol,
+        decimals: meta.decimals,
       },
     });
   }
@@ -258,6 +364,12 @@ export class PoolsController {
   resolve(@Query("address") address?: string) {
     if (!address) throw new BadRequestException("Missing address");
     return this.svc.resolveAddress(address);
+  }
+
+  @Post("discover")
+  @Roles("ADMIN")
+  discover(@Body() dto: DiscoverPoolDto) {
+    return this.svc.discoverPool(dto);
   }
 
   @Post()

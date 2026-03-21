@@ -19,7 +19,15 @@ const logger = pino({ level: config.LOG_LEVEL });
 // ── Gateway ───────────────────────────────────────────────────────────────────
 @WebSocketGateway({
   cors: {
-    origin: ["http://localhost:3000", process.env["DASHBOARD_ORIGIN"] ?? ""],
+    origin: (() => {
+      const origins: string[] = [];
+      const dashOrigin = process.env["DASHBOARD_ORIGIN"];
+      if (dashOrigin) origins.push(dashOrigin);
+      if (process.env["NODE_ENV"] !== "production") {
+        origins.push("http://localhost:3000");
+      }
+      return origins;
+    })(),
     credentials: true,
   },
   namespace: "/ws",

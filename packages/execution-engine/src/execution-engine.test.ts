@@ -199,6 +199,8 @@ describe("ExecutionEngine", () => {
       profitBreakdown,
       adapters: adapterMap,
       riskConfig,
+      nativeTokenPriceUsd: 25,
+      tradeSizeUsd: 5000,
       mockExecution: true,
     });
 
@@ -232,6 +234,8 @@ describe("ExecutionEngine", () => {
       profitBreakdown,
       adapters: adapterMap,
       riskConfig,
+      nativeTokenPriceUsd: 25,
+      tradeSizeUsd: 5000,
       mockExecution: true,
     });
 
@@ -258,6 +262,8 @@ describe("ExecutionEngine", () => {
       },
       adapters: adapterMap,
       riskConfig,
+      nativeTokenPriceUsd: 25,
+      tradeSizeUsd: 5000,
       mockExecution: true,
     });
 
@@ -290,6 +296,8 @@ describe("ExecutionEngine", () => {
       profitBreakdown,
       adapters: adapterMap,
       riskConfig,
+      nativeTokenPriceUsd: 25,
+      tradeSizeUsd: 5000,
       mockExecution: true,
     });
 
@@ -313,6 +321,8 @@ describe("ExecutionEngine", () => {
       profitBreakdown,
       adapters: adapterMap,
       riskConfig,
+      nativeTokenPriceUsd: 25,
+      tradeSizeUsd: 5000,
       mockExecution: true,
     });
 

@@ -53,12 +53,16 @@ export interface FlashArbInput {
   opportunityId: string;
   fingerprint: string;
   asset: Address;
+  assetDecimals: number;
   amount: string;
   buyStep: RouteStep;
   sellStep: RouteStep;
+  buyRouterAddress: `0x${string}`;
+  sellRouterAddress: `0x${string}`;
   buyPool: NormalizedPool;
   sellPool: NormalizedPool;
   profitBreakdown: ProfitBreakdown;
+  nativeTokenPriceUsd: number;
   mockExecution?: boolean;
 }
 
@@ -142,8 +146,8 @@ export class FlashArbExecutor {
       // ── 2. Build swap legs ─────────────────────────────────────────────
       await this.updateState(executionId, ExecutionState.SIMULATING);
 
-      const buyLeg = this.buildSwapLeg(input.buyStep, input.buyPool);
-      const sellLeg = this.buildSwapLeg(input.sellStep, input.sellPool);
+      const buyLeg = this.buildSwapLeg(input.buyStep, input.buyPool, input.buyRouterAddress);
+      const sellLeg = this.buildSwapLeg(input.sellStep, input.sellPool, input.sellRouterAddress);
 
       // ── 3. Encode calldata ─────────────────────────────────────────────
       const calldata = encodeFunctionData({
@@ -255,12 +259,12 @@ export class FlashArbExecutor {
       }
 
       // ── 8. Parse profit from ArbExecuted event ────────────────────────
-      let profit = 0n;
+      let profitRaw = 0n;
       for (const log of receipt.logs) {
         if (log.address.toLowerCase() === this.cfg.flashArbAddress.toLowerCase()) {
           try {
             if (log.data.length >= 130) {
-              profit = BigInt("0x" + log.data.slice(66, 130));
+              profitRaw = BigInt("0x" + log.data.slice(66, 130));
             }
           } catch {
             // skip unparseable logs
@@ -268,9 +272,22 @@ export class FlashArbExecutor {
         }
       }
 
+      // Convert raw profit (in asset's native decimals) to USD
+      const assetDecimals = input.assetDecimals || 18;
+      const profitInAssetUnits = Number(profitRaw) / 10 ** assetDecimals;
+      // Derive a rough asset price from the opportunity's trade size and amount
+      const assetAmountBorrowed = Number(BigInt(input.amount)) / 10 ** assetDecimals;
+      const assetPriceUsd =
+        assetAmountBorrowed > 0
+          ? input.profitBreakdown.grossSpreadUsd / ((Math.abs(input.buyPool.price0Per1 - input.sellPool.price0Per1) / input.buyPool.price0Per1) || 1) / assetAmountBorrowed
+          : 1;
+      const actualPnlUsd = profitInAssetUnits * assetPriceUsd;
+
+      // Convert gas cost from native token (AVAX) to USD
       const gasCostWei =
         receipt.gasUsed * (receipt.effectiveGasPrice ?? 0n);
-      const gasCostAvax = Number(gasCostWei) / 1e18;
+      const gasCostNative = Number(gasCostWei) / 1e18;
+      const gasCostUsd = gasCostNative * input.nativeTokenPriceUsd;
 
       await this.updateState(executionId, ExecutionState.LANDED);
       await this.db.execution.update({
@@ -278,8 +295,8 @@ export class FlashArbExecutor {
         data: {
           blockNumber: Number(receipt.blockNumber),
           gasUsed: receipt.gasUsed.toString(),
-          gasCostUsd: gasCostAvax,
-          pnlUsd: input.profitBreakdown.netProfitUsd,
+          gasCostUsd,
+          pnlUsd: actualPnlUsd,
           confirmedAt: new Date(),
         },
       });
@@ -287,7 +304,7 @@ export class FlashArbExecutor {
       return {
         executionId,
         txHash,
-        profit: profit.toString(),
+        profit: actualPnlUsd.toFixed(4),
         state: ExecutionState.LANDED,
       };
     } catch (err) {
@@ -298,29 +315,54 @@ export class FlashArbExecutor {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  private buildSwapLeg(step: RouteStep, pool: NormalizedPool): SwapLegTuple {
+  private buildSwapLeg(
+    step: RouteStep,
+    pool: NormalizedPool,
+    routerAddress: `0x${string}`
+  ): SwapLegTuple {
+    const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
+    if (
+      !routerAddress ||
+      routerAddress === "0x" ||
+      routerAddress === ZERO_ADDR
+    ) {
+      throw new ArbitexError(
+        ErrorCode.SIMULATION_FAILED,
+        `Invalid router address "${routerAddress}" for venue ${step.venueName} — aborting to prevent gas burn`
+      );
+    }
+
+    const rawAmountOut = BigInt(step.amountOut ?? "0");
+    const amountOutMin = (rawAmountOut * 95n) / 100n; // 5% max slippage
+    if (amountOutMin === 0n) {
+      throw new ArbitexError(
+        ErrorCode.SIMULATION_FAILED,
+        `Zero amountOutMin for ${step.tokenIn}→${step.tokenOut} — refusing to swap with no slippage protection`
+      );
+    }
+
     const isV3 =
       pool.sqrtPriceX96 !== undefined && pool.sqrtPriceX96 !== null;
 
     if (isV3) {
       return {
         dexType: DexType.V3,
-        router: (step as any).routerAddress ?? ("0x" as `0x${string}`),
+        router: routerAddress,
         tokenIn: step.tokenIn as `0x${string}`,
         tokenOut: step.tokenOut as `0x${string}`,
         fee: pool.feeBps * 100,
-        amountOutMin: BigInt(step.amountOut ?? "0") * 95n / 100n,
+        amountOutMin,
         v2Path: [],
       };
     }
 
     return {
       dexType: DexType.V2,
-      router: (step as any).routerAddress ?? ("0x" as `0x${string}`),
+      router: routerAddress,
       tokenIn: step.tokenIn as `0x${string}`,
       tokenOut: step.tokenOut as `0x${string}`,
       fee: 0,
-      amountOutMin: BigInt(step.amountOut ?? "0") * 95n / 100n,
+      amountOutMin,
       v2Path: [step.tokenIn as `0x${string}`, step.tokenOut as `0x${string}`],
     };
   }

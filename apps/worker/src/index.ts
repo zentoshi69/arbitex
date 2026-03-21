@@ -111,7 +111,13 @@ async function registerAdapters() {
     const mockPoolA = MockDexAdapter.makePool({
       token0: AVAX_TOKENS.USDC,
       token1: AVAX_TOKENS.WAVAX,
+      token0Symbol: "USDC.e",
+      token1Symbol: "WAVAX",
+      token0Decimals: 6,
+      token1Decimals: 18,
       venueId: "mock-pangolin",
+      venueName: "Pangolin",
+      chainId: 43114,
       price0Per1: 10.0,
       price1Per0: 0.1,
       feeBps: 30,
@@ -120,7 +126,13 @@ async function registerAdapters() {
     const mockPoolB = MockDexAdapter.makePool({
       token0: AVAX_TOKENS.USDC,
       token1: AVAX_TOKENS.WAVAX,
+      token0Symbol: "USDC.e",
+      token1Symbol: "WAVAX",
+      token0Decimals: 6,
+      token1Decimals: 18,
       venueId: "mock-traderjoe",
+      venueName: "Trader Joe",
+      chainId: 43114,
       price0Per1: 10.15,
       price1Per0: 0.0985,
       feeBps: 30,
@@ -129,7 +141,13 @@ async function registerAdapters() {
     const mockPoolC = MockDexAdapter.makePool({
       token0: AVAX_TOKENS.USDC,
       token1: AVAX_TOKENS.WRP,
+      token0Symbol: "USDC.e",
+      token1Symbol: "WRP",
+      token0Decimals: 6,
+      token1Decimals: 18,
       venueId: "mock-pangolin",
+      venueName: "Pangolin",
+      chainId: 43114,
       price0Per1: 0.042,
       price1Per0: 23.81,
       feeBps: 30,
@@ -138,14 +156,20 @@ async function registerAdapters() {
     const mockPoolD = MockDexAdapter.makePool({
       token0: AVAX_TOKENS.USDC,
       token1: AVAX_TOKENS.WRP,
+      token0Symbol: "USDC.e",
+      token1Symbol: "WRP",
+      token0Decimals: 6,
+      token1Decimals: 18,
       venueId: "mock-traderjoe",
+      venueName: "Trader Joe",
+      chainId: 43114,
       price0Per1: 0.0435,
       price1Per0: 22.99,
       feeBps: 30,
       liquidityUsd: 200_000,
     });
-    registry.register(new MockDexAdapter("mock-pangolin", "Pangolin (Mock)", 43114, [mockPoolA, mockPoolC]));
-    registry.register(new MockDexAdapter("mock-traderjoe", "TraderJoe (Mock)", 43114, [mockPoolB, mockPoolD]));
+    registry.register(new MockDexAdapter("mock-pangolin", "Pangolin", 43114, [mockPoolA, mockPoolC]));
+    registry.register(new MockDexAdapter("mock-traderjoe", "Trader Joe", 43114, [mockPoolB, mockPoolD]));
   }
 }
 

@@ -206,6 +206,8 @@ export type ExecutionInput = {
   profitBreakdown: ProfitBreakdown;
   adapters: Map<string, IDexAdapter>;
   riskConfig: RiskConfig;
+  nativeTokenPriceUsd: number;
+  tradeSizeUsd: number;
   mockExecution?: boolean;
 };
 
@@ -440,11 +442,35 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 14. Record success with total gas from both legs ─────────────────
+      // ── 14. Record success with actual on-chain PnL ──────────────────────
       const totalGasUsed = buyReceipt.gasUsed + sellReceipt.gasUsed;
       const effectiveGasPrice = sellReceipt.effectiveGasPrice ?? 0n;
       const gasCostWei = totalGasUsed * effectiveGasPrice;
-      const gasCostAvax = Number(gasCostWei) / 1e18;
+      const gasCostNative = Number(gasCostWei) / 1e18;
+      const gasCostUsd = gasCostNative * input.nativeTokenPriceUsd;
+
+      // Compute actual PnL: sell output minus buy input in the same base token
+      const actualSellOutput = this.parseTransferAmount(
+        sellReceipt.logs,
+        step1.tokenOut as `0x${string}`,
+        this.wallet.address
+      );
+      let actualPnlUsd = input.profitBreakdown.netProfitUsd; // fallback to estimate
+      if (actualSellOutput !== null) {
+        const buyInputAmount = BigInt(step0.amountIn);
+        const profitTokenRaw = actualSellOutput - buyInputAmount;
+        const tokenDecimals = input.buyPool.token0Decimals || 18;
+        const inputTokenUnits = Number(buyInputAmount) / 10 ** tokenDecimals;
+        // Derive base token USD price from the known trade size
+        const baseTokenPriceUsd = inputTokenUnits > 0
+          ? input.tradeSizeUsd / inputTokenUnits
+          : 1;
+        const profitInTokenUnits = Number(profitTokenRaw) / 10 ** tokenDecimals;
+        const computedPnl = profitInTokenUnits * baseTokenPriceUsd;
+        if (Number.isFinite(computedPnl) && !Number.isNaN(computedPnl)) {
+          actualPnlUsd = computedPnl;
+        }
+      }
 
       await this.updateState(executionId, ExecutionState.LANDED);
       await this.db.execution.update({
@@ -452,8 +478,8 @@ export class ExecutionEngine {
         data: {
           blockNumber: Number(sellReceipt.blockNumber),
           gasUsed: totalGasUsed.toString(),
-          gasCostUsd: gasCostAvax, // approximate (needs AVAX→USD conversion for precision)
-          pnlUsd: input.profitBreakdown.netProfitUsd,
+          gasCostUsd,
+          pnlUsd: actualPnlUsd,
           confirmedAt: new Date(),
         },
       });

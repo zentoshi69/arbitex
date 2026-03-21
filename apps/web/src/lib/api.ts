@@ -122,6 +122,13 @@ export const api = {
     },
     resolve: (address: string) =>
       apiFetch<any>(`/pools/resolve?${new URLSearchParams({ address })}`),
+    discover: (data: {
+      venueId: string;
+      token0Address: string;
+      token1Address: string;
+      feeBps: number;
+    }) =>
+      apiFetch<any>("/pools/discover", { method: "POST", body: JSON.stringify(data) }),
     create: (data: {
       venueId: string;
       poolAddress: string;

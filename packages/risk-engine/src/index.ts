@@ -270,10 +270,11 @@ export class RiskEngine {
     }
   }
 
-  async recordSuccessfulTx(chainId: number): Promise<void> {
-    // Decrement failure counter on success (rolling window)
-    const key = FAILED_TX_KEY(chainId);
-    await this.redis.decr(key);
+  async recordSuccessfulTx(_chainId: number): Promise<void> {
+    // No-op: success must NOT decrement the failure counter.
+    // The failure counter has a 1-hour TTL that handles natural decay.
+    // Decrementing on success would let a run of wins mask a dangerous
+    // failure spike and effectively disable the auto-kill safety net.
   }
 
   async activateKillSwitch(

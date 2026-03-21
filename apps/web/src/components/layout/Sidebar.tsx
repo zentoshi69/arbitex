@@ -47,16 +47,7 @@ export function Sidebar() {
       />
 
       <div className="flex h-[52px] items-center gap-[10px] border-b border-[var(--border)] px-[18px]">
-        <div
-          className="h-[28px] w-[28px] flex-shrink-0"
-          style={{
-            background: "var(--red)",
-            clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-          }}
-        />
-        <span className="font-styrene text-lg font-black tracking-tight text-[var(--offwhite)]">
-          ArbitEx
-        </span>
+        <img src="/logo.png" alt="arbitex" className="h-[28px] w-auto flex-shrink-0" />
         <span className="ml-auto font-mono text-[8px] text-[var(--grey3)]">v2.0</span>
       </div>
 

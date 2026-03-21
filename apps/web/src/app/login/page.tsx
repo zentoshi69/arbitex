@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield } from "lucide-react";
+
 import { isTokenValid } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -49,19 +49,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-bg px-6">
       <div className="w-full max-w-sm -mt-20">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center"
-            style={{
-              background: "#E84142",
-              clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-            }}
-          >
-            <Shield className="h-3.5 w-3.5 text-white" />
-          </div>
-          <span className="text-xl font-bold tracking-[-0.03em] text-white">
-            ArbitEx
-          </span>
+        <div className="flex items-center justify-center mb-8">
+          <img src="/logo.png" alt="arbitex" className="h-10 w-auto" />
         </div>
 
         <div className="ax-panel p-6">
