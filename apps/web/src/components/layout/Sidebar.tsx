@@ -63,9 +63,8 @@ export function Sidebar() {
         }}
       />
 
-      <div className="flex h-[64px] items-center gap-[10px] border-b border-[var(--border)] px-[18px]">
-        <img src="/logo.png" alt="arbitex" className="h-[42px] w-auto flex-shrink-0" />
-        <span className="ml-auto font-mono text-[8px] text-[var(--grey3)]">v2.0</span>
+      <div className="flex h-[80px] items-center justify-center border-b border-[var(--border)] px-[14px]">
+        <img src="/logo.png" alt="ARBEETEX" className="h-[60px] w-auto object-contain" />
       </div>
 
       <div className="flex h-[28px] items-center gap-2 border-b border-[var(--border)] px-[18px]">
