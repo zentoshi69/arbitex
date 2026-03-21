@@ -70,12 +70,9 @@ const EnvSchema = z.object({
   FLASH_ARB_ADDRESS: z.string().optional(),
   AAVE_POOL_PROVIDER: z.string().default("0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb"),
 
-  // Flashbots
+  // Flashbots (not used on Avalanche)
   FLASHBOTS_AUTH_KEY: z.string().optional(),
-  FLASHBOTS_RELAY_URL: z
-    .string()
-    .url()
-    .default("https://relay.flashbots.net"),
+  FLASHBOTS_RELAY_URL: optionalUrl,
 
   // API Auth
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
