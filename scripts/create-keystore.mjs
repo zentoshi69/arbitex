@@ -1,79 +1,94 @@
 #!/usr/bin/env node
 /**
- * Create a Web3 Secret Storage (v3) keystore for ArbitEx.
- * Usage:
- *   pnpm run keystore:create [execution|superadmin]
- *   # Or: node scripts/create-keystore.mjs execution
+ * Converts a raw private key into an encrypted Web3 v3 JSON keystore file
+ * compatible with @ethereumjs/wallet (used by the ArbitEx worker).
  *
- * Prompts for private key (0x-prefixed hex) and password.
- * Output: infra/secrets/<name>-keystore.json
+ * Run from the monorepo root (where node_modules exist):
+ *   node scripts/create-keystore.mjs
+ *
+ * Or on the VPS after `docker exec` into the worker container.
  */
 
-import { createRequire } from "node:module";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import * as readline from "node:readline";
+import { createInterface } from "node:readline";
+import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 
-const require = createRequire(import.meta.url);
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = join(__dirname, "..");
-const secretsDir = join(root, "infra", "secrets");
-
-async function prompt(question, hide = false) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
-}
-
-function isValidPrivateKey(s) {
-  return /^0x[0-9a-fA-F]{64}$/.test(s) || /^[0-9a-fA-F]{64}$/.test(s);
-}
+const rl = createInterface({ input: process.stdin, output: process.stdout });
+const ask = (q) => new Promise((res) => rl.question(q, res));
 
 async function main() {
-  const name = process.argv[2] || "execution";
-  if (!["execution", "superadmin"].includes(name)) {
-    console.error("Usage: pnpm run keystore:create [execution|superadmin]");
+  // Dynamic import — works whether deps are hoisted or in node_modules
+  let Wallet;
+  try {
+    const mod = await import("@ethereumjs/wallet");
+    Wallet = mod.Wallet ?? mod.default?.Wallet ?? mod.default;
+  } catch {
+    console.error("ERROR: @ethereumjs/wallet not found. Run from the monorepo root or install it:");
+    console.error("  npm install @ethereumjs/wallet");
     process.exit(1);
   }
 
-  const { Wallet } = await import("@ethereumjs/wallet");
-  console.log(`\nCreating ${name} keystore for ArbitEx.\n`);
+  console.log("\n=== ArbitEx Execution Wallet Keystore Generator ===\n");
 
-  const pkRaw = await prompt("Private key (0x-prefixed hex, 64 chars): ");
-  const privateKey = pkRaw.startsWith("0x") ? pkRaw : `0x${pkRaw}`;
-  if (!isValidPrivateKey(privateKey)) {
-    console.error("Invalid private key format.");
+  let privKey = await ask("Private key (hex, with or without 0x): ");
+  privKey = privKey.trim().replace(/^0x/, "");
+
+  if (!/^[a-fA-F0-9]{64}$/.test(privKey)) {
+    console.error("ERROR: Invalid private key. Must be 64 hex characters.");
     process.exit(1);
   }
 
-  const password = await prompt("Keystore password: ");
-  if (!password || password.length < 8) {
-    console.error("Password must be at least 8 characters.");
+  const password = await ask("Keystore encryption password: ");
+  if (password.length < 8) {
+    console.error("ERROR: Password must be at least 8 characters.");
     process.exit(1);
   }
 
-  const pkBuffer = Buffer.from(privateKey.slice(2), "hex");
-  const wallet = Wallet.fromPrivateKey(pkBuffer);
-  const keystore = wallet.toV3(password, { kdf: "scrypt" });
+  const confirm = await ask("Confirm password: ");
+  if (password !== confirm) {
+    console.error("ERROR: Passwords do not match.");
+    process.exit(1);
+  }
 
-  mkdirSync(secretsDir, { recursive: true });
-  const outPath = join(secretsDir, `${name}-keystore.json`);
-  writeFileSync(outPath, JSON.stringify(keystore, null, 2), "utf-8");
+  rl.close();
+
+  console.log("\nEncrypting (this takes ~10 seconds)...");
+
+  const privKeyBuf = Buffer.from(privKey, "hex");
+  const wallet = Wallet.fromPrivateKey(privKeyBuf);
+  const address = `0x${Buffer.from(wallet.getAddress()).toString("hex")}`;
+
+  console.log(`Wallet address: ${address}`);
+
+  const keystoreV3 = await wallet.toV3(password);
+
+  const outDir = "/opt/arbitex/secrets";
+  if (!existsSync(outDir)) {
+    mkdirSync(outDir, { recursive: true });
+    console.log(`Created directory: ${outDir}`);
+  }
+
+  const outPath = `${outDir}/execution-keystore.json`;
+  writeFileSync(outPath, JSON.stringify(keystoreV3, null, 2), { mode: 0o600 });
 
   console.log(`\nKeystore saved to: ${outPath}`);
-  console.log(`Address: ${wallet.getAddressString()}`);
-  console.log("\nSet in .env.secrets:");
-  console.log(`  ${name === "execution" ? "EXECUTION" : "SUPERADMIN"}_KEYSTORE_FILE=${outPath.replace(root, ".").replace(/\\/g, "/")}`);
-  console.log(`  ${name === "execution" ? "EXECUTION_WALLET" : "SUPERADMIN"}_KEYSTORE_PASS=<your password>`);
-  console.log("\nNever commit this file. Add infra/secrets/ to .gitignore.\n");
+  console.log(`File permissions: 600 (owner read/write only)\n`);
+
+  console.log("=== SAVE THIS INFO ===");
+  console.log(`Address:  ${address}`);
+  console.log(`Keystore: ${outPath}`);
+  console.log(`Password: (the one you just entered)\n`);
+
+  console.log("=== Next steps ===");
+  console.log("1. Fund this address with AVAX (for gas) + trading tokens");
+  console.log("2. In your .env.prod on the VPS, set:");
+  console.log(`     EXECUTION_KEYSTORE_FILE=${outPath}`);
+  console.log(`     EXECUTION_WALLET_KEYSTORE_PASS=<your password>`);
+  console.log(`     MOCK_EXECUTION=false`);
+  console.log("3. Redeploy the worker:");
+  console.log("     docker compose -f docker-compose.prod.yml up -d --build worker\n");
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error("Fatal:", err);
   process.exit(1);
 });
