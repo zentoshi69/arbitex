@@ -90,9 +90,14 @@ export class PoolsService {
     chainId: config.CHAIN_ID,
   });
 
-  async list(params: { page: number; limit: number }) {
+  async list(params: { page: number; limit: number; tokenId?: string }) {
+    const where: any = {};
+    if (params.tokenId) {
+      where.OR = [{ token0Id: params.tokenId }, { token1Id: params.tokenId }];
+    }
     const [items, total] = await Promise.all([
       prisma.pool.findMany({
+        where,
         orderBy: { createdAt: "desc" },
         skip: (params.page - 1) * params.limit,
         take: params.limit,
@@ -112,7 +117,7 @@ export class PoolsService {
           },
         },
       }),
-      prisma.pool.count(),
+      prisma.pool.count({ where }),
     ]);
 
     return paginatedResponse(
@@ -355,9 +360,10 @@ export class PoolsController {
   @Get()
   list(
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query("limit", new DefaultValuePipe(30), ParseIntPipe) limit: number
+    @Query("limit", new DefaultValuePipe(30), ParseIntPipe) limit: number,
+    @Query("tokenId") tokenId?: string
   ) {
-    return this.svc.list({ page, limit });
+    return this.svc.list({ page, limit, ...(tokenId ? { tokenId } : {}) });
   }
 
   @Get("resolve")

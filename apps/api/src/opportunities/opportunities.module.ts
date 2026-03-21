@@ -24,12 +24,14 @@ export class OpportunitiesService {
     limit: number;
     state?: string;
     minProfit?: number;
+    tokenId?: string;
   }) {
     const where: any = {};
     if (params.state) where.state = params.state;
     if (params.minProfit !== undefined) {
       where.netProfitUsd = { gte: params.minProfit };
     }
+    if (params.tokenId) where.tokenId = params.tokenId;
 
     const [items, total] = await Promise.all([
       prisma.opportunity.findMany({
@@ -107,7 +109,8 @@ export class OpportunitiesController {
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query("limit", new DefaultValuePipe(25), ParseIntPipe) limit: number,
     @Query("state") state?: string,
-    @Query("minProfit") minProfitStr?: string
+    @Query("minProfit") minProfitStr?: string,
+    @Query("tokenId") tokenId?: string
   ) {
     const minProfit = minProfitStr ? parseFloat(minProfitStr) : undefined;
     return this.svc.list({
@@ -115,6 +118,7 @@ export class OpportunitiesController {
       limit,
       ...(state ? { state } : {}),
       ...(minProfit !== undefined ? { minProfit } : {}),
+      ...(tokenId ? { tokenId } : {}),
     });
   }
 

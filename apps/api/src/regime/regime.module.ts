@@ -1,218 +1,150 @@
 import {
   Controller,
   Get,
+  Param,
   Module,
   Injectable,
-  Logger,
 } from "@nestjs/common";
 import { prisma } from "@arbitex/db";
-import { MarketRegime } from "@arbitex/shared-types";
-import type { RegimeConfig } from "@arbitex/shared-types";
+import { RegimeClassifier, REGIME_CONFIGS } from "@arbitex/risk-engine";
+import type { RegimeSnapshot } from "@arbitex/risk-engine";
 import { Public } from "../auth/auth.module.js";
-
-const log = new Logger("RegimeService");
-
-const REGIME_CONFIGS: Record<string, RegimeConfig> = {
-  [MarketRegime.SAFE_MODE]: {
-    regime: MarketRegime.SAFE_MODE as any,
-    sizeMultiplier: 0,
-    hurdleBps: 9999,
-    algorithm: "HALTED",
-    priority: "HIGHEST",
-    description: "All execution halted — kill switch or critical failure",
-  },
-  [MarketRegime.GAP_RISK]: {
-    regime: MarketRegime.GAP_RISK as any,
-    sizeMultiplier: 0.25,
-    hurdleBps: 100,
-    algorithm: "PASSIVE",
-    priority: "HIGH",
-    description: "Liquidity gaps detected — reduce size, raise hurdle",
-  },
-  [MarketRegime.LP_THIN]: {
-    regime: MarketRegime.LP_THIN as any,
-    sizeMultiplier: 0.5,
-    hurdleBps: 75,
-    algorithm: "PASSIVE",
-    priority: "HIGH",
-    description: "Thin LP depth — smaller trades, higher profit threshold",
-  },
-  [MarketRegime.INV_STRESS]: {
-    regime: MarketRegime.INV_STRESS as any,
-    sizeMultiplier: 0,
-    hurdleBps: 9999,
-    algorithm: "HALTED",
-    priority: "HIGHEST",
-    description: "Inventory stress — too much token exposure, halt new trades",
-  },
-  [MarketRegime.HIGH_VOL]: {
-    regime: MarketRegime.HIGH_VOL as any,
-    sizeMultiplier: 0.5,
-    hurdleBps: 60,
-    algorithm: "AGGRESSIVE",
-    priority: "MED",
-    description: "High volatility — more opportunities but higher risk",
-  },
-  [MarketRegime.RANGE_MR]: {
-    regime: MarketRegime.RANGE_MR as any,
-    sizeMultiplier: 1.0,
-    hurdleBps: 30,
-    algorithm: "AGGRESSIVE",
-    priority: "BASE",
-    description: "Range-bound mean-reversion — optimal conditions for arb",
-  },
-  [MarketRegime.TREND_UP]: {
-    regime: MarketRegime.TREND_UP as any,
-    sizeMultiplier: 0.75,
-    hurdleBps: 40,
-    algorithm: "TWAP",
-    priority: "MED",
-    description: "Trending up — directional bias, use TWAP sizing",
-  },
-  [MarketRegime.TREND_DOWN]: {
-    regime: MarketRegime.TREND_DOWN as any,
-    sizeMultiplier: 0.75,
-    hurdleBps: 40,
-    algorithm: "TWAP",
-    priority: "MED",
-    description: "Trending down — directional bias, use TWAP sizing",
-  },
-  [MarketRegime.NORMAL]: {
-    regime: MarketRegime.NORMAL as any,
-    sizeMultiplier: 1.0,
-    hurdleBps: 25,
-    algorithm: "AGGRESSIVE",
-    priority: "BASE",
-    description: "Normal market conditions — standard execution",
-  },
-};
-
-interface RegimeSnapshot {
-  regime: string;
-  config: RegimeConfig;
-  signals: {
-    volatility24h: number;
-    spreadMeanBps: number;
-    failRatePercent: number;
-    lpDepthScore: number;
-    trendDirection: "up" | "down" | "neutral";
-  };
-  classifiedAt: number;
-}
 
 @Injectable()
 export class RegimeService {
-  private lastClassification: RegimeSnapshot | null = null;
-  private lastClassifiedAt = 0;
-  private readonly REFRESH_INTERVAL = 30_000;
+  private readonly classifier = new RegimeClassifier(prisma);
 
   async classify(): Promise<RegimeSnapshot> {
-    if (
-      this.lastClassification &&
-      Date.now() - this.lastClassifiedAt < this.REFRESH_INTERVAL
-    ) {
-      return this.lastClassification;
-    }
-
-    const signals = await this.computeSignals();
-    const regime = this.determineRegime(signals);
-    const regimeConfig = REGIME_CONFIGS[regime] ?? REGIME_CONFIGS[MarketRegime.NORMAL]!;
-
-    const snapshot: RegimeSnapshot = {
-      regime,
-      config: regimeConfig,
-      signals,
-      classifiedAt: Date.now(),
-    };
-
-    this.lastClassification = snapshot;
-    this.lastClassifiedAt = Date.now();
-
-    log.debug(`Regime classified: ${regime}`);
-    return snapshot;
+    return this.classifier.classify();
   }
 
-  getConfigs(): Record<string, RegimeConfig> {
+  getConfigs() {
     return REGIME_CONFIGS;
   }
 
-  private async computeSignals() {
-    const now = Date.now();
-    const h24 = new Date(now - 86400_000);
-    const h1 = new Date(now - 3600_000);
+  async liquidityMaps() {
+    const maps = await prisma.liquidityMap.findMany({
+      include: {
+        pool: {
+          include: {
+            venue: { select: { name: true, protocol: true } },
+            token0: { select: { symbol: true } },
+            token1: { select: { symbol: true } },
+          },
+        },
+      },
+      orderBy: { refreshedAt: "desc" },
+    });
 
-    const [recentExecs, recentOpps] = await Promise.all([
-      prisma.execution.findMany({
-        where: { createdAt: { gte: h1 } },
-        select: { state: true, pnlUsd: true },
-      }),
-      prisma.opportunity.findMany({
-        where: { detectedAt: { gte: h1 } },
-        select: { netProfitBps: true, grossSpreadUsd: true, tradeSizeUsd: true },
-      }),
-    ]);
+    return maps.map((m) => {
+      const data = m.data as any;
+      const isV3 = m.poolType === "v3";
+      const positions = data?.positions;
 
-    const totalExecs = recentExecs.length;
-    const failedExecs = recentExecs.filter((e) => e.state === "FAILED").length;
-    const failRatePercent = totalExecs > 0 ? (failedExecs / totalExecs) * 100 : 0;
+      // V3 positions stored as Record<tokenId, entry>; V2 as array
+      const positionCount = isV3
+        ? Object.keys(positions ?? {}).length
+        : Array.isArray(positions)
+          ? positions.length
+          : 0;
 
-    const spreads = recentOpps.map((o) => Number(o.netProfitBps));
-    const spreadMeanBps = spreads.length > 0
-      ? spreads.reduce((a, b) => a + b, 0) / spreads.length
-      : 0;
+      return {
+        poolId: m.poolId,
+        poolAddress: m.poolAddress,
+        pair: `${m.pool.token0.symbol}/${m.pool.token1.symbol}`,
+        venue: m.pool.venue.name,
+        protocol: m.pool.venue.protocol,
+        poolType: m.poolType,
+        scanFromBlock: Number(m.scanFromBlock),
+        scanToBlock: Number(m.scanToBlock),
+        eventCount: m.eventCount,
+        builtAt: m.builtAt,
+        refreshedAt: m.refreshedAt,
+        positionCount,
+        tickCount: isV3 ? Object.keys(data?.ticks ?? {}).length : null,
+        nftManagerUsed: data?.nftManagerUsed ?? false,
+      };
+    });
+  }
 
-    const grossSpreads = recentOpps.map((o) => Number(o.grossSpreadUsd));
-    const variance = grossSpreads.length > 1
-      ? grossSpreads.reduce((sum, v) => {
-          const mean = grossSpreads.reduce((a, b) => a + b, 0) / grossSpreads.length;
-          return sum + (v - mean) ** 2;
-        }, 0) / grossSpreads.length
-      : 0;
-    const volatility24h = Math.sqrt(variance);
-
-    const tradeSizes = recentOpps.map((o) => Number(o.tradeSizeUsd));
-    const avgTradeSize = tradeSizes.length > 0
-      ? tradeSizes.reduce((a, b) => a + b, 0) / tradeSizes.length
-      : 0;
-    const lpDepthScore = avgTradeSize > 0 ? Math.min(100, avgTradeSize / 10) : 50;
-
-    const pnls = recentExecs
-      .filter((e) => e.pnlUsd !== null)
-      .map((e) => Number(e.pnlUsd));
-    const pnlTrend = pnls.length >= 3
-      ? pnls.slice(-3).reduce((a, b) => a + b, 0) / 3
-      : 0;
-    const trendDirection: "up" | "down" | "neutral" =
-      pnlTrend > 1 ? "up" : pnlTrend < -1 ? "down" : "neutral";
-
+  async liquidityMapByPool(poolId: string) {
+    const map = await prisma.liquidityMap.findUnique({
+      where: { poolId },
+      include: {
+        pool: {
+          include: {
+            venue: { select: { name: true, protocol: true } },
+            token0: { select: { symbol: true, decimals: true } },
+            token1: { select: { symbol: true, decimals: true } },
+          },
+        },
+      },
+    });
+    if (!map) return null;
     return {
-      volatility24h: Math.round(volatility24h * 100) / 100,
-      spreadMeanBps: Math.round(spreadMeanBps * 100) / 100,
-      failRatePercent: Math.round(failRatePercent * 100) / 100,
-      lpDepthScore: Math.round(lpDepthScore * 100) / 100,
-      trendDirection,
+      ...map,
+      scanFromBlock: Number(map.scanFromBlock),
+      scanToBlock: Number(map.scanToBlock),
     };
   }
 
-  private determineRegime(signals: {
-    volatility24h: number;
-    spreadMeanBps: number;
-    failRatePercent: number;
-    lpDepthScore: number;
-    trendDirection: "up" | "down" | "neutral";
-  }): string {
-    if (signals.failRatePercent > 80) return MarketRegime.SAFE_MODE;
-    if (signals.lpDepthScore < 10) return MarketRegime.LP_THIN;
-    if (signals.failRatePercent > 50) return MarketRegime.INV_STRESS;
-    if (signals.volatility24h > 50) return MarketRegime.HIGH_VOL;
-    if (signals.lpDepthScore < 25) return MarketRegime.GAP_RISK;
-    if (signals.trendDirection === "up" && signals.spreadMeanBps > 15)
-      return MarketRegime.TREND_UP;
-    if (signals.trendDirection === "down" && signals.spreadMeanBps > 15)
-      return MarketRegime.TREND_DOWN;
-    if (signals.spreadMeanBps > 10 && signals.volatility24h < 20)
-      return MarketRegime.RANGE_MR;
-    return MarketRegime.NORMAL;
+  async venueBreakdown() {
+    const h1 = new Date(Date.now() - 3600_000);
+
+    const [venues, pools, recentOpps] = await Promise.all([
+      prisma.venue.findMany({
+        where: { isEnabled: true },
+        select: { id: true, name: true, protocol: true, chainId: true },
+      }),
+      prisma.pool.findMany({
+        where: { isActive: true },
+        include: {
+          venue: { select: { id: true, name: true } },
+          token0: { select: { symbol: true } },
+          token1: { select: { symbol: true } },
+          snapshots: { orderBy: { timestamp: "desc" }, take: 1, select: { liquidityUsd: true, timestamp: true } },
+        },
+      }),
+      prisma.opportunity.findMany({
+        where: { detectedAt: { gte: h1 } },
+        select: { buyVenueId: true, sellVenueId: true, netProfitBps: true, grossSpreadUsd: true, state: true },
+      }),
+    ]);
+
+    return venues.map((v) => {
+      const venuePools = pools.filter((p) => p.venue.id === v.id);
+      const totalLiquidity = venuePools.reduce(
+        (sum, p) => sum + Number(p.snapshots[0]?.liquidityUsd ?? 0), 0,
+      );
+      const freshPools = venuePools.filter((p) => {
+        const snap = p.snapshots[0];
+        return snap && Date.now() - new Date(snap.timestamp).getTime() < 60_000;
+      }).length;
+
+      const venueOpps = recentOpps.filter(
+        (o) => o.buyVenueId === v.id || o.sellVenueId === v.id,
+      );
+      const avgSpreadBps = venueOpps.length > 0
+        ? venueOpps.reduce((s, o) => s + Number(o.netProfitBps), 0) / venueOpps.length
+        : 0;
+
+      return {
+        venueId: v.id,
+        venueName: v.name,
+        protocol: v.protocol,
+        chainId: v.chainId,
+        poolCount: venuePools.length,
+        activePools: freshPools,
+        totalLiquidityUsd: Math.round(totalLiquidity * 100) / 100,
+        opportunityCount1h: venueOpps.length,
+        avgSpreadBps1h: Math.round(avgSpreadBps * 100) / 100,
+        pools: venuePools.map((p) => ({
+          pair: `${p.token0.symbol}/${p.token1.symbol}`,
+          liquidityUsd: Number(p.snapshots[0]?.liquidityUsd ?? 0),
+          lastUpdate: p.snapshots[0]?.timestamp ?? null,
+        })),
+      };
+    });
   }
 }
 
@@ -230,6 +162,24 @@ export class RegimeController {
   @Public()
   configs() {
     return this.svc.getConfigs();
+  }
+
+  @Get("venues")
+  @Public()
+  venueBreakdown() {
+    return this.svc.venueBreakdown();
+  }
+
+  @Get("liquidity-maps")
+  @Public()
+  liquidityMaps() {
+    return this.svc.liquidityMaps();
+  }
+
+  @Get("liquidity-maps/:poolId")
+  @Public()
+  liquidityMap(@Param("poolId") poolId: string) {
+    return this.svc.liquidityMapByPool(poolId);
   }
 }
 

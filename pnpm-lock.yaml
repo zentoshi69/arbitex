@@ -372,6 +372,12 @@ importers:
       '@arbitex/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      pino:
+        specifier: ^9.14.0
+        version: 9.14.0
+      viem:
+        specifier: ^2.47.4
+        version: 2.47.4(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^20.14.0

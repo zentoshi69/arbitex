@@ -5,6 +5,7 @@ import { useState, createContext, useContext, useEffect, useRef, type ReactNode 
 import { io, type Socket } from "socket.io-client";
 import type { WsEventMap } from "@arbitex/shared-types";
 import { WalletProvider } from "@/components/wallet/WalletProvider";
+import { TokenProvider } from "@/contexts/TokenContext";
 
 // ── React Query ───────────────────────────────────────────────────────────────
 const queryClientConfig = {
@@ -102,7 +103,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <WsProvider>
-        <WalletProvider>{children}</WalletProvider>
+        <WalletProvider>
+          <TokenProvider>{children}</TokenProvider>
+        </WalletProvider>
       </WsProvider>
     </QueryClientProvider>
   );

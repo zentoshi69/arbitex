@@ -10,6 +10,9 @@ import type {
 import { RiskSeverity } from "@arbitex/shared-types";
 import type { PrismaClient } from "@arbitex/db";
 
+export { RegimeClassifier, REGIME_CONFIGS } from "./regime-classifier.js";
+export type { RegimeSnapshot, RegimeSignals } from "./regime-classifier.js";
+
 export type RiskEvaluationInput = {
   opportunityId: string;
   tokenIn: Address;

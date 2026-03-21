@@ -79,6 +79,9 @@ export const api = {
   regime: {
     current: () => apiFetch<any>("/regime"),
     configs: () => apiFetch<any>("/regime/configs"),
+    venues: () => apiFetch<any>("/regime/venues"),
+    liquidityMaps: () => apiFetch<any>("/regime/liquidity-maps"),
+    liquidityMap: (poolId: string) => apiFetch<any>(`/regime/liquidity-maps/${poolId}`),
   },
 
   // Risk
@@ -98,6 +101,7 @@ export const api = {
   // Tokens
   tokens: {
     list: () => apiFetch<any>("/tokens"),
+    tracked: () => apiFetch<any>("/tokens/tracked"),
     resolve: (address: string) =>
       apiFetch<any>(`/tokens/resolve?${new URLSearchParams({ address })}`),
     toggle: (id: string, isEnabled: boolean) =>

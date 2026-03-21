@@ -89,6 +89,21 @@ export const UserRole = {
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
+// ── Token Universe Types ──────────────────────────────────────────────────────
+
+export type TrackedToken = {
+  id: string;
+  symbol: string;
+  name: string;
+  address: string;
+  decimals: number;
+  chainId: number;
+  accentColor: string | null;
+  isTracked: boolean;
+  isEnabled: boolean;
+  poolCount: number;
+};
+
 // ── DEX Adapter Types ─────────────────────────────────────────────────────────
 
 export const NormalizedPoolSchema = z.object({

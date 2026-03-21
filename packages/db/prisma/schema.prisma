@@ -61,6 +61,8 @@ model Token {
   // Screening flags (JSON array of TokenFlag values)
   flags         String[] @default([])
   isEnabled     Boolean  @default(true) @map("is_enabled")
+  isTracked     Boolean  @default(false) @map("is_tracked")
+  accentColor   String?  @map("accent_color")
   lastScreened  DateTime? @map("last_screened")
   cooldownUntil DateTime? @map("cooldown_until")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -69,11 +71,13 @@ model Token {
   chain              Chain           @relation(fields: [chainId], references: [chainId])
   poolsAsToken0      Pool[]          @relation("Token0Pools")
   poolsAsToken1      Pool[]          @relation("Token1Pools")
+  opportunities      Opportunity[]
   riskEvents         RiskEvent[]
   walletBalances     WalletBalance[]
 
   @@unique([chainId, address])
   @@index([chainId, isEnabled])
+  @@index([chainId, isTracked])
   @@index([address])
   @@map("tokens")
 }
@@ -96,6 +100,7 @@ model Pool {
   token1         Token          @relation("Token1Pools", fields: [token1Id], references: [id])
   snapshots      PoolSnapshot[]
   routeSteps     OpportunityRoute[]
+  liquidityMap   LiquidityMap?
 
   @@unique([venueId, token0Id, token1Id, feeBps])
   @@index([venueId, isActive])
@@ -125,6 +130,7 @@ model PoolSnapshot {
 model Opportunity {
   id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   state             String           // OpportunityState enum
+  tokenId           String?          @map("token_id") @db.Uuid
   tokenInAddress    String           @map("token_in_address")
   tokenOutAddress   String           @map("token_out_address")
   tokenInSymbol     String           @map("token_in_symbol")
@@ -148,11 +154,13 @@ model Opportunity {
   createdAt         DateTime         @default(now()) @map("created_at")
   updatedAt         DateTime         @updatedAt @map("updated_at")
 
+  token             Token?           @relation(fields: [tokenId], references: [id])
   routes            OpportunityRoute[]
   execution         Execution?
 
   @@index([state, detectedAt(sort: Desc)])
   @@index([fingerprint])
+  @@index([tokenId, detectedAt(sort: Desc)])
   @@index([netProfitUsd(sort: Desc)])
   @@map("opportunities")
 }
@@ -271,6 +279,28 @@ model ConfigOverride {
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
   @@map("config_overrides")
+}
+
+// ── Liquidity Map ────────────────────────────────────────────────────────────
+
+model LiquidityMap {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poolId          String   @map("pool_id") @db.Uuid
+  poolAddress     String   @map("pool_address")
+  poolType        String   @map("pool_type")  // "v2" | "v3" | "solidly_v2"
+  chainId         Int      @map("chain_id")
+  data            Json     // tick-level or reserve liquidity map
+  scanFromBlock   BigInt   @map("scan_from_block")
+  scanToBlock     BigInt   @map("scan_to_block")
+  eventCount      Int      @default(0) @map("event_count")
+  builtAt         DateTime @default(now()) @map("built_at")
+  refreshedAt     DateTime @default(now()) @map("refreshed_at")
+
+  pool            Pool     @relation(fields: [poolId], references: [id])
+
+  @@unique([poolId])
+  @@index([chainId, poolType])
+  @@map("liquidity_maps")
 }
 
 // ── Audit ─────────────────────────────────────────────────────────────────────

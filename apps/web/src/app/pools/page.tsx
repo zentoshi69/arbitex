@@ -6,6 +6,7 @@ import { SectionHeader, EmptyState, Skeleton, AddressCell } from "@/components/u
 import { Search, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { useTokenContext } from "@/contexts/TokenContext";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const isHexAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v.trim());
@@ -52,14 +53,19 @@ function SnapshotAge({ lastUpdated }: { lastUpdated: string | null }) {
 }
 
 export default function PoolsPage() {
+  const { activeTokenId, isAll, activeToken } = useTokenContext();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [resolved, setResolved] = useState<any>(null);
   const [resolving, setResolving] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["pools", page],
-    queryFn: () => fetchPools({ page, search }),
+    queryKey: ["pools", page, activeTokenId],
+    queryFn: () => {
+      const params: Record<string, string | number> = { page, limit: 30 };
+      if (!isAll) params.tokenId = activeTokenId;
+      return api.pools.list(params);
+    },
     refetchInterval: 5_000,
   });
 
@@ -76,8 +82,8 @@ export default function PoolsPage() {
   return (
     <div className="space-y-4 max-w-[1400px]">
       <SectionHeader
-        title="Pools"
-        description="Live pool state — sorted by liquidity"
+        title={activeToken ? `${activeToken.symbol} Pools` : "Pools"}
+        description={activeToken ? `Live pool state for ${activeToken.symbol}` : "Live pool state — sorted by liquidity"}
       />
 
       <div className="flex items-center gap-3">

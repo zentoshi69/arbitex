@@ -30,6 +30,11 @@ const POOL_ABI = parseAbi([
   "function fee() external view returns (uint24)",
 ]);
 
+const ERC20_META_ABI = parseAbi([
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+]);
+
 const QUOTER_V2_ABI = parseAbi([
   "function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96)) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)",
 ]);
@@ -90,6 +95,8 @@ export class UniswapV3Adapter implements IDexAdapter {
   readonly chainId: number;
   readonly protocol = "uniswap_v3";
 
+  private tokenMetaCache = new Map<string, { symbol: string; decimals: number }>();
+
   constructor(
     private readonly client: PublicClient,
     private readonly cfg: UniswapV3Config = UNISWAP_V3_MAINNET,
@@ -98,6 +105,26 @@ export class UniswapV3Adapter implements IDexAdapter {
     this.venueId = cfg.venueId;
     this.chainId = cfg.chainId;
     this.venueName = venueName ?? "Uniswap V3";
+  }
+
+  private async resolveTokenMeta(addr: ViemAddress): Promise<{ symbol: string; decimals: number }> {
+    const key = addr.toLowerCase();
+    const cached = this.tokenMetaCache.get(key);
+    if (cached) return cached;
+    try {
+      const [symbol, decimals] = await this.client.multicall({
+        contracts: [
+          { address: addr, abi: ERC20_META_ABI, functionName: "symbol" },
+          { address: addr, abi: ERC20_META_ABI, functionName: "decimals" },
+        ],
+        allowFailure: false,
+      });
+      const meta = { symbol: symbol as string, decimals: Number(decimals) };
+      this.tokenMetaCache.set(key, meta);
+      return meta;
+    } catch {
+      return { symbol: "???", decimals: 18 };
+    }
   }
 
   /**
@@ -169,19 +196,26 @@ export class UniswapV3Adapter implements IDexAdapter {
             const sqrtPrice = BigInt((slot0 as any)[0]);
             const price0Per1 = this.sqrtPriceX96ToPrice(sqrtPrice);
 
+            const t0Addr = (token0 as string).toLowerCase() as Address;
+            const t1Addr = (token1 as string).toLowerCase() as Address;
+            const [t0Meta, t1Meta] = await Promise.all([
+              this.resolveTokenMeta(t0Addr as ViemAddress),
+              this.resolveTokenMeta(t1Addr as ViemAddress),
+            ]);
+
             pools.push({
-              poolId: `${this.venueId}-${poolAddress.toLowerCase()}`,
+              poolId: poolAddress.toLowerCase(),
               venueId: this.venueId,
               venueName: this.venueName,
               chainId: this.chainId,
-              token0: (token0 as string).toLowerCase() as Address,
-              token1: (token1 as string).toLowerCase() as Address,
-              token0Symbol: "", // enriched by opportunity engine
-              token1Symbol: "",
-              token0Decimals: 18,
-              token1Decimals: 18,
-              feeBps: fee / 100, // 3000 -> 30 bps
-              liquidityUsd: 0, // enriched by opportunity engine
+              token0: t0Addr,
+              token1: t1Addr,
+              token0Symbol: t0Meta.symbol,
+              token1Symbol: t1Meta.symbol,
+              token0Decimals: t0Meta.decimals,
+              token1Decimals: t1Meta.decimals,
+              feeBps: fee / 100,
+              liquidityUsd: 0,
               price0Per1,
               price1Per0: price0Per1 > 0 ? 1 / price0Per1 : 0,
               sqrtPriceX96: sqrtPrice.toString(),

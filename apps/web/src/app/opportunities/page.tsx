@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { OpportunityDrawer } from "@/components/drawers/OpportunityDrawer";
 import { Search, Filter } from "lucide-react";
+import { useTokenContext } from "@/contexts/TokenContext";
 
 const STATES = [
   "ALL", "DETECTED", "QUOTED", "SIMULATED", "APPROVED",
@@ -21,6 +22,7 @@ const STATES = [
 
 export default function OpportunitiesPage() {
   const { on } = useWs();
+  const { activeTokenId, isAll, activeToken } = useTokenContext();
   const [page, setPage] = useState(1);
   const [stateFilter, setStateFilter] = useState("ALL");
   const [minProfit, setMinProfit] = useState("");
@@ -28,13 +30,14 @@ export default function OpportunitiesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["opportunities", page, stateFilter, minProfit],
+    queryKey: ["opportunities", page, stateFilter, minProfit, activeTokenId],
     queryFn: () =>
       api.opportunities.list({
         page,
         limit: 25,
         ...(stateFilter !== "ALL" ? { state: stateFilter } : {}),
         ...(minProfit ? { minProfit: parseFloat(minProfit) } : {}),
+        ...(!isAll ? { tokenId: activeTokenId } : {}),
       }),
     refetchInterval: 5_000,
   });
@@ -57,8 +60,8 @@ export default function OpportunitiesPage() {
   return (
     <div className="space-y-4 max-w-[1400px]">
       <SectionHeader
-        title="Opportunities"
-        description="All detected arbitrage opportunities"
+        title={activeToken ? `${activeToken.symbol} Opportunities` : "Opportunities"}
+        description={activeToken ? `Arbitrage opportunities for ${activeToken.symbol}` : "All detected arbitrage opportunities"}
       />
 
       {/* Filters */}

@@ -10,6 +10,19 @@ import { pino } from "pino";
 
 const logger = pino();
 
+const MAX_USD = 9_999_999_999_999; // fits Decimal(20,4)
+const MAX_BPS = 999_999;           // fits Decimal(10,4)
+
+function clampUsd(v: number): number {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(-MAX_USD, Math.min(MAX_USD, v));
+}
+
+function clampBps(v: number): number {
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(-MAX_BPS, Math.min(MAX_BPS, v));
+}
+
 type JobDeps = {
   riskEngine: RiskEngine;
   prisma: PrismaClient;
@@ -44,22 +57,35 @@ export async function processOpportunityJob(
     return;
   }
 
+  // Reject candidates with unreasonable spread (>1000% of trade size)
+  if (
+    !Number.isFinite(candidate.profitBreakdown.grossSpreadUsd) ||
+    Math.abs(candidate.profitBreakdown.grossSpreadUsd) > candidate.tradeSizeUsd * 10
+  ) {
+    logger.warn(
+      { grossSpreadUsd: candidate.profitBreakdown.grossSpreadUsd, tradeSizeUsd: candidate.tradeSizeUsd },
+      "Rejecting candidate with unreasonable spread"
+    );
+    return;
+  }
+
   // Create opportunity record
   const opp = await prisma.opportunity.create({
     data: {
       state: OpportunityState.DETECTED,
+      tokenId: candidate.tokenId ?? null,
       tokenInAddress: candidate.tokenIn,
       tokenOutAddress: candidate.tokenOut,
       tokenInSymbol: candidate.tokenInSymbol || "?",
       tokenOutSymbol: candidate.tokenOutSymbol || "?",
-      tradeSizeUsd: candidate.tradeSizeUsd,
-      grossSpreadUsd: candidate.profitBreakdown.grossSpreadUsd,
-      gasEstimateUsd: candidate.profitBreakdown.gasEstimateUsd,
-      venueFeesUsd: candidate.profitBreakdown.venueFeesUsd,
-      slippageBufferUsd: candidate.profitBreakdown.slippageBufferUsd,
-      failureBufferUsd: candidate.profitBreakdown.failureBufferUsd,
-      netProfitUsd: candidate.profitBreakdown.netProfitUsd,
-      netProfitBps: candidate.profitBreakdown.netProfitBps,
+      tradeSizeUsd: clampUsd(candidate.tradeSizeUsd),
+      grossSpreadUsd: clampUsd(candidate.profitBreakdown.grossSpreadUsd),
+      gasEstimateUsd: clampUsd(candidate.profitBreakdown.gasEstimateUsd),
+      venueFeesUsd: clampUsd(candidate.profitBreakdown.venueFeesUsd),
+      slippageBufferUsd: clampUsd(candidate.profitBreakdown.slippageBufferUsd),
+      failureBufferUsd: clampUsd(candidate.profitBreakdown.failureBufferUsd),
+      netProfitUsd: clampUsd(candidate.profitBreakdown.netProfitUsd),
+      netProfitBps: clampBps(candidate.profitBreakdown.netProfitBps),
       buyVenueId: await resolveVenueId(prisma, candidate.buyPool.venueId),
       sellVenueId: await resolveVenueId(prisma, candidate.sellPool.venueId),
       buyVenueName: candidate.buyPool.venueName,
@@ -69,24 +95,34 @@ export async function processOpportunityJob(
     },
   });
 
-  // Create route steps
-  await prisma.opportunityRoute.createMany({
-    data: candidate.routes.map((r) => ({
+  // Create route steps — resolve on-chain pool address to DB UUID
+  const routeData = [];
+  for (const r of candidate.routes) {
+    const dbPoolId = await resolvePoolId(prisma, r.poolId);
+    const dbVenueId = await resolveVenueId(prisma, r.venueId);
+    if (!dbPoolId) {
+      logger.warn({ poolAddress: r.poolId }, "Pool not found in DB, skipping route step");
+      continue;
+    }
+    routeData.push({
       opportunityId: opp.id,
       stepIndex: r.stepIndex,
-      poolId: opp.buyVenueId, // simplified — use actual pool id in production
-      venueId: opp.buyVenueId,
+      poolId: dbPoolId,
+      venueId: dbVenueId,
       venueName: r.venueName,
       tokenIn: r.tokenIn,
       tokenOut: r.tokenOut,
       amountIn: r.amountIn,
       amountOut: r.amountOut,
       feeBps: r.feeBps,
-    })),
-  });
+    });
+  }
+  if (routeData.length > 0) {
+    await prisma.opportunityRoute.createMany({ data: routeData });
+  }
 
   logger.info(
-    { opportunityId: opp.id, netProfitUsd: candidate.profitBreakdown.netProfitUsd },
+    { opportunityId: opp.id, netProfitUsd: clampUsd(candidate.profitBreakdown.netProfitUsd) },
     "Opportunity detected"
   );
 
@@ -160,6 +196,16 @@ async function resolveVenueId(
   const venue = await prisma.venue.findFirst({
     where: { name: { contains: venueId } },
   });
-  // Return a placeholder UUID if venue not seeded — in production, always seed venues
   return venue?.id ?? "00000000-0000-0000-0000-000000000000";
+}
+
+async function resolvePoolId(
+  prisma: PrismaClient,
+  poolAddress: string
+): Promise<string | null> {
+  const pool = await prisma.pool.findFirst({
+    where: { poolAddress: { equals: poolAddress, mode: "insensitive" } },
+    select: { id: true },
+  });
+  return pool?.id ?? null;
 }

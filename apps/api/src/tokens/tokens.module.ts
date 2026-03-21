@@ -73,6 +73,30 @@ export class TokensService {
     chainId: config.CHAIN_ID,
   });
 
+  async listTracked() {
+    const tokens = await prisma.token.findMany({
+      where: { isTracked: true },
+      orderBy: { symbol: "asc" },
+      select: {
+        id: true,
+        symbol: true,
+        name: true,
+        address: true,
+        decimals: true,
+        chainId: true,
+        accentColor: true,
+        isTracked: true,
+        isEnabled: true,
+        _count: { select: { poolsAsToken0: true, poolsAsToken1: true } },
+      },
+    });
+    return tokens.map((t) => ({
+      ...t,
+      poolCount: t._count.poolsAsToken0 + t._count.poolsAsToken1,
+      _count: undefined,
+    }));
+  }
+
   async list(params: { page: number; limit: number; search?: string }) {
     const where: any = params.search
       ? {
@@ -208,6 +232,11 @@ export class TokensController {
     @Query("search") search?: string
   ) {
     return this.svc.list({ page, limit, ...(search ? { search } : {}) });
+  }
+
+  @Get("tracked")
+  tracked() {
+    return this.svc.listTracked();
   }
 
   @Get("resolve")

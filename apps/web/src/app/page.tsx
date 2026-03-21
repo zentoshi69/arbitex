@@ -6,6 +6,7 @@ import { PixelColumn } from "@/components/layout/PixelColumn";
 import { useWallet } from "@/components/wallet/WalletProvider";
 import { api } from "@/lib/api";
 import { Wallet } from "lucide-react";
+import { useTokenContext } from "@/contexts/TokenContext";
 
 type CoinGeckoSimplePrice = Record<string, { usd?: number; usd_24h_change?: number }>;
 type PnlSummary = { today?: number; last7d?: number; last30d?: number; allTime?: number; successRate30d?: number };
@@ -56,6 +57,7 @@ function CornerBrackets() {
 
 export default function OverviewPage() {
   const wallet = useWallet();
+  const { activeToken, isAll } = useTokenContext();
 
   const cgQ = useQuery({
     queryKey: ["ui", "coingecko", "avax-btc"],
@@ -161,7 +163,9 @@ export default function OverviewPage() {
             <div className="flex items-center justify-center gap-4">
               <span className="h-px w-[40px] bg-[var(--red)]" />
               <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-[var(--red)]">
-                Avalanche C-Chain · Pangolin V2 · Trader Joe V1
+                {activeToken
+                  ? `${activeToken.symbol} · Avalanche C-Chain · Cross-DEX`
+                  : "Avalanche C-Chain · Pangolin V2 · Trader Joe V1"}
               </span>
               <span className="h-px w-[40px] bg-[var(--red)]" />
             </div>

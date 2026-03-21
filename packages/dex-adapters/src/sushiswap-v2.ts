@@ -28,6 +28,11 @@ const PAIR_ABI = parseAbi([
   "function totalSupply() external view returns (uint256)",
 ]);
 
+const ERC20_META_ABI = parseAbi([
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+]);
+
 const ROUTER_ABI = parseAbi([
   "function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts)",
   "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external returns (uint256[] memory amounts)",
@@ -60,6 +65,7 @@ export class SushiSwapV2Adapter implements IDexAdapter {
   readonly protocol: string;
 
   private pairCache = new Map<string, NormalizedPool>();
+  private tokenMetaCache = new Map<string, { symbol: string; decimals: number }>();
 
   constructor(
     private readonly client: PublicClient,
@@ -69,6 +75,26 @@ export class SushiSwapV2Adapter implements IDexAdapter {
     this.venueName = cfg.venueName ?? "SushiSwap V2";
     this.protocol = cfg.protocol ?? "sushiswap_v2";
     this.chainId = cfg.chainId;
+  }
+
+  private async resolveTokenMeta(addr: ViemAddress): Promise<{ symbol: string; decimals: number }> {
+    const key = addr.toLowerCase();
+    const cached = this.tokenMetaCache.get(key);
+    if (cached) return cached;
+    try {
+      const [symbol, decimals] = await this.client.multicall({
+        contracts: [
+          { address: addr, abi: ERC20_META_ABI, functionName: "symbol" },
+          { address: addr, abi: ERC20_META_ABI, functionName: "decimals" },
+        ],
+        allowFailure: false,
+      });
+      const meta = { symbol: symbol as string, decimals: Number(decimals) };
+      this.tokenMetaCache.set(key, meta);
+      return meta;
+    } catch {
+      return { symbol: "???", decimals: 18 };
+    }
   }
 
   async getPools(tokens?: Address[]): Promise<NormalizedPool[]> {
@@ -100,28 +126,34 @@ export class SushiSwapV2Adapter implements IDexAdapter {
           });
 
           const [reserve0, reserve1] = reserves as [bigint, bigint, number];
+          const t0Addr = (token0 as string).toLowerCase() as Address;
+          const t1Addr = (token1 as string).toLowerCase() as Address;
+
+          const [t0Meta, t1Meta] = await Promise.all([
+            this.resolveTokenMeta(t0Addr as ViemAddress),
+            this.resolveTokenMeta(t1Addr as ViemAddress),
+          ]);
+
           const r0 = Number(reserve0);
           const r1 = Number(reserve1);
 
-          // Constant product price: price of token1 in token0 = reserve0/reserve1
           const price0Per1 = r1 > 0 ? r0 / r1 : 0;
           const price1Per0 = r0 > 0 ? r1 / r0 : 0;
 
-          // Approximate liquidity (simplified — production: use USD oracle prices)
           const liquidityUsd = Math.sqrt(r0 * r1) / 1e12;
 
           const pool: NormalizedPool = {
-            poolId: `${this.venueId}-${pairAddress.toLowerCase()}`,
+            poolId: pairAddress.toLowerCase(),
             venueId: this.venueId,
             venueName: this.venueName,
             chainId: this.chainId,
-            token0: (token0 as string).toLowerCase() as Address,
-            token1: (token1 as string).toLowerCase() as Address,
-            token0Symbol: "",
-            token1Symbol: "",
-            token0Decimals: 18,
-            token1Decimals: 18,
-            feeBps: 30, // SushiSwap fixed 0.3% fee
+            token0: t0Addr,
+            token1: t1Addr,
+            token0Symbol: t0Meta.symbol,
+            token1Symbol: t1Meta.symbol,
+            token0Decimals: t0Meta.decimals,
+            token1Decimals: t1Meta.decimals,
+            feeBps: 30,
             liquidityUsd,
             price0Per1,
             price1Per0,

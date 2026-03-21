@@ -8,6 +8,7 @@ import { useDexVenueIds } from "@/hooks/useDexVenueIds";
 import { SectionHeader, EmptyState, AddressCell } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { formatUnits, parseUnits } from "viem";
+import { avalanche } from "viem/chains";
 import { avaxPublicClient } from "@/lib/chain";
 
 const CHAIN_ID = 43114;

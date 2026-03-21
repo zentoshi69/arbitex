@@ -5,6 +5,7 @@
  * a single RPC call using Multicall3 (deployed on Avalanche).
  */
 
+import { getAddress } from "viem";
 import type { ArbitexPublicClient } from "@arbitex/chain";
 import type { V3PoolState, TickData, TickBitmapWord } from "@arbitex/shared-types";
 
@@ -95,6 +96,23 @@ const TICKS_ABI = [
   },
 ] as const;
 
+const GLOBAL_STATE_ABI = [
+  {
+    type: "function",
+    name: "globalState",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { name: "price", type: "uint160" },
+      { name: "tick", type: "int24" },
+      { name: "lastFee", type: "uint16" },
+      { name: "pluginConfig", type: "uint8" },
+      { name: "communityFee", type: "uint16" },
+      { name: "unlocked", type: "bool" },
+    ],
+  },
+] as const;
+
 const ERC20_SYMBOL_ABI = [
   { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
 ] as const;
@@ -117,19 +135,32 @@ export async function readV3PoolState(
   poolAddress: `0x${string}`,
   cfg: PoolReaderConfig
 ): Promise<V3PoolState> {
-  const addr = poolAddress;
+  const addr = getAddress(poolAddress);
 
-  const [slot0, liquidity, tickSpacing, fee, token0, token1] = await Promise.all([
-    client.readContract({ address: addr, abi: SLOT0_ABI, functionName: "slot0" }),
+  const [liquidity, tickSpacing, token0, token1] = await Promise.all([
     client.readContract({ address: addr, abi: LIQUIDITY_ABI, functionName: "liquidity" }),
     client.readContract({ address: addr, abi: TICK_SPACING_ABI, functionName: "tickSpacing" }),
-    client.readContract({ address: addr, abi: FEE_ABI, functionName: "fee" }),
     client.readContract({ address: addr, abi: TOKEN0_ABI, functionName: "token0" }),
     client.readContract({ address: addr, abi: TOKEN1_ABI, functionName: "token1" }),
   ]);
 
-  const sqrtPriceX96 = slot0[0] as bigint;
-  const tick = slot0[1] as number;
+  let sqrtPriceX96: bigint;
+  let tick: number;
+  let fee: number;
+
+  try {
+    const slot0 = await client.readContract({ address: addr, abi: SLOT0_ABI, functionName: "slot0" });
+    sqrtPriceX96 = slot0[0] as bigint;
+    tick = slot0[1] as number;
+    const feeResult = await client.readContract({ address: addr, abi: FEE_ABI, functionName: "fee" });
+    fee = Number(feeResult);
+  } catch {
+    // Algebra pools use globalState() instead of slot0()/fee()
+    const gs = await client.readContract({ address: addr, abi: GLOBAL_STATE_ABI, functionName: "globalState" });
+    sqrtPriceX96 = gs[0] as bigint;
+    tick = gs[1] as number;
+    fee = Number(gs[2]) * 100;
+  }
 
   const [
     token0Symbol, token1Symbol,
@@ -172,6 +203,7 @@ export async function readTickBitmap(
   tickSpacing: number,
   range = 32
 ): Promise<TickBitmapWord[]> {
+  const addr = getAddress(poolAddress);
   const currentWord = Math.floor(currentTick / tickSpacing / 256);
   const words: TickBitmapWord[] = [];
 
@@ -184,7 +216,7 @@ export async function readTickBitmap(
     indices.map((idx) =>
       client
         .readContract({
-          address: poolAddress,
+          address: addr,
           abi: TICK_BITMAP_ABI,
           functionName: "tickBitmap",
           args: [idx],
@@ -213,6 +245,7 @@ export async function readInitializedTicks(
   bitmapWords: TickBitmapWord[],
   tickSpacing: number
 ): Promise<TickData[]> {
+  const addr = getAddress(poolAddress);
   const tickIndices: number[] = [];
 
   for (const word of bitmapWords) {
@@ -230,7 +263,7 @@ export async function readInitializedTicks(
     tickIndices.map((tick) =>
       client
         .readContract({
-          address: poolAddress,
+          address: addr,
           abi: TICKS_ABI,
           functionName: "ticks",
           args: [tick],

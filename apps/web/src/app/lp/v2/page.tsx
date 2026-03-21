@@ -9,6 +9,7 @@ import { useWallet } from "@/components/wallet/WalletProvider";
 import { cn } from "@/lib/utils";
 import { Droplets, PlusCircle } from "lucide-react";
 import { formatUnits, parseUnits } from "viem";
+import { avalanche } from "viem/chains";
 import { avaxPublicClient } from "@/lib/chain";
 
 const CHAIN_ID = 43114; // Avalanche C-Chain

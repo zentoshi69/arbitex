@@ -15,6 +15,7 @@ export * from "./v3-math.js";
 export * from "./v3-simulator.js";
 export * from "./lp-band-builder.js";
 export * from "./optimal-sizer.js";
+export * from "./liquidity-scanner.js";
 
 export type OpportunityCandidate = {
   id: string;
@@ -23,6 +24,8 @@ export type OpportunityCandidate = {
   tokenOut: Address;
   tokenInSymbol: string;
   tokenOutSymbol: string;
+  tokenId?: string;
+  tokenSymbol?: string;
   tradeSizeUsd: number;
   buyPool: NormalizedPool;
   sellPool: NormalizedPool;
@@ -117,6 +120,7 @@ export function buildOpportunityFingerprint(
 
 export class OpportunityEngine {
   private poolCache = new Map<string, NormalizedPool>();
+  private dbPoolIdCache = new Map<string, string | null>();
   private adapters: IDexAdapter[];
 
   constructor(
@@ -140,10 +144,19 @@ export class OpportunityEngine {
     // 1. Refresh pool state from all adapters
     await this.refreshPools(cfg.targetTokens);
 
-    // 2. Build all cross-venue pairs for same token pair
+    // 2. Load tracked tokens for tagging
+    const trackedTokens = await this.db.token.findMany({
+      where: { isTracked: true },
+      select: { id: true, address: true, symbol: true },
+    });
+    const trackedByAddr = new Map(
+      trackedTokens.map((t) => [t.address.toLowerCase(), { id: t.id, symbol: t.symbol }])
+    );
+
+    // 3. Build all cross-venue pairs for same token pair
     const candidates = this.findCrossVenuePairs(cfg.targetTokens);
 
-    // 3. Score each candidate
+    // 4. Score each candidate
     const gasPriceWei = await this.client.getGasPrice();
     const gasPriceGwei = gasPriceWei / 1_000_000_000n;
 
@@ -157,6 +170,13 @@ export class OpportunityEngine {
         cfg
       );
       if (candidate && candidate.profitBreakdown.netProfitUsd >= cfg.riskConfig.minNetProfitUsd) {
+        const tracked =
+          trackedByAddr.get(candidate.tokenIn.toLowerCase()) ??
+          trackedByAddr.get(candidate.tokenOut.toLowerCase());
+        if (tracked) {
+          candidate.tokenId = tracked.id;
+          candidate.tokenSymbol = tracked.symbol;
+        }
         scored.push(candidate);
       }
     }
@@ -247,9 +267,12 @@ export class OpportunityEngine {
     try {
       const tradeSizeUsd = cfg.tradeSizeUsd;
 
-      // Gross spread: difference in price * trade size
+      // Gross spread: percentage price difference applied to trade size
       const priceDiff = Math.abs(sellPool.price0Per1 - buyPool.price0Per1);
-      const grossSpreadUsd = (priceDiff / buyPool.price0Per1) * tradeSizeUsd;
+      if (buyPool.price0Per1 <= 0 || !Number.isFinite(buyPool.price0Per1)) return null;
+      const spreadFraction = priceDiff / buyPool.price0Per1;
+      if (!Number.isFinite(spreadFraction) || spreadFraction > 10) return null;
+      const grossSpreadUsd = spreadFraction * tradeSizeUsd;
 
       if (grossSpreadUsd <= 0) return null;
 
@@ -330,10 +353,86 @@ export class OpportunityEngine {
   }
 
   private async resolveDbPoolId(pool: NormalizedPool): Promise<string | null> {
-    // Resolve pool in DB (snapshots require a real UUID pool.id)
+    const cacheKey = pool.poolId.toLowerCase();
+    if (this.dbPoolIdCache.has(cacheKey)) return this.dbPoolIdCache.get(cacheKey)!;
+
     const existing = await this.db.pool.findFirst({
       where: { poolAddress: { equals: pool.poolId, mode: "insensitive" } },
     });
-    return existing?.id ?? null;
+    if (existing) {
+      this.dbPoolIdCache.set(cacheKey, existing.id);
+      return existing.id;
+    }
+
+    // Auto-register pool discovered on-chain
+    const id = await this.autoRegisterPool(pool);
+    this.dbPoolIdCache.set(cacheKey, id);
+    return id;
+  }
+
+  private async autoRegisterPool(pool: NormalizedPool): Promise<string | null> {
+    try {
+      const [token0, token1] = await Promise.all([
+        this.resolveOrCreateToken(pool.token0, pool.token0Symbol, pool.token0Decimals, pool.chainId),
+        this.resolveOrCreateToken(pool.token1, pool.token1Symbol, pool.token1Decimals, pool.chainId),
+      ]);
+      if (!token0 || !token1) return null;
+
+      const venue = await this.db.venue.findFirst({ where: { id: pool.venueId } });
+      if (!venue) return null;
+
+      const created = await this.db.pool.upsert({
+        where: {
+          venueId_token0Id_token1Id_feeBps: {
+            venueId: venue.id,
+            token0Id: token0.id,
+            token1Id: token1.id,
+            feeBps: pool.feeBps,
+          },
+        },
+        update: { poolAddress: pool.poolId, isActive: true },
+        create: {
+          venueId: venue.id,
+          token0Id: token0.id,
+          token1Id: token1.id,
+          poolAddress: pool.poolId,
+          feeBps: pool.feeBps,
+          isActive: true,
+        },
+      });
+      return created.id;
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveOrCreateToken(
+    address: Address,
+    symbol: string,
+    decimals: number,
+    chainId: number,
+  ): Promise<{ id: string } | null> {
+    try {
+      const existing = await this.db.token.findFirst({
+        where: { chainId, address: { equals: address, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (existing) return existing;
+
+      return await this.db.token.create({
+        data: {
+          chainId,
+          address,
+          symbol: symbol || "???",
+          name: symbol || "Unknown",
+          decimals,
+          flags: [],
+          isEnabled: true,
+        },
+        select: { id: true },
+      });
+    } catch {
+      return null;
+    }
   }
 }

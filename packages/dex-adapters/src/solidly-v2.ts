@@ -29,6 +29,11 @@ const PAIR_ABI = parseAbi([
   "function totalSupply() external view returns (uint256)",
 ]);
 
+const ERC20_META_ABI = parseAbi([
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+]);
+
 const ROUTER_ABI = parseAbi([
   "function getAmountsOut(uint256 amountIn, (address from, address to, bool stable)[] routes) external view returns (uint256[] amounts)",
   "function swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, (address from, address to, bool stable)[] routes, address to, uint256 deadline) external returns (uint256[] amounts)",
@@ -54,6 +59,7 @@ export class SolidlyV2Adapter implements IDexAdapter {
   readonly protocol: string;
 
   private pairCache = new Map<string, NormalizedPool>();
+  private tokenMetaCache = new Map<string, { symbol: string; decimals: number }>();
 
   constructor(
     private readonly client: PublicClient,
@@ -63,6 +69,26 @@ export class SolidlyV2Adapter implements IDexAdapter {
     this.venueName = cfg.venueName ?? "Solidly V2";
     this.protocol = cfg.protocol ?? "solidly_v2";
     this.chainId = cfg.chainId;
+  }
+
+  private async resolveTokenMeta(addr: ViemAddress): Promise<{ symbol: string; decimals: number }> {
+    const key = addr.toLowerCase();
+    const cached = this.tokenMetaCache.get(key);
+    if (cached) return cached;
+    try {
+      const [symbol, decimals] = await this.client.multicall({
+        contracts: [
+          { address: addr, abi: ERC20_META_ABI, functionName: "symbol" },
+          { address: addr, abi: ERC20_META_ABI, functionName: "decimals" },
+        ],
+        allowFailure: false,
+      });
+      const meta = { symbol: symbol as string, decimals: Number(decimals) };
+      this.tokenMetaCache.set(key, meta);
+      return meta;
+    } catch {
+      return { symbol: "???", decimals: 18 };
+    }
   }
 
   async getPools(tokens?: Address[]): Promise<NormalizedPool[]> {
@@ -110,6 +136,14 @@ export class SolidlyV2Adapter implements IDexAdapter {
             });
 
             const [reserve0, reserve1] = reserves as [bigint, bigint, number];
+            const t0Addr = (token0 as string).toLowerCase() as Address;
+            const t1Addr = (token1 as string).toLowerCase() as Address;
+
+            const [t0Meta, t1Meta] = await Promise.all([
+              this.resolveTokenMeta(t0Addr as ViemAddress),
+              this.resolveTokenMeta(t1Addr as ViemAddress),
+            ]);
+
             const r0 = Number(reserve0);
             const r1 = Number(reserve1);
 
@@ -117,20 +151,19 @@ export class SolidlyV2Adapter implements IDexAdapter {
             const price1Per0 = r0 > 0 ? r1 / r0 : 0;
             const liquidityUsd = Math.sqrt(r0 * r1) / 1e12;
 
-            // Volatile pairs: 0.3% (30 bps), Stable pairs: 0.02% (2 bps)
             const feeBps = isStable ? 2 : 30;
 
             const pool: NormalizedPool = {
-              poolId: `${this.venueId}-${pairAddress.toLowerCase()}`,
+              poolId: pairAddress.toLowerCase(),
               venueId: this.venueId,
               venueName: this.venueName,
               chainId: this.chainId,
-              token0: (token0 as string).toLowerCase() as Address,
-              token1: (token1 as string).toLowerCase() as Address,
-              token0Symbol: "",
-              token1Symbol: "",
-              token0Decimals: 18,
-              token1Decimals: 18,
+              token0: t0Addr,
+              token1: t1Addr,
+              token0Symbol: t0Meta.symbol,
+              token1Symbol: t1Meta.symbol,
+              token0Decimals: t0Meta.decimals,
+              token1Decimals: t1Meta.decimals,
               feeBps,
               liquidityUsd,
               price0Per1,
