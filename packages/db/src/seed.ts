@@ -101,7 +101,26 @@ async function main() {
       isEnabled: true,
     },
   });
-  console.log(`  ✓ Avalanche Venues: Pangolin, TraderJoe`);
+
+  const blackholeV2 = await prisma.venue.upsert({
+    where: { chainId_name: { chainId: 43114, name: "Blackhole V2" } },
+    create: {
+      chainId: 43114,
+      name: "Blackhole V2",
+      protocol: "solidly_v2",
+      routerAddress: "0xCaD684775d7879E63f5d319dAcC8086EeCC01B01",
+      factoryAddress: "0xFe926062Fb99ca5653080d6c14fE945aD68C265c",
+      isEnabled: true,
+    },
+    update: {
+      protocol: "solidly_v2",
+      routerAddress: "0xCaD684775d7879E63f5d319dAcC8086EeCC01B01",
+      factoryAddress: "0xFe926062Fb99ca5653080d6c14fE945aD68C265c",
+      isEnabled: true,
+    },
+  });
+
+  console.log(`  ✓ Avalanche Venues: Pangolin, TraderJoe, Blackhole V2`);
 
   // ── Tokens ─────────────────────────────────────────────────────────────────
   const ethTokenDefs = [
@@ -125,7 +144,8 @@ async function main() {
   const avaxTokenDefs = [
     { address: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", symbol: "WAVAX", name: "Wrapped AVAX", decimals: 18 },
     { address: "0xeF282B38D1ceAB52134CA2cc653a569435744687", symbol: "WRP", name: "WarpChain Token", decimals: 18 },
-    { address: "0xA7D7079b0FEAD91F3e65f86E8915Cb59c1a4C664", symbol: "USDC", name: "USD Coin (Bridged)", decimals: 6 },
+    { address: "0xA7D7079b0FEAD91F3e65f86E8915Cb59c1a4C664", symbol: "USDC.e", name: "USD Coin (Bridged)", decimals: 6 },
+    { address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", symbol: "USDC", name: "USD Coin (Native)", decimals: 6 },
     { address: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", symbol: "USDT", name: "Tether USD (Avalanche)", decimals: 6 },
   ];
 
@@ -141,14 +161,14 @@ async function main() {
   console.log(`  ✓ Avalanche Tokens: ${avaxTokenDefs.map((t) => t.symbol).join(", ")}`);
 
   // ── Avalanche Pools ─────────────────────────────────────────────────────────
-  // Pangolin pools (real pair addresses on Avalanche mainnet)
   const poolDefs = [
-    { venue: pangolin, token0: "WAVAX", token1: "USDC", address: "0xbd918Ed441767fe7924e99F6a0E0B568ac1970D9", feeBps: 30 },
-    { venue: pangolin, token0: "WRP",   token1: "WAVAX", address: "0x0000000000000000000000000000000000000000", feeBps: 30 },
-    { venue: pangolin, token0: "WRP",   token1: "USDC", address: "0x0000000000000000000000000000000000000000", feeBps: 30 },
-    { venue: traderJoe, token0: "WAVAX", token1: "USDC", address: "0xA389f9430876455C36478DeEa9769B7Ca4E3DDB1", feeBps: 30 },
-    { venue: traderJoe, token0: "WRP",   token1: "WAVAX", address: "0x0000000000000000000000000000000000000000", feeBps: 30 },
-    { venue: traderJoe, token0: "WRP",   token1: "USDC", address: "0x0000000000000000000000000000000000000000", feeBps: 30 },
+    // Pangolin V2 pools
+    { venue: pangolin, token0: "WAVAX",  token1: "USDC.e", address: "0xbd918Ed441767fe7924e99F6a0E0B568ac1970D9", feeBps: 30 },
+    // TraderJoe V2 pools
+    { venue: traderJoe, token0: "WAVAX", token1: "USDC.e", address: "0xA389f9430876455C36478DeEa9769B7Ca4E3DDB1", feeBps: 30 },
+    // Blackhole V2 pools (Solidly-style — real on-chain addresses)
+    { venue: blackholeV2, token0: "USDC", token1: "WRP",   address: "0xc26847bfa980A72c82e924899A989c47b088d7da", feeBps: 30 },
+    { venue: blackholeV2, token0: "WAVAX", token1: "USDC",  address: "0xa02ec3ba8d17887567672b2cdcaf525534636ea0", feeBps: 30 },
   ];
 
   for (const p of poolDefs) {
