@@ -4,7 +4,7 @@ import { pino } from "pino";
 import { config, getPrimaryRpcConfig } from "@arbitex/config";
 import { prisma } from "@arbitex/db";
 import { createChainClient } from "@arbitex/chain";
-import { UniswapV3Adapter, SushiSwapV2Adapter, MockDexAdapter, AdapterRegistry } from "@arbitex/dex-adapters";
+import { UniswapV3Adapter, SushiSwapV2Adapter, SolidlyV2Adapter, MockDexAdapter, AdapterRegistry } from "@arbitex/dex-adapters";
 import { OpportunityEngine } from "@arbitex/opportunity-engine";
 import { RiskEngine } from "@arbitex/risk-engine";
 import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
@@ -43,10 +43,11 @@ const chainClient = createChainClient({
 
 // ── Avalanche token addresses ─────────────────────────────────────────────────
 const AVAX_TOKENS = {
-  WAVAX: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
-  WRP:   "0xef282b38d1ceab52134ca2cc653a569435744687",
-  USDC:  "0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664",
-  USDT:  "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7",
+  WAVAX:      "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+  WRP:        "0xef282b38d1ceab52134ca2cc653a569435744687",
+  USDC_E:     "0xa7d7079b0fead91f3e65f86e8915cb59c1a4c664", // bridged USDC.e
+  USDC:       "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", // native USDC
+  USDT:       "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7",
 } as const;
 
 // ── Fetch native token price from CoinGecko ──────────────────────────────────
@@ -103,6 +104,18 @@ async function registerAdapters() {
         })
       );
       logger.info({ venue: venue.name, chainId: venue.chainId }, "Registered UniswapV3 adapter");
+    } else if (venue.protocol === "solidly_v2") {
+      registry.register(
+        new SolidlyV2Adapter(chainClient as any, {
+          venueId: venue.id,
+          venueName: venue.name,
+          protocol: venue.protocol,
+          chainId: venue.chainId,
+          factoryAddress: venue.factoryAddress,
+          routerAddress: venue.routerAddress,
+        })
+      );
+      logger.info({ venue: venue.name, chainId: venue.chainId }, "Registered SolidlyV2 adapter");
     }
   }
 
@@ -199,7 +212,7 @@ const workerOpts = {
 
 // ── Target tokens for the configured chain ───────────────────────────────────
 const targetTokens = config.CHAIN_ID === 43114
-  ? [AVAX_TOKENS.WAVAX, AVAX_TOKENS.WRP, AVAX_TOKENS.USDC, AVAX_TOKENS.USDT]
+  ? [AVAX_TOKENS.WAVAX, AVAX_TOKENS.WRP, AVAX_TOKENS.USDC_E, AVAX_TOKENS.USDC, AVAX_TOKENS.USDT]
   : [
       "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
       "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", // WETH
