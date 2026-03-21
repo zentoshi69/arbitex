@@ -1,8 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { createPublicClient, http } from "viem";
-import { avalanche } from "viem/chains";
+import { avaxPublicClient } from "@/lib/chain";
 
 const WRP = "0xeF282B38D1ceAB52134CA2cc653a569435744687" as const;
 const WAVAX = "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7" as const;
@@ -41,10 +40,7 @@ const PAIR_ABI = [
   },
 ] as const;
 
-const publicClient = createPublicClient({
-  chain: avalanche,
-  transport: http("https://api.avax.network/ext/bc/C/rpc"),
-});
+const publicClient = avaxPublicClient;
 
 export type WrpPriceData = {
   avaxPerWrp: number | null;

@@ -216,7 +216,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
                 symbol: "AVAX",
                 decimals: 18,
               },
-              rpcUrls: ["https://api.avax.network/ext/bc/C/rpc"],
+              rpcUrls: [process.env["NEXT_PUBLIC_AVAX_RPC_URL"] ?? "https://api.avax.network/ext/bc/C/rpc"],
               blockExplorerUrls: ["https://snowtrace.io"],
             },
           ],

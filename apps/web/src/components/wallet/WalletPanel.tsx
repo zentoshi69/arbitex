@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import { useWallet, isCoreRdns, type DiscoveredWallet } from "./WalletProvider";
 import { useQuery } from "@tanstack/react-query";
-import { createPublicClient, formatUnits, http } from "viem";
-import { avalanche } from "viem/chains";
+import { formatUnits } from "viem";
+import { avaxPublicClient } from "@/lib/chain";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import {
@@ -126,14 +126,7 @@ export function WalletPanel() {
   const [copied, setCopied] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
 
-  const publicClient = useMemo(
-    () =>
-      createPublicClient({
-        chain: avalanche,
-        transport: http("https://api.avax.network/ext/bc/C/rpc"),
-      }),
-    []
-  );
+  const publicClient = avaxPublicClient;
 
   const balancesQ = useQuery({
     queryKey: ["wallet-balances", wallet.address],

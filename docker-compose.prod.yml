@@ -100,11 +100,13 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
         NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?set NEXT_PUBLIC_WS_URL}
+        NEXT_PUBLIC_AVAX_RPC_URL: ${NEXT_PUBLIC_AVAX_RPC_URL:-https://api.avax.network/ext/bc/C/rpc}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?set NEXT_PUBLIC_WS_URL}
+      NEXT_PUBLIC_AVAX_RPC_URL: ${NEXT_PUBLIC_AVAX_RPC_URL:-https://api.avax.network/ext/bc/C/rpc}
       INTERNAL_API_URL: http://api:3001
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY:-24h}

@@ -7,8 +7,8 @@ import { useWallet } from "@/components/wallet/WalletProvider";
 import { useDexVenueIds } from "@/hooks/useDexVenueIds";
 import { SectionHeader, EmptyState, AddressCell } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { createPublicClient, formatUnits, http, parseUnits } from "viem";
-import { avalanche } from "viem/chains";
+import { formatUnits, parseUnits } from "viem";
+import { avaxPublicClient } from "@/lib/chain";
 
 const CHAIN_ID = 43114;
 const WAVAX = "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7";
@@ -171,14 +171,7 @@ function PoolCard(props: { label: string; hint: string; venue?: Venue; tokenA: s
   const [liq, setLiq] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
 
-  const publicClient = useMemo(
-    () =>
-      createPublicClient({
-        chain: avalanche,
-        transport: http("https://api.avax.network/ext/bc/C/rpc"),
-      }),
-    []
-  );
+  const publicClient = avaxPublicClient;
 
   const infoQ = useQuery({
     queryKey: ["lp-card", props.venue?.id, props.tokenA, props.tokenB, wallet.address],

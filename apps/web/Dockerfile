@@ -12,8 +12,10 @@ RUN pnpm install --filter @arbitex/web...
 FROM deps AS builder
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_WS_URL
+ARG NEXT_PUBLIC_AVAX_RPC_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
+ENV NEXT_PUBLIC_AVAX_RPC_URL=${NEXT_PUBLIC_AVAX_RPC_URL}
 COPY . .
 RUN pnpm --filter @arbitex/shared-types build
 RUN pnpm --filter @arbitex/web build

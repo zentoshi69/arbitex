@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { useWallet } from "@/components/wallet/WalletProvider";
 import { getRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { createPublicClient, formatUnits, http } from "viem";
-import { avalanche } from "viem/chains";
+import { formatUnits } from "viem";
+import { avaxPublicClient } from "@/lib/chain";
 import { useQuery } from "@tanstack/react-query";
 
 const CHAIN_ID = 43114;
@@ -48,14 +48,7 @@ export function ProfileMenu() {
     allowlist.size > 0 &&
     allowlist.has(wallet.address.toLowerCase());
 
-  const publicClient = useMemo(
-    () =>
-      createPublicClient({
-        chain: avalanche,
-        transport: http("https://api.avax.network/ext/bc/C/rpc"),
-      }),
-    []
-  );
+  const publicClient = avaxPublicClient;
 
   const statsQ = useQuery({
     queryKey: ["profile-stats", wallet.address],

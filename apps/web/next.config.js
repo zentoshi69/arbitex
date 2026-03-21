@@ -1,15 +1,17 @@
 /** @type {import('next').NextConfig} */
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001";
+const AVAX_RPC = process.env.NEXT_PUBLIC_AVAX_RPC_URL || "https://api.avax.network/ext/bc/C/rpc";
 
 const nextConfig = {
   output: "standalone",
-  // Never expose secrets — these are the ONLY allowed NEXT_PUBLIC vars
   env: {
     NEXT_PUBLIC_API_URL: API_URL,
     NEXT_PUBLIC_WS_URL: WS_URL,
+    NEXT_PUBLIC_AVAX_RPC_URL: AVAX_RPC,
   },
   async headers() {
+    const rpcHost = (() => { try { return new URL(AVAX_RPC).origin; } catch { return ""; } })();
     return [
       {
         source: "/(.*)",
@@ -22,7 +24,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              `connect-src 'self' ${API_URL} ${WS_URL} https://api.coingecko.com https://api.snowtrace.io https://api.avax.network`,
+              `connect-src 'self' ${API_URL} ${WS_URL} ${rpcHost} https://api.coingecko.com https://api.snowtrace.io https://api.avax.network`,
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",

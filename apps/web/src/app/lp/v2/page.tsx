@@ -8,8 +8,8 @@ import { SectionHeader, EmptyState, Skeleton, AddressCell } from "@/components/u
 import { useWallet } from "@/components/wallet/WalletProvider";
 import { cn } from "@/lib/utils";
 import { Droplets, PlusCircle } from "lucide-react";
-import { createPublicClient, formatUnits, http, parseUnits } from "viem";
-import { avalanche } from "viem/chains";
+import { formatUnits, parseUnits } from "viem";
+import { avaxPublicClient } from "@/lib/chain";
 
 const CHAIN_ID = 43114; // Avalanche C-Chain
 const WAVAX = "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7";
@@ -339,14 +339,7 @@ function LiquidityRow(props: { venueId: string; label: string; tokenA: string; t
   const [useConnectedWallet, setUseConnectedWallet] = useState(false);
   const wallet = useWallet();
 
-  const publicClient = useMemo(
-    () =>
-      createPublicClient({
-        chain: avalanche,
-        transport: http("https://api.avax.network/ext/bc/C/rpc"),
-      }),
-    []
-  );
+  const publicClient = avaxPublicClient;
 
   const posQ = useQuery({
     queryKey: ["lp-pos", props.venueId, props.tokenA, props.tokenB],
