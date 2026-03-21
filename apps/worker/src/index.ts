@@ -332,6 +332,8 @@ const poolRefreshWorker = new Worker(
     }
 
     const liveConfig = await loadLiveRiskConfig();
+    riskEngine.updateConfig(liveConfig);
+
     const baseTradeSizeUsd = liveConfig.baseTradeSizeUsd;
     const adjustedTradeSize = baseTradeSizeUsd * sizeMultiplier;
     const adjustedMinProfit = (hurdleBps / 10_000) * adjustedTradeSize;

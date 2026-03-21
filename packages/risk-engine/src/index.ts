@@ -47,8 +47,12 @@ export class RiskEngine {
   constructor(
     private readonly redis: Redis,
     private readonly db: PrismaClient,
-    private readonly config: RiskConfig
+    private config: RiskConfig
   ) {}
+
+  updateConfig(cfg: RiskConfig): void {
+    this.config = cfg;
+  }
 
   /**
    * Evaluate all risk rules for an opportunity.
