@@ -24,6 +24,7 @@ RUN pnpm --filter @arbitex/execution-engine build || true
 RUN pnpm --filter @arbitex/worker build || true
 
 FROM node:20-alpine AS runner
+RUN apk add --no-cache openssl
 RUN addgroup --system --gid 1001 arbitex && \
     adduser --system --uid 1001 --ingroup arbitex arbitex
 WORKDIR /app
