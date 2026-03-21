@@ -196,7 +196,6 @@ export class UniswapV3Adapter implements IDexAdapter {
 
             const sqrtPrice = BigInt((slot0 as any)[0]);
             const liq = liquidity as bigint;
-            const price0Per1 = this.sqrtPriceX96ToPrice(sqrtPrice);
 
             const t0Addr = (token0 as string).toLowerCase() as Address;
             const t1Addr = (token1 as string).toLowerCase() as Address;
@@ -205,6 +204,7 @@ export class UniswapV3Adapter implements IDexAdapter {
               this.resolveTokenMeta(t1Addr as ViemAddress),
             ]);
 
+            const price0Per1 = this.sqrtPriceX96ToPrice(sqrtPrice, t0Meta.decimals, t1Meta.decimals);
             const liquidityUsd = estimateV3LiquidityUsd(
               liq, sqrtPrice, t0Meta.decimals, t1Meta.decimals, t0Meta.symbol, t1Meta.symbol
             );
@@ -356,13 +356,12 @@ export class UniswapV3Adapter implements IDexAdapter {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  private sqrtPriceX96ToPrice(sqrtPriceX96: bigint): number {
+  private sqrtPriceX96ToPrice(sqrtPriceX96: bigint, decimals0: number, decimals1: number): number {
     if (sqrtPriceX96 === 0n) return 0;
-    // price = (sqrtPriceX96 / 2^96)^2
     const Q96 = 2n ** 96n;
-    const price =
-      Number((sqrtPriceX96 * sqrtPriceX96) / Q96) / Number(Q96);
-    return price;
+    const rawPrice = Number((sqrtPriceX96 * sqrtPriceX96) / Q96) / Number(Q96);
+    const decimalAdj = 10 ** (decimals0 - decimals1);
+    return rawPrice * decimalAdj;
   }
 
   private estimatePriceImpact(amountIn: bigint, amountOut: bigint): number {
