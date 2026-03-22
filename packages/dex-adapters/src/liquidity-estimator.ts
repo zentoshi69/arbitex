@@ -1,5 +1,8 @@
 const STABLECOINS = new Set(["USDC", "USDC.e", "USDT", "DAI", "BUSD", "USDbC", "FRAX"]);
-const AVAX_PRICE_USD_FALLBACK = 22;
+let _avaxPriceUsd = 25;
+export function setAvaxPriceUsd(price: number) { _avaxPriceUsd = price; }
+export function getAvaxPriceUsd() { return _avaxPriceUsd; }
+const AVAX_PRICE_USD_FALLBACK = 25;
 
 /**
  * Estimate TVL in USD for a V3-style pool from on-chain liquidity and sqrtPriceX96.

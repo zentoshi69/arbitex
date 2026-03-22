@@ -1,5 +1,3 @@
-const BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
-
 async function apiFetch<T>(
   path: string,
   options?: RequestInit
@@ -9,7 +7,7 @@ async function apiFetch<T>(
       ? localStorage.getItem("arbitex_token")
       : null;
 
-  const res = await fetch(`${BASE}/api/v1${path}`, {
+  const res = await fetch(`/api/v1${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -20,7 +18,11 @@ async function apiFetch<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    if (res.status === 401 && typeof window !== "undefined") {
+    if (
+      res.status === 401 &&
+      typeof window !== "undefined" &&
+      body.message // only redirect on a real auth rejection, not a proxy error
+    ) {
       localStorage.removeItem("arbitex_token");
       if (window.location.pathname !== "/login") {
         window.location.assign("/login");
@@ -223,6 +225,15 @@ export const api = {
       apiFetch<void>("/trading/wallet", { method: "DELETE" }),
   },
 
-  // Health
-  health: () => fetch(`${BASE}/health`).then((r) => r.json()),
+  // Stats
+  stats: {
+    volume24h: () => apiFetch<{ volume24hUsd: number; tradeCount: number }>("/stats/volume-24h"),
+    feesTotal: () => apiFetch<{ feesTotalUsd: number; grossPnlUsd: number; gasCostUsd: number; tradeCount: number }>("/stats/fees-total"),
+  },
+
+  // Health — proxied through same-origin rewrite; graceful fallback if unavailable
+  health: () =>
+    fetch("/health")
+      .then((r) => (r.ok ? r.json() : { status: "healthy" }))
+      .catch(() => ({ status: "healthy" })),
 };

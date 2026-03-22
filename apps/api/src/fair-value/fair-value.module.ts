@@ -5,11 +5,12 @@ import {
   Module,
   Injectable,
   Logger,
+  UseGuards,
 } from "@nestjs/common";
 import { prisma } from "@arbitex/db";
 import { config } from "@arbitex/config";
 import { createChainClient } from "@arbitex/chain";
-import { Public } from "../auth/auth.module.js";
+import { JwtAuthGuard, RolesGuard } from "../auth/auth.module.js";
 import type { FairValueEstimate, FairValueSource } from "@arbitex/shared-types";
 
 const log = new Logger("FairValueService");
@@ -242,17 +243,16 @@ export class FairValueService {
 }
 
 @Controller("fair-value")
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class FairValueController {
   constructor(private readonly svc: FairValueService) {}
 
   @Get()
-  @Public()
   async getAll() {
     return this.svc.getAllEstimates();
   }
 
   @Get("token")
-  @Public()
   async getToken(@Query("symbol") symbol: string) {
     if (!symbol) return { error: "symbol query param required" };
     return this.svc.getEstimate(symbol);

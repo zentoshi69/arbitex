@@ -332,7 +332,7 @@ export class RiskEngine {
   }
 
   async getKillSwitchStates(): Promise<Record<string, boolean>> {
-    const keys = ["GLOBAL", "CHAIN_1", "CHAIN_8453", "CHAIN_42161"];
+    const keys = ["GLOBAL", "CHAIN_1", "CHAIN_8453", "CHAIN_42161", "CHAIN_43114"];
     const values = await Promise.all(
       keys.map((k) => this.redis.get(KILL_SWITCH_KEY(k)))
     );

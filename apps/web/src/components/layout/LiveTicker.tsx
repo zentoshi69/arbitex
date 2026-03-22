@@ -12,6 +12,13 @@ function formatUsd(value: number | null, digits = 2): string {
   return `$${value.toLocaleString(undefined, { maximumFractionDigits: digits })}`;
 }
 
+function formatCompactUsd(value: number | null): string {
+  if (value === null || !Number.isFinite(value) || value === 0) return "$0.00";
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(2)}k`;
+  return `$${value.toFixed(2)}`;
+}
+
 function formatChange(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "";
   return `${value > 0 ? "+" : ""}${value.toFixed(2)}%`;
@@ -21,16 +28,18 @@ function PriceCell({
   label,
   price,
   change,
+  priceColor,
   border = true,
 }: {
   label: string;
   price: string;
-  change: string;
+  change?: string;
+  priceColor?: string;
   border?: boolean;
 }) {
-  const tone = change.startsWith("+")
+  const tone = change?.startsWith("+")
     ? "up"
-    : change.startsWith("-")
+    : change?.startsWith("-")
       ? "down"
       : "neutral";
 
@@ -45,7 +54,10 @@ function PriceCell({
         {label}
       </span>
       <div className="mt-1 flex items-baseline gap-2.5">
-        <span className="font-mono text-[26px] font-medium leading-none text-[var(--offwhite)]">
+        <span
+          className="font-mono text-[26px] font-medium leading-none"
+          style={{ color: priceColor ?? "var(--offwhite)" }}
+        >
           {price}
         </span>
         {change && (
@@ -128,6 +140,20 @@ export function LiveTicker() {
 
   const wrpLoading = wrpQ.isLoading || (marketQ.isLoading && !wrpQ.data);
 
+  const volumeQ = useQuery({
+    queryKey: ["stats", "volume-24h"],
+    queryFn: () => api.stats.volume24h().catch(() => ({ volume24hUsd: 0, tradeCount: 0 })),
+    refetchInterval: 60_000,
+    staleTime: 55_000,
+  });
+
+  const feesQ = useQuery({
+    queryKey: ["stats", "fees-total"],
+    queryFn: () => api.stats.feesTotal().catch(() => ({ feesTotalUsd: 0, grossPnlUsd: 0, gasCostUsd: 0, tradeCount: 0 })),
+    refetchInterval: 60_000,
+    staleTime: 55_000,
+  });
+
   return (
     <div className="relative flex h-[80px] flex-shrink-0 items-stretch overflow-hidden border-b border-[var(--border)] bg-[var(--black)]">
       <PriceCell
@@ -157,6 +183,17 @@ export function LiveTicker() {
                 : "—"
         }
         change={wrpQ.data?.source ? `via ${wrpQ.data.source}` : ""}
+      />
+      <PriceCell
+        label="24H VOLUME"
+        price={formatCompactUsd(volumeQ.data?.volume24hUsd ?? null)}
+        change={volumeQ.data?.tradeCount ? `${volumeQ.data.tradeCount} trades` : undefined}
+      />
+      <PriceCell
+        label="FEES EARNED"
+        price={formatCompactUsd(feesQ.data?.feesTotalUsd ?? null)}
+        priceColor="#4DD68C"
+        change={feesQ.data?.tradeCount ? `${feesQ.data.tradeCount} trades` : undefined}
         border={false}
       />
     </div>

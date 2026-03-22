@@ -63,10 +63,9 @@ function AuditRow({ log }: { log: any }) {
 }
 
 async function fetchAuditLogs({ page, action }: { page: number; action: string }) {
-  const BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
   const token = typeof window !== "undefined" ? localStorage.getItem("arbitex_token") : null;
   const qs = new URLSearchParams({ page: String(page), limit: "50", ...(action !== "ALL" ? { action } : {}) });
-  const res = await fetch(`${BASE}/api/v1/audit?${qs}`, {
+  const res = await fetch(`/api/v1/audit?${qs}`, {
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
   return res.json();

@@ -2,9 +2,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 async function fetchGasPrice(): Promise<number> {
-  const BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3001";
   const token = typeof window !== "undefined" ? localStorage.getItem("arbitex_token") : null;
-  const res = await fetch(`${BASE}/api/v1/chain/gas-price`, {
+  const res = await fetch("/api/v1/chain/gas-price", {
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
   if (!res.ok) return 0;

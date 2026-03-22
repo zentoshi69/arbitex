@@ -44,7 +44,6 @@ function WsProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    const wsUrl = process.env["NEXT_PUBLIC_WS_URL"] ?? "ws://localhost:3001";
     const t =
       typeof window !== "undefined" ? localStorage.getItem("arbitex_token") ?? "" : "";
     setToken(t);
@@ -60,10 +59,16 @@ function WsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const wsUrl = process.env["NEXT_PUBLIC_WS_URL"] ?? "ws://localhost:3001";
     const wsToken = typeof window !== "undefined" ? token : "";
 
-    const socket = io(`${wsUrl}/ws`, {
+    // WebSocket connects directly to the API domain (can't proxy WS through Next.js rewrites).
+    // Derive from current hostname: bitrunner3001.com → wss://api.bitrunner3001.com
+    const wsBase =
+      typeof window !== "undefined" && window.location.hostname !== "localhost"
+        ? `wss://api.${window.location.hostname}`
+        : "ws://localhost:3001";
+
+    const socket = io(`${wsBase}/ws`, {
       auth: { token: wsToken },
       transports: ["websocket"],
       reconnectionAttempts: 10,

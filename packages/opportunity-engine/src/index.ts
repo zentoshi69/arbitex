@@ -122,6 +122,7 @@ export class OpportunityEngine {
   private poolCache = new Map<string, NormalizedPool>();
   private dbPoolIdCache = new Map<string, string | null>();
   private adapters: IDexAdapter[];
+  private adapterByVenue = new Map<string, IDexAdapter>();
 
   constructor(
     adapters: IDexAdapter[],
@@ -129,10 +130,13 @@ export class OpportunityEngine {
     private readonly client: ArbitexPublicClient
   ) {
     this.adapters = adapters;
+    for (const a of adapters) this.adapterByVenue.set(a.venueId, a);
   }
 
   updateAdapters(adapters: IDexAdapter[]): void {
     this.adapters = adapters;
+    this.adapterByVenue.clear();
+    for (const a of adapters) this.adapterByVenue.set(a.venueId, a);
   }
 
   /**
@@ -277,9 +281,10 @@ export class OpportunityEngine {
 
       if (grossSpreadUsd <= 0) return null;
 
+      const gasUnits = 500_000n;
       const profitBreakdown = computeProfitBreakdown({
         grossSpreadUsd,
-        gasUnits: 350_000n, // estimated for 2-leg arb
+        gasUnits,
         gasPriceGwei,
         ethPriceUsd: cfg.ethPriceUsd,
         buyFeeBps: buyPool.feeBps,
@@ -288,7 +293,7 @@ export class OpportunityEngine {
         slippageBufferFactor: cfg.riskConfig.slippageBufferFactor,
         failureBufferFactor: cfg.riskConfig.failureBufferFactor,
         failureGasEstimateUsd:
-          (Number(350_000n * gasPriceGwei) / 1e9) * cfg.ethPriceUsd,
+          (Number(gasUnits * gasPriceGwei) / 1e9) * cfg.ethPriceUsd,
       });
 
       if (profitBreakdown.netProfitUsd < cfg.riskConfig.minNetProfitUsd) {
@@ -297,6 +302,68 @@ export class OpportunityEngine {
 
       const tokenIn = buyPool.token0;
       const tokenOut = buyPool.token1;
+
+      // Compute amountIn using ACTUAL token decimals and price
+      // price0Per1 = how much token1 per 1 token0
+      // To convert USD to token0: we need token0's USD price
+      // If token1 is a stablecoin, price0Per1 ≈ token0's USD value
+      // Otherwise use ethPriceUsd (native token price) as best guess
+      const STABLES = ["USDC", "USDC.e", "USDT", "DAI", "BUSD"];
+      const isToken1Stable = STABLES.includes(buyPool.token1Symbol);
+      const token0PriceUsd = isToken1Stable
+        ? buyPool.price0Per1
+        : (buyPool.token0Symbol === "WAVAX" || buyPool.token0Symbol === "AVAX")
+          ? cfg.ethPriceUsd
+          : buyPool.price0Per1 > 0 ? buyPool.price0Per1 : 1;
+      const token0Amount = tradeSizeUsd / Math.max(token0PriceUsd, 0.000001);
+      const amountInRaw = BigInt(Math.floor(token0Amount * 10 ** buyPool.token0Decimals));
+      const amountIn = amountInRaw.toString();
+
+      // Try to get real quotes from adapters
+      let buyQuoteAmountOut = "0";
+      let sellQuoteAmountOut = "0";
+      let step0AmountOut = "0";
+      let step1AmountIn = "0";
+      let step1AmountOut = "0";
+
+      const buyAdapter = this.adapterByVenue.get(buyPool.venueId);
+      const sellAdapter = this.adapterByVenue.get(sellPool.venueId);
+
+      if (buyAdapter && sellAdapter) {
+        try {
+          const buyQuote = await buyAdapter.getQuote({
+            poolId: buyPool.poolId,
+            tokenIn,
+            tokenOut,
+            amountIn,
+            slippageBps: 50,
+          });
+          buyQuoteAmountOut = buyQuote.amountOut;
+          step0AmountOut = buyQuote.amountOut;
+          step1AmountIn = buyQuote.amountOut;
+
+          const sellQuote = await sellAdapter.getQuote({
+            poolId: sellPool.poolId,
+            tokenIn: tokenOut,
+            tokenOut: tokenIn,
+            amountIn: buyQuote.amountOut,
+            slippageBps: 50,
+          });
+          sellQuoteAmountOut = sellQuote.amountOut;
+          step1AmountOut = sellQuote.amountOut;
+
+          // Recompute actual profit from quotes
+          const inputTokens = Number(amountInRaw) / 10 ** buyPool.token0Decimals;
+          const outputTokens = Number(BigInt(sellQuote.amountOut)) / 10 ** buyPool.token0Decimals;
+          const actualGrossUsd = (outputTokens - inputTokens) *
+            (tradeSizeUsd / inputTokens);
+
+          if (actualGrossUsd <= profitBreakdown.gasEstimateUsd) return null;
+        } catch {
+          // Quote failed — use price-based estimate (less accurate)
+        }
+      }
+
       const fingerprint = buildOpportunityFingerprint(
         tokenIn,
         tokenOut,
@@ -304,9 +371,6 @@ export class OpportunityEngine {
         sellPool.venueId,
         tradeSizeUsd
       );
-
-      // Estimate amountIn in token0 units (simplified)
-      const amountIn = BigInt(Math.floor(tradeSizeUsd * 1e6)).toString();
 
       const routes: RouteStep[] = [
         {
@@ -317,7 +381,7 @@ export class OpportunityEngine {
           tokenIn,
           tokenOut,
           amountIn,
-          amountOut: "0", // filled by simulator
+          amountOut: step0AmountOut,
           feeBps: buyPool.feeBps,
         },
         {
@@ -327,8 +391,8 @@ export class OpportunityEngine {
           venueName: sellPool.venueName,
           tokenIn: tokenOut,
           tokenOut: tokenIn,
-          amountIn: "0", // output of step 0
-          amountOut: "0",
+          amountIn: step1AmountIn,
+          amountOut: step1AmountOut,
           feeBps: sellPool.feeBps,
         },
       ];
@@ -343,8 +407,8 @@ export class OpportunityEngine {
         tradeSizeUsd,
         buyPool,
         sellPool,
-        buyQuoteAmountOut: "0",
-        sellQuoteAmountOut: "0",
+        buyQuoteAmountOut,
+        sellQuoteAmountOut,
         profitBreakdown,
         routes,
       };

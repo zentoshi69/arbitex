@@ -1,7 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { Module, Injectable } from "@nestjs/common";
 import { prisma } from "@arbitex/db";
-import { Public } from "../auth/auth.module.js";
 
 @Injectable()
 export class MetricsService {
@@ -68,7 +67,6 @@ export class MetricsController {
   constructor(private readonly svc: MetricsService) {}
 
   @Get("metrics")
-  @Public()
   async metrics() {
     return this.svc.getPrometheusMetrics();
   }

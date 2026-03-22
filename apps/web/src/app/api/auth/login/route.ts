@@ -8,7 +8,7 @@ const PASSWORDS = (process.env["OPERATOR_PASSWORD"] ?? "")
   .filter(Boolean);
 
 const JWT_SECRET = process.env["JWT_SECRET"] ?? "";
-const JWT_EXPIRY = process.env["JWT_EXPIRY"] ?? "24h";
+const JWT_EXPIRY = process.env["JWT_EXPIRY"] ?? "30d";
 
 const INTERNAL_API_URL =
   process.env["INTERNAL_API_URL"] ?? "http://api:3001";

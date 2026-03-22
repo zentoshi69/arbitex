@@ -1,8 +1,8 @@
-import { Controller, Get, Module, Injectable, BadRequestException, Query, Logger } from "@nestjs/common";
+import { Controller, Get, Module, Injectable, BadRequestException, Query, Logger, UseGuards } from "@nestjs/common";
 import { createChainClient } from "@arbitex/chain";
 import { config } from "@arbitex/config";
 import { prisma } from "@arbitex/db";
-import { Public } from "../auth/auth.module.js";
+import { JwtAuthGuard, RolesGuard } from "../auth/auth.module.js";
 
 const log = new Logger("MarketService");
 
@@ -351,11 +351,11 @@ class MarketService {
 }
 
 @Controller("market")
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class MarketController {
   constructor(private readonly svc: MarketService) {}
 
   @Get("prices")
-  @Public()
   async prices(
     @Query("pangolinVenueId") pangolinVenueId: string | undefined,
     @Query("blackholeVenueId") blackholeVenueId: string | undefined,
@@ -382,7 +382,6 @@ export class MarketController {
   }
 
   @Get("tokens")
-  @Public()
   async tokenPrices() {
     return this.svc.tokenPrices();
   }

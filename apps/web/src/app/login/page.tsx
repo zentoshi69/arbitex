@@ -49,8 +49,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-bg px-6">
       <div className="w-full max-w-sm -mt-20">
         {/* Logo */}
-        <div className="flex items-center justify-center mb-8">
-          <img src="/logo.png" alt="arbitex" className="h-10 w-auto" />
+        <div className="flex items-center justify-center mb-8 bg-black rounded-lg px-6 py-4">
+          <img src="/logo.png" alt="ArbitEx" className="h-16 w-auto object-contain" />
         </div>
 
         <div className="ax-panel p-6">
@@ -69,7 +69,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 ax-field text-sm"
-                placeholder="••••••••"
+                placeholder="Enter password"
                 autoFocus
                 autoComplete="current-password"
               />

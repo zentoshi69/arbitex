@@ -131,9 +131,13 @@ export class TradingService {
     try {
       const rpc = getRpcConfig(config.CHAIN_ID);
       const client = createChainClient({ rpcUrl: rpc.rpcUrl, chainId: config.CHAIN_ID });
-      const raw = await client.getBalance({ address: address as `0x${string}` });
+      const balancePromise = client.getBalance({ address: address as `0x${string}` });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 5000)
+      );
+      const raw = await Promise.race([balancePromise, timeoutPromise]);
       balance = Number(raw) / 1e18;
-    } catch { /* RPC error */ }
+    } catch { /* RPC error or timeout */ }
 
     return { configured: true, address, balance };
   }

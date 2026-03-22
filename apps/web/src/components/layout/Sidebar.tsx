@@ -63,8 +63,8 @@ export function Sidebar() {
         }}
       />
 
-      <div className="flex h-[80px] items-center justify-center border-b border-[var(--border)] px-[14px]">
-        <img src="/logo.png" alt="ARBEETEX" className="h-[60px] w-auto object-contain" />
+      <div className="flex h-[140px] items-center justify-center border-b border-[var(--border)] bg-black px-3">
+        <img src="/logo.png" alt="ArbitEx" className="h-[120px] w-full object-contain" />
       </div>
 
       <div className="flex h-[28px] items-center gap-2 border-b border-[var(--border)] px-[18px]">

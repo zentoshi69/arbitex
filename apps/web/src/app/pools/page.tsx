@@ -8,13 +8,12 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useTokenContext } from "@/contexts/TokenContext";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 const isHexAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v.trim());
 
 async function fetchPools(params: { page: number; search: string }) {
   const token = typeof window !== "undefined" ? localStorage.getItem("arbitex_token") : null;
   const qs = new URLSearchParams({ page: String(params.page), limit: "30" });
-  const res = await fetch(`${BASE}/api/v1/pools?${qs}`, {
+  const res = await fetch(`/api/v1/pools?${qs}`, {
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
   return res.json();

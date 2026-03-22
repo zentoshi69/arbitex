@@ -27,9 +27,9 @@ async function bootstrap() {
   });
 
   await app.register(rateLimit, {
-    max: 300,
+    max: 120,
     timeWindow: "1 minute",
-    // Trust proxy is environment-specific; keeping it strict avoids spoofed IPs.
+    trustProxy: true,
   });
 
   app.useGlobalPipes(
@@ -41,9 +41,16 @@ async function bootstrap() {
     })
   );
 
+  const allowedOrigins = [
+    config.DASHBOARD_ORIGIN,
+    "http://localhost:3000",
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: [config.DASHBOARD_ORIGIN],
+    origin: allowedOrigins,
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   });
 
   app.setGlobalPrefix("api/v1", {

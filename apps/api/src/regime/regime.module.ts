@@ -4,11 +4,12 @@ import {
   Param,
   Module,
   Injectable,
+  UseGuards,
 } from "@nestjs/common";
 import { prisma } from "@arbitex/db";
 import { RegimeClassifier, REGIME_CONFIGS } from "@arbitex/risk-engine";
 import type { RegimeSnapshot } from "@arbitex/risk-engine";
-import { Public } from "../auth/auth.module.js";
+import { JwtAuthGuard, RolesGuard } from "../auth/auth.module.js";
 
 @Injectable()
 export class RegimeService {
@@ -149,35 +150,31 @@ export class RegimeService {
 }
 
 @Controller("regime")
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class RegimeController {
   constructor(private readonly svc: RegimeService) {}
 
   @Get()
-  @Public()
   async current() {
     return this.svc.classify();
   }
 
   @Get("configs")
-  @Public()
   configs() {
     return this.svc.getConfigs();
   }
 
   @Get("venues")
-  @Public()
   venueBreakdown() {
     return this.svc.venueBreakdown();
   }
 
   @Get("liquidity-maps")
-  @Public()
   liquidityMaps() {
     return this.svc.liquidityMaps();
   }
 
   @Get("liquidity-maps/:poolId")
-  @Public()
   liquidityMap(@Param("poolId") poolId: string) {
     return this.svc.liquidityMapByPool(poolId);
   }

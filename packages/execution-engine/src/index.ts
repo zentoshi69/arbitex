@@ -181,7 +181,12 @@ export class RouteSimulator {
   private async checkPoolFreshness(
     pool: NormalizedPool
   ): Promise<{ fresh: boolean; pctChange: number }> {
-    const ageSecs = (Date.now() - pool.lastUpdated.getTime()) / 1000;
+    const ts = pool.lastUpdated instanceof Date
+      ? pool.lastUpdated.getTime()
+      : typeof pool.lastUpdated === "number"
+        ? pool.lastUpdated
+        : new Date(pool.lastUpdated as any).getTime();
+    const ageSecs = (Date.now() - ts) / 1000;
     if (ageSecs > 30) {
       return { fresh: false, pctChange: 999 };
     }
@@ -233,7 +238,42 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 2. Simulate both legs ────────────────────────────────────────────
+      // ── 2. Build swap calldata for both legs ─────────────────────────────
+      await this.updateState(executionId, ExecutionState.SIGNING);
+      const step0 = input.routes[0]!;
+      const step1 = input.routes[1]!;
+
+      const buyAdapter = input.adapters.get(step0.venueId)!;
+      const sellAdapter = input.adapters.get(step1.venueId)!;
+
+      const deadline = Math.floor(Date.now() / 1000) + 120;
+
+      const quotedBuyOut = BigInt(step0.amountOut || "0");
+      const buyAmountOutMin = quotedBuyOut > 0n
+        ? (quotedBuyOut * 9500n / 10_000n).toString()
+        : "1";
+
+      const buyCalldata = await buyAdapter.buildSwapCalldata({
+        poolId: step0.poolId,
+        tokenIn: step0.tokenIn,
+        tokenOut: step0.tokenOut,
+        amountIn: step0.amountIn,
+        amountOutMin: buyAmountOutMin,
+        recipient: this.wallet.address,
+        deadline,
+        slippageBps: 50,
+      });
+
+      // ── 3. Ensure ERC20 approvals BEFORE simulation ───────────────────
+      if (!input.mockExecution) {
+        await this.ensureTokenApproval(
+          step0.tokenIn as `0x${string}`,
+          buyCalldata.to as `0x${string}`,
+          BigInt(step0.amountIn)
+        );
+      }
+
+      // ── 4. Simulate both legs ────────────────────────────────────────────
       await this.updateState(executionId, ExecutionState.SIMULATING);
       const simResult = await this.simulator.simulate({
         routes: input.routes,
@@ -251,7 +291,7 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 3. Final net profit gate ─────────────────────────────────────────
+      // ── 5. Final net profit gate ─────────────────────────────────────────
       if (input.profitBreakdown.netProfitUsd < input.riskConfig.minNetProfitUsd) {
         await this.markFailed(
           executionId,
@@ -260,27 +300,6 @@ export class ExecutionEngine {
         );
         return;
       }
-
-      // ── 4. Build swap calldata for both legs ─────────────────────────────
-      await this.updateState(executionId, ExecutionState.SIGNING);
-      const step0 = input.routes[0]!;
-      const step1 = input.routes[1]!;
-
-      const buyAdapter = input.adapters.get(step0.venueId)!;
-      const sellAdapter = input.adapters.get(step1.venueId)!;
-
-      const deadline = Math.floor(Date.now() / 1000) + 120;
-
-      const buyCalldata = await buyAdapter.buildSwapCalldata({
-        poolId: step0.poolId,
-        tokenIn: step0.tokenIn,
-        tokenOut: step0.tokenOut,
-        amountIn: step0.amountIn,
-        amountOutMin: (BigInt(step0.amountIn) * 9950n / 10_000n).toString(),
-        recipient: this.wallet.address,
-        deadline,
-        slippageBps: 50,
-      });
 
       // ── 5. Mock execution path ───────────────────────────────────────────
       if (input.mockExecution) {
@@ -310,14 +329,7 @@ export class ExecutionEngine {
         return;
       }
 
-      // ── 6. Ensure ERC20 approval for buy leg ────────────────────────────
-      await this.ensureTokenApproval(
-        step0.tokenIn as `0x${string}`,
-        buyCalldata.to as `0x${string}`,
-        BigInt(step0.amountIn)
-      );
-
-      // ── 7. Submit buy leg ────────────────────────────────────────────────
+      // ── 6. Submit buy leg ────────────────────────────────────────────────
       await this.updateState(executionId, ExecutionState.SUBMITTED);
       const { nonce: buyNonce, release: releaseBuy } = await this.nonceManager.acquireNonce(
         this.wallet.address
@@ -373,12 +385,15 @@ export class ExecutionEngine {
       const sellAmountIn = actualBuyOutput ?? BigInt(step1.amountIn || step0.amountIn);
 
       // ── 10. Build sell calldata with actual output ───────────────────────
+      const originalInput = BigInt(step0.amountIn);
+      const sellAmountOutMin = (originalInput * 9500n / 10_000n).toString();
+
       const sellCalldata = await sellAdapter.buildSwapCalldata({
         poolId: step1.poolId,
         tokenIn: step1.tokenIn,
         tokenOut: step1.tokenOut,
         amountIn: sellAmountIn.toString(),
-        amountOutMin: step0.amountIn,
+        amountOutMin: sellAmountOutMin,
         recipient: this.wallet.address,
         deadline,
         slippageBps: 50,
@@ -487,7 +502,7 @@ export class ExecutionEngine {
       // Update transaction records with confirmation
       await this.db.transaction.updateMany({
         where: { executionId, rawTx: buyTxHash },
-        data: { confirmedAt: new Date(Number(buyReceipt.blockNumber)) },
+        data: { confirmedAt: new Date() },
       });
       await this.db.transaction.updateMany({
         where: { executionId, rawTx: sellTxHash },

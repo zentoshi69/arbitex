@@ -4,6 +4,17 @@ import { Public } from "./auth.decorators.js";
 import { config } from "@arbitex/config";
 import * as jose from "jose";
 import bcrypt from "bcryptjs";
+import { timingSafeEqual } from "node:crypto";
+
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) {
+    timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return timingSafeEqual(bufA, bufB);
+}
 
 class LoginDto {
   @IsString()
@@ -42,7 +53,7 @@ export class AuthController {
       }
     }
     if (!matched) {
-      matched = plains.includes(dto.password);
+      matched = plains.some((stored) => safeCompare(dto.password, stored));
     }
 
     if (!matched) throw new UnauthorizedException("Invalid credentials");

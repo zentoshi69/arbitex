@@ -376,11 +376,11 @@ export default function SettingsPage() {
                 items={[
                   [
                     "API URL",
-                    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001",
+                    "(same-origin proxy)",
                   ],
                   [
                     "WS URL",
-                    process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:3001",
+                    "(same-origin proxy)",
                   ],
                   ["Dashboard Version", "v1.0.0-MVP"],
                   ["Environment", process.env.NODE_ENV ?? "development"],
