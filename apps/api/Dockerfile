@@ -19,6 +19,7 @@ RUN pnpm --filter @arbitex/config build
 RUN pnpm --filter @arbitex/db generate
 RUN pnpm --filter @arbitex/db build || true
 RUN pnpm --filter @arbitex/chain build
+RUN pnpm --filter @arbitex/dex-adapters build || true
 RUN pnpm --filter @arbitex/risk-engine build || true
 RUN pnpm --filter @arbitex/api build || true
 
@@ -38,7 +39,7 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Re-link workspace packages so @arbitex/* resolves to packages/*
 RUN rm -rf node_modules/@arbitex && mkdir -p node_modules/@arbitex && \
-    for pkg in shared-types config db chain risk-engine; do \
+    for pkg in shared-types config db chain dex-adapters risk-engine; do \
       ln -sf ../../packages/$pkg node_modules/@arbitex/$pkg; \
     done
 
