@@ -8,6 +8,7 @@ import type {
 } from "@arbitex/shared-types";
 import { OpportunityState } from "@arbitex/shared-types";
 import type { IDexAdapter } from "@arbitex/dex-adapters";
+import { dexScreenerFeed, type DexScreenerPair } from "@arbitex/dex-adapters";
 import type { PrismaClient } from "@arbitex/db";
 import type { ArbitexPublicClient } from "@arbitex/chain";
 
@@ -16,6 +17,22 @@ export * from "./v3-simulator.js";
 export * from "./lp-band-builder.js";
 export * from "./optimal-sizer.js";
 export * from "./liquidity-scanner.js";
+
+// ── Confidence Scoring Weights ───────────────────────────────────────────────
+
+const CONFIDENCE_WEIGHTS = {
+  spreadToGas: 0.25,
+  liquidityDepth: 0.20,
+  volumeActivity: 0.15,
+  priceImpact: 0.20,
+  poolFreshness: 0.10,
+  quoteReliability: 0.10,
+} as const;
+
+const MIN_DEAD_POOL_LP_USD = 100;
+const MAX_TRADE_PCT_OF_TVL = 0.02;
+const MIN_TRADE_SIZE_USD = 5;
+const MAX_PRICE_IMPACT_VS_SPREAD = 0.5;
 
 export type OpportunityCandidate = {
   id: string;
@@ -33,6 +50,9 @@ export type OpportunityCandidate = {
   sellQuoteAmountOut: string;
   profitBreakdown: ProfitBreakdown;
   routes: RouteStep[];
+  confidenceScore: number;
+  priceImpactBps: number;
+  dexScreenerLiquidity: { buy: number; sell: number };
 };
 
 export type PoolIndexerConfig = {
@@ -42,11 +62,6 @@ export type PoolIndexerConfig = {
   riskConfig: RiskConfig;
 };
 
-/**
- * Computes net profitability using the canonical formula:
- *
- * net_profit = gross_spread - gas_cost - venue_fees - slippage_buffer - failure_buffer
- */
 export function computeProfitBreakdown(params: {
   grossSpreadUsd: number;
   gasUnits: bigint;
@@ -58,6 +73,7 @@ export function computeProfitBreakdown(params: {
   slippageBufferFactor: number;
   failureBufferFactor: number;
   failureGasEstimateUsd: number;
+  priceImpactUsd?: number;
 }): ProfitBreakdown {
   const gasEth =
     Number(params.gasUnits * params.gasPriceGwei) / 1e9;
@@ -71,12 +87,15 @@ export function computeProfitBreakdown(params: {
   const failureBufferUsd =
     params.failureBufferFactor * params.failureGasEstimateUsd;
 
+  const priceImpactUsd = params.priceImpactUsd ?? 0;
+
   const netProfitUsd =
     params.grossSpreadUsd -
     gasEstimateUsd -
     venueFeesUsd -
     slippageBufferUsd -
-    failureBufferUsd;
+    failureBufferUsd -
+    priceImpactUsd;
 
   const netProfitBps =
     params.tradeSizeUsd > 0
@@ -94,10 +113,6 @@ export function computeProfitBreakdown(params: {
   };
 }
 
-/**
- * Generate a stable fingerprint for deduplication.
- * Same token pair + same venues + same size bucket = same fingerprint (10s window).
- */
 export function buildOpportunityFingerprint(
   tokenIn: Address,
   tokenOut: Address,
@@ -105,8 +120,8 @@ export function buildOpportunityFingerprint(
   sellVenueId: string,
   tradeSizeUsd: number
 ): string {
-  const windowBucket = Math.floor(Date.now() / 10_000); // 10s buckets
-  const sizeBucket = Math.floor(tradeSizeUsd / 100); // $100 buckets
+  const windowBucket = Math.floor(Date.now() / 10_000);
+  const sizeBucket = Math.floor(tradeSizeUsd / 100);
   const payload = [
     tokenIn.toLowerCase(),
     tokenOut.toLowerCase(),
@@ -118,11 +133,105 @@ export function buildOpportunityFingerprint(
   return createHash("sha256").update(payload).digest("hex");
 }
 
+// ── Price Impact Estimation ──────────────────────────────────────────────────
+
+function estimateV2PriceImpact(tradeSizeUsd: number, poolLiquidityUsd: number): number {
+  if (poolLiquidityUsd <= 0) return 1;
+  return tradeSizeUsd / (2 * poolLiquidityUsd);
+}
+
+function estimateV3PriceImpact(
+  tradeSizeUsd: number,
+  poolLiquidityUsd: number,
+  _feeBps: number
+): number {
+  if (poolLiquidityUsd <= 0) return 1;
+  return tradeSizeUsd / (3 * poolLiquidityUsd);
+}
+
+function estimatePriceImpact(
+  tradeSizeUsd: number,
+  pool: NormalizedPool
+): number {
+  const isV3 = pool.sqrtPriceX96 !== undefined && pool.sqrtPriceX96 !== null;
+  return isV3
+    ? estimateV3PriceImpact(tradeSizeUsd, pool.liquidityUsd, pool.feeBps)
+    : estimateV2PriceImpact(tradeSizeUsd, pool.liquidityUsd);
+}
+
+// ── Dynamic Trade Sizing ─────────────────────────────────────────────────────
+
+function computeOptimalTradeSize(
+  buyPool: NormalizedPool,
+  sellPool: NormalizedPool,
+  maxTradeSizeUsd: number,
+  spreadFraction: number,
+): number {
+  const smallerPoolTvl = Math.min(buyPool.liquidityUsd, sellPool.liquidityUsd);
+  const tvlCappedSize = smallerPoolTvl * MAX_TRADE_PCT_OF_TVL;
+
+  // Kelly-inspired: larger trades when spread is larger relative to risk
+  const kellyFraction = Math.min(0.5, spreadFraction * 5);
+  const kellySizeUsd = smallerPoolTvl * kellyFraction * MAX_TRADE_PCT_OF_TVL;
+
+  const dynamicSize = Math.max(kellySizeUsd, MIN_TRADE_SIZE_USD);
+  return Math.min(dynamicSize, tvlCappedSize, maxTradeSizeUsd);
+}
+
+// ── Confidence Scoring ───────────────────────────────────────────────────────
+
+function computeConfidenceScore(params: {
+  grossSpreadUsd: number;
+  gasEstimateUsd: number;
+  buyPoolLiqUsd: number;
+  sellPoolLiqUsd: number;
+  volume24h: number;
+  priceImpactFraction: number;
+  spreadFraction: number;
+  poolAgeSecs: number;
+  quotesSucceeded: boolean;
+}): number {
+  // Spread-to-gas ratio (higher = better)
+  const spreadGasRatio = params.gasEstimateUsd > 0
+    ? Math.min(1, (params.grossSpreadUsd / params.gasEstimateUsd - 1) / 4)
+    : 0;
+
+  // Liquidity depth (min of both pools, normalized)
+  const minLiq = Math.min(params.buyPoolLiqUsd, params.sellPoolLiqUsd);
+  const liqScore = Math.min(1, minLiq / 50_000);
+
+  // Volume activity from DexScreener
+  const volScore = Math.min(1, params.volume24h / 10_000);
+
+  // Price impact (lower = better)
+  const impactScore = params.spreadFraction > 0
+    ? Math.max(0, 1 - (params.priceImpactFraction / params.spreadFraction))
+    : 0;
+
+  // Pool freshness (newer = better)
+  const freshnessScore = Math.max(0, 1 - params.poolAgeSecs / 60);
+
+  // Quote reliability
+  const quoteScore = params.quotesSucceeded ? 1 : 0.3;
+
+  return (
+    CONFIDENCE_WEIGHTS.spreadToGas * spreadGasRatio +
+    CONFIDENCE_WEIGHTS.liquidityDepth * liqScore +
+    CONFIDENCE_WEIGHTS.volumeActivity * volScore +
+    CONFIDENCE_WEIGHTS.priceImpact * impactScore +
+    CONFIDENCE_WEIGHTS.poolFreshness * freshnessScore +
+    CONFIDENCE_WEIGHTS.quoteReliability * quoteScore
+  );
+}
+
+// ── Main Engine ──────────────────────────────────────────────────────────────
+
 export class OpportunityEngine {
   private poolCache = new Map<string, NormalizedPool>();
   private dbPoolIdCache = new Map<string, string | null>();
   private adapters: IDexAdapter[];
   private adapterByVenue = new Map<string, IDexAdapter>();
+  private dexScreenerPairCache = new Map<string, DexScreenerPair>();
 
   constructor(
     adapters: IDexAdapter[],
@@ -139,28 +248,52 @@ export class OpportunityEngine {
     for (const a of adapters) this.adapterByVenue.set(a.venueId, a);
   }
 
-  /**
-   * Refresh all pools from all adapters and return detected candidates.
-   */
+  async refreshDexScreenerData(targetTokens: Address[]): Promise<void> {
+    try {
+      await dexScreenerFeed.refreshAll(targetTokens);
+      for (const token of targetTokens) {
+        const pairs = await dexScreenerFeed.getTokenPairs(token);
+        for (const pair of pairs) {
+          if (pair.chainId === "avalanche") {
+            this.dexScreenerPairCache.set(pair.pairAddress.toLowerCase(), pair);
+          }
+        }
+      }
+    } catch {
+      // DexScreener down — continue with on-chain data only
+    }
+  }
+
+  getDexScreenerLiquidity(poolAddress: string): number {
+    const pair = this.dexScreenerPairCache.get(poolAddress.toLowerCase());
+    return pair?.liquidityUsd ?? 0;
+  }
+
+  getDexScreenerVolume(poolAddress: string): number {
+    const pair = this.dexScreenerPairCache.get(poolAddress.toLowerCase());
+    return pair?.volume24h ?? 0;
+  }
+
   async scanForOpportunities(
     cfg: PoolIndexerConfig
   ): Promise<OpportunityCandidate[]> {
-    // 1. Refresh pool state from all adapters
-    await this.refreshPools(cfg.targetTokens);
+    await Promise.all([
+      this.refreshPools(cfg.targetTokens),
+      this.refreshDexScreenerData(cfg.targetTokens),
+    ]);
 
-    // 2. Load tracked tokens for tagging
     const trackedTokens = await this.db.token.findMany({
       where: { isTracked: true },
       select: { id: true, address: true, symbol: true },
     });
-    const trackedByAddr = new Map(
-      trackedTokens.map((t) => [t.address.toLowerCase(), { id: t.id, symbol: t.symbol }])
+    const trackedByAddr = new Map<string, { id: string; symbol: string }>(
+      trackedTokens.map((t: { id: string; address: string; symbol: string }) => [t.address.toLowerCase(), { id: t.id, symbol: t.symbol }])
     );
 
-    // 3. Build all cross-venue pairs for same token pair
+    this.killDeadPools();
+
     const candidates = this.findCrossVenuePairs(cfg.targetTokens);
 
-    // 4. Score each candidate
     const gasPriceWei = await this.client.getGasPrice();
     const gasPriceGwei = gasPriceWei / 1_000_000_000n;
 
@@ -185,10 +318,23 @@ export class OpportunityEngine {
       }
     }
 
-    // Sort by net profit descending
     return scored.sort(
-      (a, b) => b.profitBreakdown.netProfitUsd - a.profitBreakdown.netProfitUsd
+      (a, b) => {
+        const confDiff = b.confidenceScore - a.confidenceScore;
+        if (Math.abs(confDiff) > 0.1) return confDiff;
+        return b.profitBreakdown.netProfitUsd - a.profitBreakdown.netProfitUsd;
+      }
     );
+  }
+
+  private killDeadPools(): void {
+    for (const [poolId, pool] of this.poolCache) {
+      const dexLiq = this.getDexScreenerLiquidity(poolId);
+      const effectiveLiq = dexLiq > 0 ? dexLiq : pool.liquidityUsd;
+      if (effectiveLiq < MIN_DEAD_POOL_LP_USD) {
+        this.poolCache.delete(poolId);
+      }
+    }
   }
 
   async refreshPools(targetTokens: Address[]): Promise<void> {
@@ -197,10 +343,13 @@ export class OpportunityEngine {
         try {
           const pools = await adapter.getPools(targetTokens);
           for (const pool of pools) {
+            const dexLiq = this.getDexScreenerLiquidity(pool.poolId);
+            if (dexLiq > 0) {
+              pool.liquidityUsd = dexLiq;
+            }
             this.poolCache.set(pool.poolId, pool);
           }
 
-          // Persist snapshots to DB
           const now = new Date();
           for (const pool of pools) {
             const dbPoolId = await this.resolveDbPoolId(pool);
@@ -215,7 +364,7 @@ export class OpportunityEngine {
                 tick: pool.tick ?? null,
                 timestamp: now,
               },
-            }).catch(() => {}); // non-fatal
+            }).catch(() => {});
           }
         } catch (err) {
           console.warn(`Adapter ${adapter.venueId} refresh failed:`, err);
@@ -225,13 +374,12 @@ export class OpportunityEngine {
   }
 
   private findCrossVenuePairs(
-    tokens: Address[]
+    _tokens: Address[]
   ): Array<{ buyPool: NormalizedPool; sellPool: NormalizedPool }> {
     const pairs: Array<{ buyPool: NormalizedPool; sellPool: NormalizedPool }> = [];
 
-    const MIN_POOL_LIQUIDITY = 1_000;
     const pools = Array.from(this.poolCache.values())
-      .filter((p) => p.liquidityUsd >= MIN_POOL_LIQUIDITY);
+      .filter((p) => p.liquidityUsd >= MIN_DEAD_POOL_LP_USD);
 
     const byPair = new Map<string, NormalizedPool[]>();
     for (const pool of pools) {
@@ -244,7 +392,6 @@ export class OpportunityEngine {
       byPair.set(key, existing);
     }
 
-    // For each pair that has pools on multiple venues, generate buy/sell combos
     for (const [, pairPools] of byPair) {
       if (pairPools.length < 2) continue;
       for (let i = 0; i < pairPools.length; i++) {
@@ -252,7 +399,6 @@ export class OpportunityEngine {
           if (i === j) continue;
           const buyPool = pairPools[i]!;
           const sellPool = pairPools[j]!;
-          // Only add if price difference exists (buy cheap, sell expensive)
           if (buyPool.price0Per1 < sellPool.price0Per1 * 0.999) {
             pairs.push({ buyPool, sellPool });
           }
@@ -270,18 +416,38 @@ export class OpportunityEngine {
     cfg: PoolIndexerConfig
   ): Promise<OpportunityCandidate | null> {
     try {
-      const tradeSizeUsd = cfg.tradeSizeUsd;
-
-      // Gross spread: percentage price difference applied to trade size
       const priceDiff = Math.abs(sellPool.price0Per1 - buyPool.price0Per1);
       if (buyPool.price0Per1 <= 0 || !Number.isFinite(buyPool.price0Per1)) return null;
       const spreadFraction = priceDiff / buyPool.price0Per1;
       if (!Number.isFinite(spreadFraction) || spreadFraction > 10) return null;
+
+      // Dynamic trade sizing based on pool liquidity
+      const dynamicTradeSize = computeOptimalTradeSize(
+        buyPool,
+        sellPool,
+        cfg.tradeSizeUsd,
+        spreadFraction
+      );
+
+      if (dynamicTradeSize < MIN_TRADE_SIZE_USD) return null;
+
+      const tradeSizeUsd = dynamicTradeSize;
       const grossSpreadUsd = spreadFraction * tradeSizeUsd;
 
       if (grossSpreadUsd <= 0) return null;
 
+      // Price impact estimation for both legs
+      const buyImpact = estimatePriceImpact(tradeSizeUsd, buyPool);
+      const sellImpact = estimatePriceImpact(tradeSizeUsd, sellPool);
+      const totalImpactFraction = buyImpact + sellImpact;
+      const priceImpactUsd = totalImpactFraction * tradeSizeUsd;
+
+      // Reject if price impact eats too much of the spread
+      if (priceImpactUsd > grossSpreadUsd * MAX_PRICE_IMPACT_VS_SPREAD) return null;
+
       const gasUnits = 500_000n;
+      const gasFailureUsd = (Number(gasUnits * gasPriceGwei) / 1e9) * cfg.ethPriceUsd;
+
       const profitBreakdown = computeProfitBreakdown({
         grossSpreadUsd,
         gasUnits,
@@ -292,8 +458,8 @@ export class OpportunityEngine {
         tradeSizeUsd,
         slippageBufferFactor: cfg.riskConfig.slippageBufferFactor,
         failureBufferFactor: cfg.riskConfig.failureBufferFactor,
-        failureGasEstimateUsd:
-          (Number(gasUnits * gasPriceGwei) / 1e9) * cfg.ethPriceUsd,
+        failureGasEstimateUsd: gasFailureUsd,
+        priceImpactUsd,
       });
 
       if (profitBreakdown.netProfitUsd < cfg.riskConfig.minNetProfitUsd) {
@@ -303,11 +469,6 @@ export class OpportunityEngine {
       const tokenIn = buyPool.token0;
       const tokenOut = buyPool.token1;
 
-      // Compute amountIn using ACTUAL token decimals and price
-      // price0Per1 = how much token1 per 1 token0
-      // To convert USD to token0: we need token0's USD price
-      // If token1 is a stablecoin, price0Per1 ≈ token0's USD value
-      // Otherwise use ethPriceUsd (native token price) as best guess
       const STABLES = ["USDC", "USDC.e", "USDT", "DAI", "BUSD"];
       const isToken1Stable = STABLES.includes(buyPool.token1Symbol);
       const token0PriceUsd = isToken1Stable
@@ -319,12 +480,12 @@ export class OpportunityEngine {
       const amountInRaw = BigInt(Math.floor(token0Amount * 10 ** buyPool.token0Decimals));
       const amountIn = amountInRaw.toString();
 
-      // Try to get real quotes from adapters
       let buyQuoteAmountOut = "0";
       let sellQuoteAmountOut = "0";
       let step0AmountOut = "0";
       let step1AmountIn = "0";
       let step1AmountOut = "0";
+      let quotesSucceeded = false;
 
       const buyAdapter = this.adapterByVenue.get(buyPool.venueId);
       const sellAdapter = this.adapterByVenue.get(sellPool.venueId);
@@ -351,8 +512,8 @@ export class OpportunityEngine {
           });
           sellQuoteAmountOut = sellQuote.amountOut;
           step1AmountOut = sellQuote.amountOut;
+          quotesSucceeded = true;
 
-          // Recompute actual profit from quotes
           const inputTokens = Number(amountInRaw) / 10 ** buyPool.token0Decimals;
           const outputTokens = Number(BigInt(sellQuote.amountOut)) / 10 ** buyPool.token0Decimals;
           const actualGrossUsd = (outputTokens - inputTokens) *
@@ -360,9 +521,40 @@ export class OpportunityEngine {
 
           if (actualGrossUsd <= profitBreakdown.gasEstimateUsd) return null;
         } catch {
-          // Quote failed — use price-based estimate (less accurate)
+          // Quote failed — use price-based estimate
         }
       }
+
+      // DexScreener liquidity data for this pool pair
+      const dexBuyLiq = this.getDexScreenerLiquidity(buyPool.poolId);
+      const dexSellLiq = this.getDexScreenerLiquidity(sellPool.poolId);
+      const dexVolume = Math.max(
+        this.getDexScreenerVolume(buyPool.poolId),
+        this.getDexScreenerVolume(sellPool.poolId)
+      );
+
+      // Pool age
+      const now = Date.now();
+      const buyTs = buyPool.lastUpdated instanceof Date
+        ? buyPool.lastUpdated.getTime()
+        : typeof buyPool.lastUpdated === "number"
+          ? buyPool.lastUpdated
+          : new Date(buyPool.lastUpdated as any).getTime();
+      const poolAgeSecs = (now - buyTs) / 1000;
+
+      const confidenceScore = computeConfidenceScore({
+        grossSpreadUsd,
+        gasEstimateUsd: profitBreakdown.gasEstimateUsd,
+        buyPoolLiqUsd: dexBuyLiq > 0 ? dexBuyLiq : buyPool.liquidityUsd,
+        sellPoolLiqUsd: dexSellLiq > 0 ? dexSellLiq : sellPool.liquidityUsd,
+        volume24h: dexVolume,
+        priceImpactFraction: totalImpactFraction,
+        spreadFraction,
+        poolAgeSecs,
+        quotesSucceeded,
+      });
+
+      const priceImpactBps = Math.round(totalImpactFraction * 10_000);
 
       const fingerprint = buildOpportunityFingerprint(
         tokenIn,
@@ -411,6 +603,9 @@ export class OpportunityEngine {
         sellQuoteAmountOut,
         profitBreakdown,
         routes,
+        confidenceScore,
+        priceImpactBps,
+        dexScreenerLiquidity: { buy: dexBuyLiq, sell: dexSellLiq },
       };
     } catch {
       return null;
@@ -429,7 +624,6 @@ export class OpportunityEngine {
       return existing.id;
     }
 
-    // Auto-register pool discovered on-chain
     const id = await this.autoRegisterPool(pool);
     this.dbPoolIdCache.set(cacheKey, id);
     return id;

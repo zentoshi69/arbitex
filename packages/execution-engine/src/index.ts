@@ -74,19 +74,24 @@ export class RouteSimulator {
       };
     }
 
-    if (buyPool.liquidityUsd < 3 * 1000) {
+    // Adaptive liquidity threshold: 5x trade size or $500, whichever is lower
+    const step0 = routes[0];
+    const tradeSizeEstimate = step0 ? Number(BigInt(step0.amountIn)) / 1e6 : 0;
+    const minLiq = Math.min(500, tradeSizeEstimate * 5);
+
+    if (buyPool.liquidityUsd < minLiq) {
       return {
         success: false,
         reason: SimulationFailureReason.LOW_LIQUIDITY,
-        detail: `Buy pool liquidity $${buyPool.liquidityUsd} insufficient`,
+        detail: `Buy pool liquidity $${buyPool.liquidityUsd.toFixed(0)} below adaptive minimum $${minLiq.toFixed(0)}`,
       };
     }
 
-    if (sellPool.liquidityUsd < 3 * 1000) {
+    if (sellPool.liquidityUsd < minLiq) {
       return {
         success: false,
         reason: SimulationFailureReason.LOW_LIQUIDITY,
-        detail: `Sell pool liquidity $${sellPool.liquidityUsd} insufficient`,
+        detail: `Sell pool liquidity $${sellPool.liquidityUsd.toFixed(0)} below adaptive minimum $${minLiq.toFixed(0)}`,
       };
     }
 
@@ -187,7 +192,7 @@ export class RouteSimulator {
         ? pool.lastUpdated
         : new Date(pool.lastUpdated as any).getTime();
     const ageSecs = (Date.now() - ts) / 1000;
-    if (ageSecs > 30) {
+    if (ageSecs > 60) {
       return { fresh: false, pctChange: 999 };
     }
     return { fresh: true, pctChange: 0 };
@@ -248,9 +253,17 @@ export class ExecutionEngine {
 
       const deadline = Math.floor(Date.now() / 1000) + 120;
 
+      // Adaptive slippage: tighter for deep pools, wider for shallow pools
+      const minPoolLiq = Math.min(input.buyPool.liquidityUsd, input.sellPool.liquidityUsd);
+      const slippageBps = minPoolLiq > 100_000 ? 200n
+        : minPoolLiq > 50_000 ? 300n
+        : minPoolLiq > 10_000 ? 500n
+        : 800n;
+      const slippageMultiplier = 10_000n - slippageBps;
+
       const quotedBuyOut = BigInt(step0.amountOut || "0");
       const buyAmountOutMin = quotedBuyOut > 0n
-        ? (quotedBuyOut * 9500n / 10_000n).toString()
+        ? (quotedBuyOut * slippageMultiplier / 10_000n).toString()
         : "1";
 
       const buyCalldata = await buyAdapter.buildSwapCalldata({
@@ -367,7 +380,7 @@ export class ExecutionEngine {
       await this.updateState(executionId, ExecutionState.CONFIRMING);
       const buyReceipt = await this.client.waitForTransactionReceipt({
         hash: buyTxHash as `0x${string}`,
-        timeout: 30_000,
+        timeout: 60_000,
         confirmations: 1,
       });
 
@@ -386,7 +399,7 @@ export class ExecutionEngine {
 
       // ── 10. Build sell calldata with actual output ───────────────────────
       const originalInput = BigInt(step0.amountIn);
-      const sellAmountOutMin = (originalInput * 9500n / 10_000n).toString();
+      const sellAmountOutMin = (originalInput * slippageMultiplier / 10_000n).toString();
 
       const sellCalldata = await sellAdapter.buildSwapCalldata({
         poolId: step1.poolId,
@@ -444,7 +457,7 @@ export class ExecutionEngine {
       await this.updateState(executionId, ExecutionState.CONFIRMING);
       const sellReceipt = await this.client.waitForTransactionReceipt({
         hash: sellTxHash as `0x${string}`,
-        timeout: 30_000,
+        timeout: 60_000,
         confirmations: 1,
       });
 

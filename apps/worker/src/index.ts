@@ -4,7 +4,7 @@ import { pino } from "pino";
 import { config, getPrimaryRpcConfig } from "@arbitex/config";
 import { prisma } from "@arbitex/db";
 import { createChainClient } from "@arbitex/chain";
-import { UniswapV3Adapter, SushiSwapV2Adapter, SolidlyV2Adapter, AlgebraV1Adapter, MockDexAdapter, AdapterRegistry } from "@arbitex/dex-adapters";
+import { UniswapV3Adapter, SushiSwapV2Adapter, SolidlyV2Adapter, AlgebraV1Adapter, MockDexAdapter, AdapterRegistry, dexScreenerFeed, setAvaxPriceUsd } from "@arbitex/dex-adapters";
 import { OpportunityEngine } from "@arbitex/opportunity-engine";
 import { RiskEngine, RegimeClassifier } from "@arbitex/risk-engine";
 import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
@@ -35,11 +35,12 @@ export const queues = {
   audit: new Queue("audit", { connection }),
 };
 
-// ── Chain client ──────────────────────────────────────────────────────────────
+// ── Chain client (multi-RPC with automatic failover + latency ranking) ───────
 const primaryRpc = getPrimaryRpcConfig();
 const chainClient = createChainClient({
   rpcUrl: primaryRpc.rpcUrl,
   ...(primaryRpc.archiveRpcUrl ? { archiveRpcUrl: primaryRpc.archiveRpcUrl } : {}),
+  ...(primaryRpc.wssUrl ? { wssUrl: primaryRpc.wssUrl } : {}),
   chainId: config.CHAIN_ID,
 });
 
@@ -58,8 +59,8 @@ async function loadTargetTokens(): Promise<string[]> {
     }),
   ]);
   const all = new Set([
-    ...tracked.map((t) => t.address.toLowerCase()),
-    ...basePairs.map((t) => t.address.toLowerCase()),
+    ...tracked.map((t: { address: string }) => t.address.toLowerCase()),
+    ...basePairs.map((t: { address: string }) => t.address.toLowerCase()),
   ]);
   return Array.from(all);
 }
@@ -69,6 +70,18 @@ let cachedNativePrice = { usd: 10, fetchedAt: 0 };
 
 async function fetchNativeTokenPriceUsd(): Promise<number> {
   if (Date.now() - cachedNativePrice.fetchedAt < 60_000) return cachedNativePrice.usd;
+
+  // Try DexScreener first (faster, no rate limiting)
+  try {
+    const wavaxAddr = "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7";
+    const price = await dexScreenerFeed.getTokenPrice(wavaxAddr);
+    if (price && price > 0) {
+      cachedNativePrice = { usd: price, fetchedAt: Date.now() };
+      setAvaxPriceUsd(price);
+      return price;
+    }
+  } catch { /* fallback to CoinGecko */ }
+
   try {
     const id = config.CHAIN_ID === 43114 ? "avalanche-2" : "ethereum";
     const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`);
@@ -77,6 +90,7 @@ async function fetchNativeTokenPriceUsd(): Promise<number> {
       const price = data[id]?.usd;
       if (typeof price === "number" && price > 0) {
         cachedNativePrice = { usd: price, fetchedAt: Date.now() };
+        setAvaxPriceUsd(price);
         return price;
       }
     }
@@ -145,7 +159,7 @@ async function registerAdapters() {
             factoryAddress: venue.factoryAddress,
             routerAddress: venue.routerAddress,
           },
-          knownPools.map((p) => p.poolAddress),
+          knownPools.map((p: { poolAddress: string }) => p.poolAddress),
         )
       );
       logger.info({ venue: venue.name, chainId: venue.chainId, pools: knownPools.length }, "Registered AlgebraV1 adapter");
@@ -225,7 +239,7 @@ const defaultRiskConfig = RiskConfigSchema.parse({
   maxTradeSizeUsd: config.DEFAULT_MAX_TRADE_SIZE_USD,
   minNetProfitUsd: config.DEFAULT_MIN_NET_PROFIT_USD,
   maxGasGwei: config.DEFAULT_MAX_GAS_GWEI,
-  minPoolLiquidityUsd: config.DEFAULT_MIN_POOL_LIQUIDITY_USD,
+  minPoolLiquidityUsd: Math.min(config.DEFAULT_MIN_POOL_LIQUIDITY_USD, 5_000),
 });
 
 async function loadLiveRiskConfig() {
@@ -233,8 +247,8 @@ async function loadLiveRiskConfig() {
     const overrides = await prisma.configOverride.findMany();
     const overrideMap = Object.fromEntries(
       overrides
-        .filter((o) => !o.key.startsWith("execution_wallet"))
-        .map((o) => [o.key, JSON.parse(o.value)])
+        .filter((o: { key: string; value: string }) => !o.key.startsWith("execution_wallet"))
+        .map((o: { key: string; value: string }) => [o.key, JSON.parse(o.value)])
     );
     return RiskConfigSchema.parse({ ...defaultRiskConfig, ...overrideMap });
   } catch (err) {
@@ -323,11 +337,15 @@ const poolRefreshWorker = new Worker(
 
     await refreshV3PoolStates();
 
+    const nativePriceUsd = await fetchNativeTokenPriceUsd();
+    const targetTokens = await loadTargetTokens();
+
+    regimeClassifier.setTrackedTokens(targetTokens);
     const regime = await regimeClassifier.classify();
     const { sizeMultiplier, hurdleBps, algorithm } = regime.config;
 
     if (algorithm === "HALTED") {
-      logger.info({ regime: regime.regime }, "Regime HALTED — skipping opportunity scan");
+      logger.info({ regime: regime.regime, signals: regime.signals }, "Regime HALTED — skipping opportunity scan");
       return;
     }
 
@@ -344,8 +362,6 @@ const poolRefreshWorker = new Worker(
       maxTradeSizeUsd: adjustedTradeSize,
     };
 
-    const nativePriceUsd = await fetchNativeTokenPriceUsd();
-    const targetTokens = await loadTargetTokens();
     const candidates = await opportunityEngine.scanForOpportunities({
       targetTokens,
       tradeSizeUsd: adjustedTradeSize,
@@ -366,8 +382,18 @@ const poolRefreshWorker = new Worker(
       );
     }
     logger.info(
-      { count: candidates.length, v3Pools: v3PoolCache.size, regime: regime.regime, sizeMultiplier, hurdleBps },
-      "Opportunities queued (regime-aware)",
+      {
+        count: candidates.length,
+        v3Pools: v3PoolCache.size,
+        regime: regime.regime,
+        sizeMultiplier,
+        hurdleBps,
+        dexScreenerLiq: regime.signals.dexScreenerLiquidityUsd,
+        dexScreenerVol: regime.signals.dexScreenerVolume24h,
+        winRate: regime.signals.winRate,
+        topConfidence: candidates[0]?.confidenceScore?.toFixed(2) ?? "N/A",
+      },
+      "Opportunities queued (Trading Brain V2)",
     );
   },
   workerOpts

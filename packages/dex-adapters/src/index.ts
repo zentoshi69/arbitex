@@ -5,3 +5,4 @@ export * from "./sushiswap-v2.js";
 export * from "./solidly-v2.js";
 export * from "./algebra-v1.js";
 export * from "./mock.js";
+export * from "./dexscreener-feed.js";

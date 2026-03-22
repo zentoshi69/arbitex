@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@arbitex/db": "workspace:*",
+    "@arbitex/dex-adapters": "workspace:*",
     "@arbitex/shared-types": "workspace:*",
     "ioredis": "^5.4.1"
   },

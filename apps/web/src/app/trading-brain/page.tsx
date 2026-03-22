@@ -11,12 +11,28 @@ function fmtUsd(v: number) {
   return `$${v.toFixed(0)}`;
 }
 
+function fmtBps(v: number) {
+  return `${v.toFixed(1)} bps`;
+}
+
+function confidenceColor(score: number): string {
+  if (score >= 0.7) return "text-emerald-400";
+  if (score >= 0.4) return "text-yellow-400";
+  return "text-red-400";
+}
+
+function confidenceBar(score: number): string {
+  if (score >= 0.7) return "bg-emerald-400";
+  if (score >= 0.4) return "bg-yellow-400";
+  return "bg-red-400";
+}
+
 export default function TradingBrainPage() {
-  const { activeTokenId, isAll, activeToken } = useTokenContext();
+  const { activeTokenId, isAll } = useTokenContext();
   const regimeQ = useQuery({
     queryKey: ["regime"],
     queryFn: () => api.regime.current(),
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
   });
 
   const venueQ = useQuery({
@@ -34,7 +50,7 @@ export default function TradingBrainPage() {
   const oppsQ = useQuery({
     queryKey: ["opportunities-recent", activeTokenId],
     queryFn: () => api.opportunities.list({
-      limit: 10,
+      limit: 15,
       page: 1,
       ...(!isAll ? { tokenId: activeTokenId } : {}),
     }),
@@ -67,17 +83,19 @@ export default function TradingBrainPage() {
     algebra_v1: "Algebra CLMM",
   };
 
+  const signals = regime?.signals as any;
+
   return (
     <div className="space-y-6 max-w-[1400px]">
       <SectionHeader
-        title="Trading Brain"
-        description="Real-time decision engine: regime classification, venue intelligence, and execution rationale"
+        title="Trading Brain V2"
+        description="Dynamic sizing · DexScreener-powered liquidity · Price impact modeling · Confidence scoring"
       />
 
-      {/* Regime + KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Regime + Core KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {regimeQ.isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24" />)
+          Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24" />)
         ) : (
           <>
             <div className="ax-panel p-4">
@@ -95,32 +113,55 @@ export default function TradingBrainPage() {
               sub={`Hurdle: ${regime?.config?.hurdleBps ?? "—"} bps`}
             />
             <KpiCard
+              label="Win Rate"
+              value={signals?.winRate != null ? `${signals.winRate.toFixed(0)}%` : "—"}
+              sub={`Fail: ${signals?.failRatePercent?.toFixed(0) ?? "—"}%`}
+              trend={signals?.winRate >= 70 ? "up" : signals?.winRate >= 40 ? "neutral" : "down"}
+            />
+            <KpiCard
               label="Today PnL"
               value={pnl ? `$${pnl.today.pnlUsd.toFixed(2)}` : "—"}
               sub={pnl ? `${pnl.today.tradeCount} trades` : undefined}
               trend={pnl?.today.pnlUsd > 0 ? "up" : pnl?.today.pnlUsd < 0 ? "down" : "neutral"}
             />
             <KpiCard
-              label="Success Rate (30d)"
-              value={pnl ? `${pnl.successRate}%` : "—"}
-              sub={pnl ? `${pnl.month.tradeCount} trades` : undefined}
-              trend={pnl?.successRate >= 90 ? "up" : pnl?.successRate >= 70 ? "neutral" : "down"}
+              label="DexScreener LP"
+              value={signals?.dexScreenerLiquidityUsd != null ? fmtUsd(signals.dexScreenerLiquidityUsd) : "—"}
+              sub={signals?.dexScreenerVolume24h != null ? `Vol: ${fmtUsd(signals.dexScreenerVolume24h)}` : undefined}
             />
           </>
         )}
       </div>
 
-      {/* Regime Signals */}
-      {regime?.signals && (
+      {/* Brain Signals Dashboard */}
+      {signals && (
         <div className="ax-panel p-4 space-y-3">
-          <h3 className="text-xs font-semibold text-[var(--offwhite)] uppercase tracking-wider">Regime Signals</h3>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {Object.entries(regime.signals).map(([key, val]) => (
-              <div key={key} className="bg-[rgba(255,255,255,0.02)] rounded p-3">
-                <p className="text-[9px] text-[var(--grey2)] uppercase tracking-wide">{key.replace(/([A-Z])/g, " $1").trim()}</p>
-                <p className="text-sm font-mono text-[var(--offwhite)] mt-1">{String(val)}</p>
-              </div>
-            ))}
+          <h3 className="text-xs font-semibold text-[var(--offwhite)] uppercase tracking-wider">Brain Signals</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <SignalCard
+              label="LP Depth Score"
+              value={signals.lpDepthScore?.toFixed(0)}
+              max={100}
+              color={signals.lpDepthScore >= 50 ? "#4DD68C" : signals.lpDepthScore >= 25 ? "#F59E0B" : "#EF4444"}
+            />
+            <SignalCard
+              label="Volatility (1h)"
+              value={signals.volatility24h?.toFixed(2)}
+              max={100}
+              color={signals.volatility24h < 20 ? "#4DD68C" : signals.volatility24h < 50 ? "#F59E0B" : "#EF4444"}
+            />
+            <SignalCard
+              label="Mean Spread"
+              value={fmtBps(signals.spreadMeanBps ?? 0)}
+              max={200}
+              rawValue={signals.spreadMeanBps}
+              color={signals.spreadMeanBps > 10 ? "#4DD68C" : signals.spreadMeanBps > 5 ? "#F59E0B" : "#EF4444"}
+            />
+            <SignalCard
+              label="Trend"
+              value={signals.trendDirection ?? "neutral"}
+              color={signals.trendDirection === "up" ? "#4DD68C" : signals.trendDirection === "down" ? "#EF4444" : "#64748B"}
+            />
           </div>
         </div>
       )}
@@ -172,7 +213,7 @@ export default function TradingBrainPage() {
                   <div>
                     <p className="text-[9px] text-[var(--grey2)] uppercase">Avg Spread</p>
                     <p className="text-sm font-mono text-[var(--offwhite)]">
-                      {v.avgSpreadBps1h > 0 ? `${v.avgSpreadBps1h} bps` : "—"}
+                      {v.avgSpreadBps1h > 0 ? fmtBps(v.avgSpreadBps1h) : "—"}
                     </p>
                   </div>
                   <div>
@@ -262,10 +303,10 @@ export default function TradingBrainPage() {
         )}
       </div>
 
-      {/* Recent Opportunity Pipeline */}
+      {/* Recent Opportunity Pipeline with Confidence */}
       <div className="ax-panel p-4 space-y-3">
         <h3 className="text-xs font-semibold text-[var(--offwhite)] uppercase tracking-wider">
-          Recent Opportunities
+          Opportunity Pipeline
         </h3>
         {oppsQ.isLoading ? (
           <Skeleton className="h-40" />
@@ -278,8 +319,10 @@ export default function TradingBrainPage() {
                 <tr className="text-[9px] text-[var(--grey2)] uppercase tracking-wider border-b border-[var(--border)]">
                   <th className="text-left py-2 px-2">Pair</th>
                   <th className="text-left py-2 px-2">Buy → Sell</th>
+                  <th className="text-right py-2 px-2">Size</th>
                   <th className="text-right py-2 px-2">Spread</th>
                   <th className="text-right py-2 px-2">Net Profit</th>
+                  <th className="text-center py-2 px-2">Confidence</th>
                   <th className="text-center py-2 px-2">State</th>
                   <th className="text-right py-2 px-2">Age</th>
                 </tr>
@@ -287,13 +330,17 @@ export default function TradingBrainPage() {
               <tbody>
                 {opps.map((o: any) => {
                   const age = Math.round((Date.now() - new Date(o.detectedAt).getTime()) / 1000);
+                  const conf = o.confidenceScore ?? 0;
                   return (
                     <tr key={o.id} className="border-b border-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.02)]">
                       <td className="py-2 px-2 font-mono text-[var(--offwhite)]">
                         {o.tokenInSymbol}/{o.tokenOutSymbol}
                       </td>
-                      <td className="py-2 px-2 text-[var(--grey1)]">
+                      <td className="py-2 px-2 text-[var(--grey1)] text-xs">
                         {o.buyVenueName} → {o.sellVenueName}
+                      </td>
+                      <td className="py-2 px-2 text-right font-mono text-[var(--grey2)] text-xs">
+                        {fmtUsd(Number(o.tradeSizeUsd ?? 0))}
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">
                         ${Number(o.grossSpreadUsd).toFixed(4)}
@@ -302,6 +349,23 @@ export default function TradingBrainPage() {
                         <span className={`font-mono font-semibold ${Number(o.netProfitUsd) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                           ${Number(o.netProfitUsd).toFixed(4)}
                         </span>
+                      </td>
+                      <td className="py-2 px-2 text-center">
+                        {conf > 0 ? (
+                          <div className="flex items-center gap-1.5 justify-center">
+                            <div className="w-12 h-1.5 rounded-full bg-[rgba(255,255,255,0.08)] overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${confidenceBar(conf)}`}
+                                style={{ width: `${Math.min(conf * 100, 100)}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-mono ${confidenceColor(conf)}`}>
+                              {(conf * 100).toFixed(0)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[var(--grey2)]">—</span>
+                        )}
                       </td>
                       <td className="py-2 px-2 text-center"><StateBadge state={o.state} /></td>
                       <td className="py-2 px-2 text-right font-mono text-[var(--grey2)] text-xs">
@@ -315,6 +379,36 @@ export default function TradingBrainPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SignalCard({
+  label,
+  value,
+  max,
+  rawValue,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  max?: number;
+  rawValue?: number;
+  color: string;
+}) {
+  const barPct = max ? Math.min(100, ((rawValue ?? (typeof value === "number" ? value : 0)) / max) * 100) : 0;
+  return (
+    <div className="bg-[rgba(255,255,255,0.02)] rounded p-3">
+      <p className="text-[9px] text-[var(--grey2)] uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-mono mt-1" style={{ color }}>{String(value)}</p>
+      {max != null && (
+        <div className="w-full h-1 rounded-full bg-[rgba(255,255,255,0.06)] mt-2 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${barPct}%`, backgroundColor: color }}
+          />
+        </div>
+      )}
     </div>
   );
 }
