@@ -38,6 +38,38 @@ const ERC20_ABI = parseAbi([
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
+const STABLE_SYMBOLS = new Set([
+  "USDC", "USDC.e", "USDT", "USDT.e", "DAI", "BUSD", "USDbC", "FRAX",
+]);
+
+function resolveDecimals(pool: NormalizedPool, token: string): number {
+  const t = token.toLowerCase();
+  if (t === pool.token0.toLowerCase()) return pool.token0Decimals;
+  if (t === pool.token1.toLowerCase()) return pool.token1Decimals;
+  return 18;
+}
+
+function resolveSymbol(pool: NormalizedPool, token: string): string {
+  const t = token.toLowerCase();
+  if (t === pool.token0.toLowerCase()) return pool.token0Symbol;
+  if (t === pool.token1.toLowerCase()) return pool.token1Symbol;
+  return "";
+}
+
+function tokenInPriceUsdApprox(
+  pool: NormalizedPool,
+  tokenIn: string,
+  tradeSizeUsd: number,
+  amountInRaw: bigint,
+  decimals: number
+): number {
+  const sym = resolveSymbol(pool, tokenIn);
+  if (STABLE_SYMBOLS.has(sym)) return 1;
+  const units = Number(amountInRaw) / 10 ** decimals;
+  if (units <= 0 || !Number.isFinite(units)) return 0;
+  return tradeSizeUsd / units;
+}
+
 // ── Simulator ─────────────────────────────────────────────────────────────────
 
 export type SimulationInput = {
@@ -471,34 +503,49 @@ export class ExecutionEngine {
       }
 
       // ── 14. Record success with actual on-chain PnL ──────────────────────
-      const totalGasUsed = buyReceipt.gasUsed + sellReceipt.gasUsed;
-      const effectiveGasPrice = sellReceipt.effectiveGasPrice ?? 0n;
-      const gasCostWei = totalGasUsed * effectiveGasPrice;
+      // Gas: each leg uses its own effective gas price (AVAX).
+      const gasBuyWei =
+        buyReceipt.gasUsed * (buyReceipt.effectiveGasPrice ?? 0n);
+      const gasSellWei =
+        sellReceipt.gasUsed * (sellReceipt.effectiveGasPrice ?? 0n);
+      const gasCostWei = gasBuyWei + gasSellWei;
       const gasCostNative = Number(gasCostWei) / 1e18;
       const gasCostUsd = gasCostNative * input.nativeTokenPriceUsd;
+      const totalGasUsed = buyReceipt.gasUsed + sellReceipt.gasUsed;
 
-      // Compute actual PnL: sell output minus buy input in the same base token
+      // Realized PnL: round-trip in the same asset (tokenIn === final tokenOut).
+      // Do NOT fall back to opportunity-engine estimates — those inflated dashboard PnL.
       const actualSellOutput = this.parseTransferAmount(
         sellReceipt.logs,
         step1.tokenOut as `0x${string}`,
         this.wallet.address
       );
-      let actualPnlUsd = input.profitBreakdown.netProfitUsd; // fallback to estimate
-      if (actualSellOutput !== null) {
-        const buyInputAmount = BigInt(step0.amountIn);
-        const profitTokenRaw = actualSellOutput - buyInputAmount;
-        const tokenDecimals = input.buyPool.token0Decimals || 18;
-        const inputTokenUnits = Number(buyInputAmount) / 10 ** tokenDecimals;
-        // Derive base token USD price from the known trade size
-        const baseTokenPriceUsd = inputTokenUnits > 0
-          ? input.tradeSizeUsd / inputTokenUnits
-          : 1;
-        const profitInTokenUnits = Number(profitTokenRaw) / 10 ** tokenDecimals;
-        const computedPnl = profitInTokenUnits * baseTokenPriceUsd;
-        if (Number.isFinite(computedPnl) && !Number.isNaN(computedPnl)) {
-          actualPnlUsd = computedPnl;
+      const tokenIn = step0.tokenIn as string;
+      const tokenOutFinal = step1.tokenOut as string;
+      const decIn = resolveDecimals(input.buyPool, tokenIn);
+      const buyInputAmount = BigInt(step0.amountIn);
+
+      let grossPnlUsd = 0;
+      if (
+        actualSellOutput !== null &&
+        tokenIn.toLowerCase() === tokenOutFinal.toLowerCase()
+      ) {
+        const profitRaw = actualSellOutput - buyInputAmount;
+        const priceUsd = tokenInPriceUsdApprox(
+          input.buyPool,
+          tokenIn,
+          input.tradeSizeUsd,
+          buyInputAmount,
+          decIn
+        );
+        const profitUnits = Number(profitRaw) / 10 ** decIn;
+        grossPnlUsd = profitUnits * priceUsd;
+        if (!Number.isFinite(grossPnlUsd) || Number.isNaN(grossPnlUsd)) {
+          grossPnlUsd = 0;
         }
       }
+      // Net after gas (what actually hits wallet vs pre-trade, in USD terms)
+      const netPnlUsd = grossPnlUsd - gasCostUsd;
 
       await this.updateState(executionId, ExecutionState.LANDED);
       await this.db.execution.update({
@@ -507,7 +554,7 @@ export class ExecutionEngine {
           blockNumber: Number(sellReceipt.blockNumber),
           gasUsed: totalGasUsed.toString(),
           gasCostUsd,
-          pnlUsd: actualPnlUsd,
+          pnlUsd: Math.round(netPnlUsd * 10_000) / 10_000,
           confirmedAt: new Date(),
         },
       });

@@ -290,14 +290,49 @@ export class OpportunityEngine {
       trackedTokens.map((t: { id: string; address: string; symbol: string }) => [t.address.toLowerCase(), { id: t.id, symbol: t.symbol }])
     );
 
+    const poolsBefore = this.poolCache.size;
     this.killDeadPools();
+    const poolsAfter = this.poolCache.size;
 
     const candidates = this.findCrossVenuePairs(cfg.targetTokens);
+
+    if (candidates.length === 0) {
+      const pools = Array.from(this.poolCache.values());
+      const byPair = new Map<string, Array<{ venue: string; price: number; liq: number }>>();
+      for (const p of pools) {
+        const key = [p.token0Symbol, p.token1Symbol].sort().join("/");
+        const arr = byPair.get(key) ?? [];
+        arr.push({ venue: p.venueName, price: p.price0Per1, liq: p.liquidityUsd });
+        byPair.set(key, arr);
+      }
+      const pairSummary: Record<string, any> = {};
+      for (const [pair, venues] of byPair) {
+        if (venues.length >= 2) {
+          const prices = venues.map((v) => v.price);
+          const maxP = Math.max(...prices);
+          const minP = Math.min(...prices);
+          const spreadBps = minP > 0 ? Math.round(((maxP - minP) / minP) * 10_000) : 0;
+          pairSummary[pair] = { venues: venues.length, spreadBps, details: venues.map((v) => `${v.venue}=${v.price.toPrecision(6)}/$${Math.round(v.liq)}`) };
+        }
+      }
+      console.log(JSON.stringify({
+        level: 30,
+        msg: "OPP_DEBUG: No cross-venue pairs found",
+        poolsBefore,
+        poolsAfter,
+        totalPools: pools.length,
+        multiVenuePairs: Object.keys(pairSummary).length,
+        pairSummary,
+        tradeSize: cfg.tradeSizeUsd,
+        hurdleBps: Math.round((cfg.riskConfig.minNetProfitUsd / cfg.tradeSizeUsd) * 10_000),
+      }));
+    }
 
     const gasPriceWei = await this.client.getGasPrice();
     const gasPriceGwei = gasPriceWei / 1_000_000_000n;
 
     const scored: OpportunityCandidate[] = [];
+    let rejectReasons: Record<string, number> = {};
 
     for (const { buyPool, sellPool } of candidates) {
       const candidate = await this.scoreCandidate(
@@ -306,16 +341,36 @@ export class OpportunityEngine {
         gasPriceGwei,
         cfg
       );
-      if (candidate && candidate.profitBreakdown.netProfitUsd >= cfg.riskConfig.minNetProfitUsd) {
-        const tracked =
-          trackedByAddr.get(candidate.tokenIn.toLowerCase()) ??
-          trackedByAddr.get(candidate.tokenOut.toLowerCase());
-        if (tracked) {
-          candidate.tokenId = tracked.id;
-          candidate.tokenSymbol = tracked.symbol;
-        }
-        scored.push(candidate);
+      if (!candidate) {
+        const key = `${buyPool.venueName}→${sellPool.venueName}:${buyPool.token0Symbol}/${buyPool.token1Symbol}`;
+        rejectReasons[key] = (rejectReasons[key] ?? 0) + 1;
+        continue;
       }
+      if (candidate.profitBreakdown.netProfitUsd < cfg.riskConfig.minNetProfitUsd) {
+        const key = `lowProfit(${candidate.profitBreakdown.netProfitUsd.toFixed(2)}/${cfg.riskConfig.minNetProfitUsd.toFixed(2)})`;
+        rejectReasons[key] = (rejectReasons[key] ?? 0) + 1;
+        continue;
+      }
+      const tracked =
+        trackedByAddr.get(candidate.tokenIn.toLowerCase()) ??
+        trackedByAddr.get(candidate.tokenOut.toLowerCase());
+      if (tracked) {
+        candidate.tokenId = tracked.id;
+        candidate.tokenSymbol = tracked.symbol;
+      }
+      scored.push(candidate);
+    }
+
+    if (scored.length === 0 && candidates.length > 0) {
+      console.log(JSON.stringify({
+        level: 30,
+        msg: "OPP_DEBUG: All candidates rejected",
+        crossVenuePairs: candidates.length,
+        poolsInCache: this.poolCache.size,
+        tradeSize: cfg.tradeSizeUsd,
+        minProfit: cfg.riskConfig.minNetProfitUsd,
+        rejectReasons,
+      }));
     }
 
     return scored.sort(
@@ -409,6 +464,8 @@ export class OpportunityEngine {
     return pairs;
   }
 
+  private _debugCounter = 0;
+
   private async scoreCandidate(
     buyPool: NormalizedPool,
     sellPool: NormalizedPool,
@@ -416,12 +473,14 @@ export class OpportunityEngine {
     cfg: PoolIndexerConfig
   ): Promise<OpportunityCandidate | null> {
     try {
+      const shouldLog = this._debugCounter++ % 50 === 0;
+      const label = `${buyPool.venueName}→${sellPool.venueName} ${buyPool.token0Symbol}/${buyPool.token1Symbol}`;
+
       const priceDiff = Math.abs(sellPool.price0Per1 - buyPool.price0Per1);
       if (buyPool.price0Per1 <= 0 || !Number.isFinite(buyPool.price0Per1)) return null;
       const spreadFraction = priceDiff / buyPool.price0Per1;
       if (!Number.isFinite(spreadFraction) || spreadFraction > 10) return null;
 
-      // Dynamic trade sizing based on pool liquidity
       const dynamicTradeSize = computeOptimalTradeSize(
         buyPool,
         sellPool,
@@ -429,21 +488,25 @@ export class OpportunityEngine {
         spreadFraction
       );
 
-      if (dynamicTradeSize < MIN_TRADE_SIZE_USD) return null;
+      if (dynamicTradeSize < MIN_TRADE_SIZE_USD) {
+        if (shouldLog) console.log(JSON.stringify({ level: 20, msg: "SCORE_REJECT", label, reason: "tradeSize<min", tradeSize: dynamicTradeSize }));
+        return null;
+      }
 
       const tradeSizeUsd = dynamicTradeSize;
       const grossSpreadUsd = spreadFraction * tradeSizeUsd;
 
       if (grossSpreadUsd <= 0) return null;
 
-      // Price impact estimation for both legs
       const buyImpact = estimatePriceImpact(tradeSizeUsd, buyPool);
       const sellImpact = estimatePriceImpact(tradeSizeUsd, sellPool);
       const totalImpactFraction = buyImpact + sellImpact;
       const priceImpactUsd = totalImpactFraction * tradeSizeUsd;
 
-      // Reject if price impact eats too much of the spread
-      if (priceImpactUsd > grossSpreadUsd * MAX_PRICE_IMPACT_VS_SPREAD) return null;
+      if (priceImpactUsd > grossSpreadUsd * MAX_PRICE_IMPACT_VS_SPREAD) {
+        if (shouldLog) console.log(JSON.stringify({ level: 20, msg: "SCORE_REJECT", label, reason: "priceImpact", impactUsd: +priceImpactUsd.toFixed(4), spreadUsd: +grossSpreadUsd.toFixed(4), spreadBps: +(spreadFraction * 10000).toFixed(1), tradeSize: +tradeSizeUsd.toFixed(2) }));
+        return null;
+      }
 
       const gasUnits = 500_000n;
       const gasFailureUsd = (Number(gasUnits * gasPriceGwei) / 1e9) * cfg.ethPriceUsd;

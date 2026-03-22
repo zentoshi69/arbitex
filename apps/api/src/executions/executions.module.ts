@@ -140,10 +140,14 @@ export class PnlService {
       _count: { id: true },
       where: { state: "LANDED" },
     });
+    const netPnl = Number(result._sum.pnlUsd ?? 0);
+    const gas = Number(result._sum.gasCostUsd ?? 0);
     return {
-      totalPnlUsd: Number(result._sum.pnlUsd ?? 0),
-      totalGasCostUsd: Number(result._sum.gasCostUsd ?? 0),
-      netAfterGasUsd: Number(result._sum.pnlUsd ?? 0) - Number(result._sum.gasCostUsd ?? 0),
+      /** Sum of per-execution realized PnL (already net of gas at settlement). */
+      totalPnlUsd: netPnl,
+      totalGasCostUsd: gas,
+      /** Same as totalPnlUsd — kept for API compatibility. */
+      netAfterGasUsd: netPnl,
       tradeCount: result._count.id,
     };
   }

@@ -98,11 +98,18 @@ Place your JSON keystores on the VPS and set:
 
 ### 4) Deploy
 
-On the VPS:
+On the VPS (from repo root):
 
 ```bash
-./scripts/deploy-vps.sh
+./scripts/vps-quick.sh --pull --prod
 ```
+
+- One command: `git pull` (if cloned), build `api` / `worker` / `web`, `up -d`, health check.
+- For the default dev-style stack (`docker-compose.yml`), omit `--prod`.
+
+**Logs after deploy:** `./scripts/deploy-vps.sh` (same prod stack, then tails logs — Ctrl+C to exit).
+
+**Deploy from GitHub without SSH:** set Actions secrets and run **Deploy to VPS** — see [docs/VPS-24-7.md](docs/VPS-24-7.md).
 
 ---
 

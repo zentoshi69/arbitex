@@ -190,10 +190,10 @@ export function LiveTicker() {
         change={volumeQ.data?.tradeCount ? `${volumeQ.data.tradeCount} trades` : undefined}
       />
       <PriceCell
-        label="FEES EARNED"
+        label="NET REALIZED"
         price={formatCompactUsd(feesQ.data?.feesTotalUsd ?? null)}
         priceColor="#4DD68C"
-        change={feesQ.data?.tradeCount ? `${feesQ.data.tradeCount} trades` : undefined}
+        change={feesQ.data?.tradeCount ? `${feesQ.data.tradeCount} trades (after gas)` : undefined}
         border={false}
       />
     </div>

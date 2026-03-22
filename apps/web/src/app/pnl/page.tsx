@@ -41,7 +41,7 @@ export default function PnlPage() {
     <div className="space-y-6 max-w-[1400px]">
       <SectionHeader
         title="Profit & Loss"
-        description="Execution PnL tracking with gas breakdown, cumulative performance, and per-venue analysis"
+        description="Realized PnL is net of gas (token round-trip minus AVAX gas). Explorer “Value” is native AVAX only — use token transfers on Snowtrace to verify notionals."
         action={
           <div className="flex gap-1">
             {[7, 14, 30, 90].map((d) => (
@@ -99,11 +99,15 @@ export default function PnlPage() {
 
       {/* Cumulative + Gas */}
       {cum && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard label="Total PnL" value={`$${cum.totalPnlUsd.toFixed(2)}`} trend={cum.totalPnlUsd > 0 ? "up" : "down"} />
-          <KpiCard label="Total Gas" value={`$${cum.totalGasCostUsd.toFixed(2)}`} sub="All time gas spent" />
-          <KpiCard label="Net After Gas" value={`$${cum.netAfterGasUsd.toFixed(2)}`} trend={cum.netAfterGasUsd > 0 ? "up" : "down"} />
-          <KpiCard label="Total Trades" value={String(cum.tradeCount)} />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <KpiCard
+            label="Realized PnL (net)"
+            value={`$${cum.totalPnlUsd.toFixed(2)}`}
+            sub="Token arb − gas (settlement)"
+            trend={cum.totalPnlUsd > 0 ? "up" : "down"}
+          />
+          <KpiCard label="Total Gas" value={`$${cum.totalGasCostUsd.toFixed(2)}`} sub="All time AVAX→USD" />
+          <KpiCard label="Landed trades" value={String(cum.tradeCount)} />
         </div>
       )}
 

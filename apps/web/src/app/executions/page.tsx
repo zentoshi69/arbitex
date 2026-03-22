@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { ExecutionDrawer } from "@/components/drawers/ExecutionDrawer";
 import { Search, ExternalLink } from "lucide-react";
+import { txExplorerUrl } from "@/lib/explorer";
 
 const STATES = ["ALL", "PENDING", "SIMULATING", "SIGNING", "SUBMITTED", "CONFIRMING", "LANDED", "FAILED", "CANCELLED"];
 
@@ -144,7 +145,7 @@ export default function ExecutionsPage() {
                   <td>
                     {exec.txHash ? (
                       <a
-                        href={`https://etherscan.io/tx/${exec.txHash}`}
+                        href={txExplorerUrl(exec.txHash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}

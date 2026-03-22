@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { useWs } from "@/components/layout/Providers";
 import { StateBadge, ProfitCell, AddressCell, Skeleton } from "@/components/ui";
 import { X, PlayCircle, ExternalLink, Clock, Fuel, Hash } from "lucide-react";
+import { txExplorerUrl } from "@/lib/explorer";
 
 type Props = {
   executionId: string;
@@ -134,10 +135,14 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
                 </div>
                 {exec.pnlUsd !== null && (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400">Realized PnL</span>
+                    <span className="text-xs text-slate-400">Realized PnL (net)</span>
                     <ProfitCell value={Number(exec.pnlUsd)} />
                   </div>
                 )}
+                <p className="text-[10px] text-slate-500 pt-2 leading-relaxed">
+                  PnL = token round-trip vs. size you put in, minus gas (see Gas Cost). On Snowtrace, <strong>Value</strong> is
+                  native AVAX only — open the tx → <strong>ERC-20</strong> token transfers for real swap notionals.
+                </p>
               </div>
             )}
 
@@ -153,7 +158,7 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
                     label: "Tx Hash",
                     value: exec.txHash ? (
                       <a
-                        href={`https://etherscan.io/tx/${exec.txHash}`}
+                        href={txExplorerUrl(exec.txHash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-[var(--ax-dim)] hover:text-[var(--ax-off-white)] font-mono text-xs"

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { StateBadge, ProfitCell, AddressCell, Skeleton } from "@/components/ui";
 import { X, Zap, ExternalLink } from "lucide-react";
+import { txExplorerUrl } from "@/lib/explorer";
 
 type Props = {
   opportunityId: string;
@@ -205,7 +206,7 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-400">Tx Hash</span>
                       <a
-                        href={`https://etherscan.io/tx/${opp.execution.txHash}`}
+                        href={txExplorerUrl(opp.execution.txHash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-xs text-[var(--ax-dim)] font-mono hover:text-[var(--ax-off-white)]"

@@ -6,18 +6,23 @@ import { JwtAuthGuard, RolesGuard } from "../auth/auth.module.js";
 export class StatsService {
   async getVolume24h() {
     const since = new Date(Date.now() - 24 * 3600_000);
-    const result = await prisma.execution.aggregate({
-      _sum: { pnlUsd: true },
-      _count: { id: true },
-      where: {
-        state: "LANDED",
-        confirmedAt: { gte: since },
-      },
-    });
-    const tradeCount = result._count.id;
-    const avgSizeUsd = 500;
+    const [tradeCount, notionals] = await Promise.all([
+      prisma.execution.count({
+        where: { state: "LANDED", confirmedAt: { gte: since } },
+      }),
+      prisma.execution.findMany({
+        where: { state: "LANDED", confirmedAt: { gte: since } },
+        select: {
+          opportunity: { select: { tradeSizeUsd: true } },
+        },
+      }),
+    ]);
+    const volume24hUsd = notionals.reduce(
+      (s, e) => s + Number(e.opportunity?.tradeSizeUsd ?? 0),
+      0
+    );
     return {
-      volume24hUsd: tradeCount * avgSizeUsd + Number(result._sum.pnlUsd ?? 0),
+      volume24hUsd: Math.round(volume24hUsd * 100) / 100,
       tradeCount,
     };
   }
@@ -28,11 +33,12 @@ export class StatsService {
       _count: { id: true },
       where: { state: "LANDED" },
     });
-    const grossPnl = Number(result._sum.pnlUsd ?? 0);
+    const netPnl = Number(result._sum.pnlUsd ?? 0);
     const gasCost = Number(result._sum.gasCostUsd ?? 0);
     return {
-      feesTotalUsd: Math.max(0, grossPnl - gasCost),
-      grossPnlUsd: grossPnl,
+      /** Net realized profit already includes gas effect in pnl_usd settlement. */
+      feesTotalUsd: Math.max(0, netPnl),
+      grossPnlUsd: netPnl + gasCost,
       gasCostUsd: gasCost,
       tradeCount: result._count.id,
     };
