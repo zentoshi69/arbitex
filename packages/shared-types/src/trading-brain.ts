@@ -149,7 +149,11 @@ export const MarketRegime = {
   HIGH_VOL: "HIGH_VOL",
   RANGE_MR: "RANGE_MR",
   TREND_UP: "TREND_UP",
+  STRETCH_UP: "STRETCH_UP",
   TREND_DOWN: "TREND_DOWN",
+  CHOP: "CHOP",
+  WRP_RESILIENT: "WRP_RESILIENT",
+  WRP_BREAKDOWN: "WRP_BREAKDOWN",
   NORMAL: "NORMAL",
 } as const;
 export type MarketRegime = (typeof MarketRegime)[keyof typeof MarketRegime];
@@ -240,3 +244,165 @@ export const FairValueEstimateSchema = z.object({
   updatedAt: z.number(),
 });
 export type FairValueEstimate = z.infer<typeof FairValueEstimateSchema>;
+
+// ── Conversion State Machine (4 states) ─────────────────────────────────────
+
+export const ConversionState = {
+  STATE_A: "STATE_A",
+  STATE_B: "STATE_B",
+  STATE_C: "STATE_C",
+  STATE_D: "STATE_D",
+} as const;
+export type ConversionState =
+  (typeof ConversionState)[keyof typeof ConversionState];
+
+export const ConversionStateConfigSchema = z.object({
+  state: z.nativeEnum(ConversionState as any),
+  label: z.string(),
+  tacticalAction: z.string(),
+  coreAction: z.string(),
+  rotation: z.string(),
+  urgency: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  maxDeployOrTrimPct: z.number(),
+});
+export type ConversionStateConfig = z.infer<typeof ConversionStateConfigSchema>;
+
+// ── Accumulation State ──────────────────────────────────────────────────────
+
+export const AccumulationStateSchema = z.object({
+  totalWRPUnits: z.number(),
+  coreWRPUnits: z.number(),
+  tacticalWRPUnits: z.number(),
+  arbSleeveLiquidityUsd: z.number(),
+
+  wrpUnitsGainedToday: z.number(),
+  wrpUnitsGainedAllTime: z.number(),
+  wrpUnitsLostToRotation: z.number(),
+
+  coreSleeveAllocationPct: z.number(),
+  tacticalSleeveAllocationPct: z.number(),
+  arbSleeveAllocationPct: z.number(),
+
+  maxTacticalSleeveUsd: z.number(),
+  maxSingleConversionUsd: z.number(),
+
+  updatedAt: z.number(),
+});
+export type AccumulationState = z.infer<typeof AccumulationStateSchema>;
+
+// ── Conversion Costs ────────────────────────────────────────────────────────
+
+export const ConversionCostsSchema = z.object({
+  feesUsd: z.number(),
+  slippageUsd: z.number(),
+  gasUsd: z.number(),
+  uncertaintyBuffer: z.number(),
+  totalCostUsd: z.number(),
+  totalCostInWRPUnits: z.number(),
+});
+export type ConversionCosts = z.infer<typeof ConversionCostsSchema>;
+
+// ── Arb Profit Routing ──────────────────────────────────────────────────────
+
+export const ArbProfitRoutingSchema = z.object({
+  pendingUsdForWRPConversion: z.number(),
+  autoConvertThreshold: z.number(),
+  autoConvertEnabled: z.boolean(),
+  lastRoutingAt: z.number(),
+});
+export type ArbProfitRouting = z.infer<typeof ArbProfitRoutingSchema>;
+
+// ── Market Signals (fed to scoring model) ───────────────────────────────────
+
+export const MarketSignalsSchema = z.object({
+  btc1hReturn: z.number(),
+  btc4hReturn: z.number(),
+  btc24hReturn: z.number(),
+  btcEMASlope: z.number(),
+  btcRealizedVolatility: z.number(),
+  btcAbove21EMA: z.boolean(),
+  btcAbove55EMA: z.boolean(),
+
+  wrpAvaxRatio: z.number(),
+  wrpAvaxRatioTrend: z.number(),
+  wrpBtcRatio: z.number(),
+  wrpBtcRatioTrend: z.number(),
+  wrpAbove21EMA: z.boolean(),
+  wrpVWAPDeviation: z.number(),
+  wrpZScore: z.number(),
+
+  wrpRelativeVolume: z.number(),
+  avaxRelativeVolume: z.number(),
+
+  wrpTrendQuality: z.number(),
+  wrpPullbackQuality: z.number(),
+
+  wrpLiquidityScore: z.number(),
+  slippageEstimate: z.number(),
+});
+export type MarketSignals = z.infer<typeof MarketSignalsSchema>;
+
+// ── Conversion Decision ─────────────────────────────────────────────────────
+
+export const ConversionDirection = {
+  AVAX_TO_WRP: "AVAX_TO_WRP",
+  WRP_TO_AVAX: "WRP_TO_AVAX",
+  NO_TRADE: "NO_TRADE",
+} as const;
+export type ConversionDirection =
+  (typeof ConversionDirection)[keyof typeof ConversionDirection];
+
+export const ConversionDecisionSchema = z.object({
+  id: z.string(),
+  timestamp: z.number(),
+  direction: z.nativeEnum(ConversionDirection as any),
+  conversionState: z.nativeEnum(ConversionState as any),
+
+  scoreWRP: z.number(),
+  scoreAVAX: z.number(),
+  scoreDelta: z.number(),
+  hurdleBps: z.number(),
+  passedHurdle: z.boolean(),
+
+  currentWRPUnits: z.number(),
+  expectedWRPUnitsAfterCosts: z.number(),
+  expectedUnitGain: z.number(),
+  unitGainThreshold: z.number(),
+  passedUnitTest: z.boolean(),
+
+  proposedSizeUsd: z.number(),
+  proposedSizeWRPUnits: z.number(),
+
+  costs: ConversionCostsSchema,
+
+  approved: z.boolean(),
+  blockedReasons: z.array(z.string()),
+
+  signals: MarketSignalsSchema.optional(),
+});
+export type ConversionDecision = z.infer<typeof ConversionDecisionSchema>;
+
+// ── Extended Regime Config (with conversion flags) ──────────────────────────
+
+export const ExtendedRegimeConfigSchema = z.object({
+  state: z.nativeEnum(MarketRegime as any),
+  conversionAllowed: z.boolean(),
+  arbAllowed: z.boolean(),
+  maxTacticalSleeveMultiplier: z.number(),
+  edgeHurdleMultiplier: z.number(),
+  wrpUnitGainThresholdMultiplier: z.number(),
+  description: z.string(),
+  suggestedAction: z.string(),
+});
+export type ExtendedRegimeConfig = z.infer<typeof ExtendedRegimeConfigSchema>;
+
+// ── WRP Unit Impact (for explanation payloads) ──────────────────────────────
+
+export const WRPUnitImpactSchema = z.object({
+  currentWRPUnits: z.number(),
+  expectedWRPUnitsAfter: z.number(),
+  expectedUnitGain: z.number(),
+  unitGainThreshold: z.number(),
+  passedUnitTest: z.boolean(),
+});
+export type WRPUnitImpact = z.infer<typeof WRPUnitImpactSchema>;

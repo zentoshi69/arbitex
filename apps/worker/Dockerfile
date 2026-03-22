@@ -15,13 +15,15 @@ COPY . .
 RUN pnpm -r --filter @arbitex/shared-types build
 RUN pnpm --filter @arbitex/config build
 RUN pnpm --filter @arbitex/db generate
-RUN pnpm --filter @arbitex/db build || true
+RUN pnpm --filter @arbitex/db build
 RUN pnpm --filter @arbitex/chain build
-RUN pnpm --filter @arbitex/dex-adapters build || true
-RUN pnpm --filter @arbitex/risk-engine build || true
-RUN pnpm --filter @arbitex/opportunity-engine build || true
-RUN pnpm --filter @arbitex/execution-engine build || true
-RUN pnpm --filter @arbitex/worker build || true
+RUN pnpm --filter @arbitex/dex-adapters build
+RUN pnpm --filter @arbitex/risk-engine build
+RUN pnpm --filter @arbitex/accumulation-engine build
+RUN pnpm --filter @arbitex/conversion-engine build
+RUN pnpm --filter @arbitex/opportunity-engine build
+RUN pnpm --filter @arbitex/execution-engine build
+RUN pnpm --filter @arbitex/worker build
 
 FROM node:20-alpine AS runner
 RUN apk add --no-cache openssl
@@ -38,7 +40,7 @@ COPY --from=builder --chown=arbitex:arbitex /app/apps/worker/dist ./apps/worker/
 
 # Re-link workspace packages so @arbitex/* resolves to packages/*
 RUN rm -rf node_modules/@arbitex && mkdir -p node_modules/@arbitex && \
-    for pkg in shared-types config db chain dex-adapters risk-engine opportunity-engine execution-engine; do \
+    for pkg in shared-types config db chain dex-adapters risk-engine accumulation-engine conversion-engine opportunity-engine execution-engine; do \
       ln -sf ../../packages/$pkg node_modules/@arbitex/$pkg; \
     done
 
