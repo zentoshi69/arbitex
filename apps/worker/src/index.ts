@@ -338,78 +338,82 @@ function startLPWatcher() {
 }
 
 // Pool refresh → opportunity scoring (regime-aware)
+const POOL_REFRESH_TIMEOUT_MS = 25_000;
+
 const poolRefreshWorker = new Worker(
   "pool-refresh",
   async (job: Job) => {
+    const start = Date.now();
     logger.info({ jobId: job.id }, "pool-refresh start");
+
+    const refreshJob = async () => {
+      const nativePriceUsd = await fetchNativeTokenPriceUsd();
+      const targetTokens = await loadTargetTokens();
+
+      regimeClassifier.setTrackedTokens(targetTokens);
+      const regime = await regimeClassifier.classify();
+      const { sizeMultiplier, algorithm } = regime.config;
+
+      if (algorithm === "HALTED") {
+        logger.info({ regime: regime.regime, signals: regime.signals }, "Regime HALTED — skipping opportunity scan");
+        return;
+      }
+
+      const liveConfig = await loadLiveRiskConfig();
+      riskEngine.updateConfig(liveConfig);
+
+      const adjustedTradeSize = liveConfig.baseTradeSizeUsd * sizeMultiplier;
+      const adjustedRiskConfig = {
+        ...liveConfig,
+        minNetProfitUsd: liveConfig.minNetProfitUsd,
+        maxTradeSizeUsd: adjustedTradeSize,
+      };
+
+      const candidates = await opportunityEngine.scanForOpportunities({
+        targetTokens,
+        tradeSizeUsd: adjustedTradeSize,
+        ethPriceUsd: nativePriceUsd,
+        riskConfig: adjustedRiskConfig,
+      });
+
+      for (const candidate of candidates) {
+        await queues.opportunityScore.add(
+          "score",
+          candidate,
+          {
+            jobId: `opp-${candidate.fingerprint}`,
+            removeOnComplete: 100,
+            removeOnFail: false,
+            attempts: 1,
+          }
+        );
+      }
+      logger.info(
+        {
+          count: candidates.length,
+          v3Pools: v3PoolCache.size,
+          regime: regime.regime,
+          sizeMultiplier,
+          dexScreenerLiq: regime.signals.dexScreenerLiquidityUsd,
+          dexScreenerVol: regime.signals.dexScreenerVolume24h,
+          winRate: regime.signals.winRate,
+          topConfidence: candidates[0]?.confidenceScore?.toFixed(2) ?? "N/A",
+          elapsed: Date.now() - start,
+        },
+        "Opportunities queued (Trading Brain V2)",
+      );
+    };
 
     try {
       await Promise.race([
-        refreshV3PoolStates(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("V3 timeout")), 10_000)),
+        refreshJob(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("pool-refresh timeout")), POOL_REFRESH_TIMEOUT_MS),
+        ),
       ]);
-    } catch {
-      logger.warn("V3 pool refresh skipped (timeout)");
+    } catch (err: any) {
+      logger.warn({ err: err?.message, elapsed: Date.now() - start }, "pool-refresh cycle incomplete");
     }
-
-    const nativePriceUsd = await fetchNativeTokenPriceUsd();
-    const targetTokens = await loadTargetTokens();
-
-    regimeClassifier.setTrackedTokens(targetTokens);
-    const regime = await regimeClassifier.classify();
-    const { sizeMultiplier, hurdleBps, algorithm } = regime.config;
-
-    if (algorithm === "HALTED") {
-      logger.info({ regime: regime.regime, signals: regime.signals }, "Regime HALTED — skipping opportunity scan");
-      return;
-    }
-
-    const liveConfig = await loadLiveRiskConfig();
-    riskEngine.updateConfig(liveConfig);
-
-    const baseTradeSizeUsd = liveConfig.baseTradeSizeUsd;
-    const adjustedTradeSize = baseTradeSizeUsd * sizeMultiplier;
-    const adjustedMinProfit = (hurdleBps / 10_000) * adjustedTradeSize;
-
-    const adjustedRiskConfig = {
-      ...liveConfig,
-      minNetProfitUsd: liveConfig.minNetProfitUsd,
-      maxTradeSizeUsd: adjustedTradeSize,
-    };
-
-    const candidates = await opportunityEngine.scanForOpportunities({
-      targetTokens,
-      tradeSizeUsd: adjustedTradeSize,
-      ethPriceUsd: nativePriceUsd,
-      riskConfig: adjustedRiskConfig,
-    });
-
-    for (const candidate of candidates) {
-      await queues.opportunityScore.add(
-        "score",
-        candidate,
-        {
-          jobId: `opp-${candidate.fingerprint}`,
-          removeOnComplete: 100,
-          removeOnFail: false,
-          attempts: 1,
-        }
-      );
-    }
-    logger.info(
-      {
-        count: candidates.length,
-        v3Pools: v3PoolCache.size,
-        regime: regime.regime,
-        sizeMultiplier,
-        hurdleBps,
-        dexScreenerLiq: regime.signals.dexScreenerLiquidityUsd,
-        dexScreenerVol: regime.signals.dexScreenerVolume24h,
-        winRate: regime.signals.winRate,
-        topConfidence: candidates[0]?.confidenceScore?.toFixed(2) ?? "N/A",
-      },
-      "Opportunities queued (Trading Brain V2)",
-    );
   },
   workerOpts
 );
@@ -589,11 +593,11 @@ async function startLiquidityScheduler() {
 
 // ── Cron schedulers ───────────────────────────────────────────────────────────
 async function startSchedulers() {
-  // Pool refresh every 2 seconds
+  // Pool refresh every 10 seconds
   await queues.poolRefresh.add(
     "refresh-all",
     {},
-    { repeat: { every: 2_000 }, removeOnComplete: 10, removeOnFail: false }
+    { repeat: { every: 10_000 }, removeOnComplete: 10, removeOnFail: false }
   );
 
   // Balance sync every 60 seconds
