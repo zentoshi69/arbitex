@@ -193,10 +193,15 @@ async function resolveVenueId(
   prisma: PrismaClient,
   venueId: string
 ): Promise<string> {
-  const venue = await prisma.venue.findFirst({
-    where: { name: { contains: venueId } },
+  // venueId from adapters is already the DB UUID
+  const byId = await prisma.venue.findUnique({ where: { id: venueId } });
+  if (byId) return byId.id;
+
+  // Fallback: try matching by name (for mock adapters or legacy data)
+  const byName = await prisma.venue.findFirst({
+    where: { name: { equals: venueId, mode: "insensitive" } },
   });
-  return venue?.id ?? "00000000-0000-0000-0000-000000000000";
+  return byName?.id ?? venueId;
 }
 
 async function resolvePoolId(

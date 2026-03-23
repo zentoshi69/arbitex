@@ -108,7 +108,8 @@ export class RouteSimulator {
 
     // Adaptive liquidity threshold: 5x trade size or $500, whichever is lower
     const step0 = routes[0];
-    const tradeSizeEstimate = step0 ? Number(BigInt(step0.amountIn)) / 1e6 : 0;
+    const buyDec = buyPool.token0Decimals ?? 18;
+    const tradeSizeEstimate = step0 ? Number(BigInt(step0.amountIn)) / 10 ** buyDec : 0;
     const minLiq = Math.min(500, tradeSizeEstimate * 5);
 
     if (buyPool.liquidityUsd < minLiq) {

@@ -70,7 +70,7 @@ async function loadTargetTokens(): Promise<string[]> {
 }
 
 // ── Fetch native token price from CoinGecko ──────────────────────────────────
-let cachedNativePrice = { usd: 10, fetchedAt: 0 };
+let cachedNativePrice = { usd: 22, fetchedAt: 0 };
 
 async function fetchNativeTokenPriceUsd(): Promise<number> {
   if (Date.now() - cachedNativePrice.fetchedAt < 60_000) return cachedNativePrice.usd;
@@ -82,6 +82,7 @@ async function fetchNativeTokenPriceUsd(): Promise<number> {
     if (price && price > 0) {
       cachedNativePrice = { usd: price, fetchedAt: Date.now() };
       setAvaxPriceUsd(price);
+      await publishNativePrice(price);
       return price;
     }
   } catch { /* fallback to CoinGecko */ }
@@ -95,11 +96,18 @@ async function fetchNativeTokenPriceUsd(): Promise<number> {
       if (typeof price === "number" && price > 0) {
         cachedNativePrice = { usd: price, fetchedAt: Date.now() };
         setAvaxPriceUsd(price);
+        await publishNativePrice(price);
         return price;
       }
     }
   } catch { /* use cached */ }
   return cachedNativePrice.usd;
+}
+
+async function publishNativePrice(price: number): Promise<void> {
+  try {
+    await connection.set("arbitex:price:avax_usd", price.toString(), "EX", 120);
+  } catch { /* non-critical */ }
 }
 
 // ── Adapter registry ──────────────────────────────────────────────────────────
@@ -171,69 +179,73 @@ async function registerAdapters() {
   }
 
   if (registry.getAll().length === 0) {
-    logger.warn("No adapters registered from DB — falling back to mock adapters");
-    const mockPoolA = MockDexAdapter.makePool({
-      token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
-      token1: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
-      token0Symbol: "USDC",
-      token1Symbol: "WAVAX",
-      token0Decimals: 6,
-      token1Decimals: 18,
-      venueId: "mock-pangolin",
-      venueName: "Pangolin",
-      chainId: 43114,
-      price0Per1: 10.0,
-      price1Per0: 0.1,
-      feeBps: 30,
-      liquidityUsd: 500_000,
-    });
-    const mockPoolB = MockDexAdapter.makePool({
-      token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
-      token1: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
-      token0Symbol: "USDC",
-      token1Symbol: "WAVAX",
-      token0Decimals: 6,
-      token1Decimals: 18,
-      venueId: "mock-traderjoe",
-      venueName: "Trader Joe",
-      chainId: 43114,
-      price0Per1: 10.15,
-      price1Per0: 0.0985,
-      feeBps: 30,
-      liquidityUsd: 500_000,
-    });
-    const mockPoolC = MockDexAdapter.makePool({
-      token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
-      token1: "0xef282b38d1ceab52134ca2cc653a569435744687",
-      token0Symbol: "USDC",
-      token1Symbol: "WRP",
-      token0Decimals: 6,
-      token1Decimals: 18,
-      venueId: "mock-pangolin",
-      venueName: "Pangolin",
-      chainId: 43114,
-      price0Per1: 0.042,
-      price1Per0: 23.81,
-      feeBps: 30,
-      liquidityUsd: 200_000,
-    });
-    const mockPoolD = MockDexAdapter.makePool({
-      token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
-      token1: "0xef282b38d1ceab52134ca2cc653a569435744687",
-      token0Symbol: "USDC",
-      token1Symbol: "WRP",
-      token0Decimals: 6,
-      token1Decimals: 18,
-      venueId: "mock-traderjoe",
-      venueName: "Trader Joe",
-      chainId: 43114,
-      price0Per1: 0.0435,
-      price1Per0: 22.99,
-      feeBps: 30,
-      liquidityUsd: 200_000,
-    });
-    registry.register(new MockDexAdapter("mock-pangolin", "Pangolin", 43114, [mockPoolA, mockPoolC]));
-    registry.register(new MockDexAdapter("mock-traderjoe", "Trader Joe", 43114, [mockPoolB, mockPoolD]));
+    if (config.NODE_ENV === "production") {
+      logger.error("No adapters registered from DB in production — refusing to use mock adapters. Check venue/pool seed data and RPC connectivity.");
+    } else {
+      logger.warn("No adapters registered from DB — falling back to mock adapters (dev only)");
+      const mockPoolA = MockDexAdapter.makePool({
+        token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
+        token1: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+        token0Symbol: "USDC",
+        token1Symbol: "WAVAX",
+        token0Decimals: 6,
+        token1Decimals: 18,
+        venueId: "mock-pangolin",
+        venueName: "Pangolin",
+        chainId: 43114,
+        price0Per1: 10.0,
+        price1Per0: 0.1,
+        feeBps: 30,
+        liquidityUsd: 500_000,
+      });
+      const mockPoolB = MockDexAdapter.makePool({
+        token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
+        token1: "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7",
+        token0Symbol: "USDC",
+        token1Symbol: "WAVAX",
+        token0Decimals: 6,
+        token1Decimals: 18,
+        venueId: "mock-traderjoe",
+        venueName: "Trader Joe",
+        chainId: 43114,
+        price0Per1: 10.15,
+        price1Per0: 0.0985,
+        feeBps: 30,
+        liquidityUsd: 500_000,
+      });
+      const mockPoolC = MockDexAdapter.makePool({
+        token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
+        token1: "0xef282b38d1ceab52134ca2cc653a569435744687",
+        token0Symbol: "USDC",
+        token1Symbol: "WRP",
+        token0Decimals: 6,
+        token1Decimals: 18,
+        venueId: "mock-pangolin",
+        venueName: "Pangolin",
+        chainId: 43114,
+        price0Per1: 0.042,
+        price1Per0: 23.81,
+        feeBps: 30,
+        liquidityUsd: 200_000,
+      });
+      const mockPoolD = MockDexAdapter.makePool({
+        token0: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e",
+        token1: "0xef282b38d1ceab52134ca2cc653a569435744687",
+        token0Symbol: "USDC",
+        token1Symbol: "WRP",
+        token0Decimals: 6,
+        token1Decimals: 18,
+        venueId: "mock-traderjoe",
+        venueName: "Trader Joe",
+        chainId: 43114,
+        price0Per1: 0.0435,
+        price1Per0: 22.99,
+        feeBps: 30,
+        liquidityUsd: 200_000,
+      });
+      registry.register(new MockDexAdapter("mock-pangolin", "Pangolin", 43114, [mockPoolA, mockPoolC]));
+      registry.register(new MockDexAdapter("mock-traderjoe", "Trader Joe", 43114, [mockPoolB, mockPoolD]));
+    }
   }
 }
 
@@ -363,9 +375,13 @@ const poolRefreshWorker = new Worker(
       riskEngine.updateConfig(liveConfig);
 
       const adjustedTradeSize = liveConfig.baseTradeSizeUsd * sizeMultiplier;
+      const { hurdleBps } = regime.config;
+      const hurdleMinProfitUsd = (hurdleBps / 10_000) * adjustedTradeSize;
+      const adjustedMinProfit = Math.max(liveConfig.minNetProfitUsd, hurdleMinProfitUsd);
+
       const adjustedRiskConfig = {
         ...liveConfig,
-        minNetProfitUsd: liveConfig.minNetProfitUsd,
+        minNetProfitUsd: adjustedMinProfit,
         maxTradeSizeUsd: adjustedTradeSize,
       };
 

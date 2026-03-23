@@ -1,8 +1,7 @@
 const STABLECOINS = new Set(["USDC", "USDC.e", "USDT", "DAI", "BUSD", "USDbC", "FRAX"]);
-let _avaxPriceUsd = 25;
+let _avaxPriceUsd = 22;
 export function setAvaxPriceUsd(price: number) { _avaxPriceUsd = price; }
 export function getAvaxPriceUsd() { return _avaxPriceUsd; }
-const AVAX_PRICE_USD_FALLBACK = 25;
 
 /**
  * Estimate TVL in USD for a V3-style pool from on-chain liquidity and sqrtPriceX96.
@@ -37,10 +36,10 @@ export function estimateV3LiquidityUsd(
   }
 
   if (token0Symbol === "WAVAX" || token0Symbol === "AVAX") {
-    return amount0 * AVAX_PRICE_USD_FALLBACK * 2;
+    return amount0 * _avaxPriceUsd * 2;
   }
   if (token1Symbol === "WAVAX" || token1Symbol === "AVAX") {
-    return amount1 * AVAX_PRICE_USD_FALLBACK * 2;
+    return amount1 * _avaxPriceUsd * 2;
   }
 
   return Number(liquidity) / 1e12;
@@ -69,10 +68,10 @@ export function estimateV2LiquidityUsd(
   }
 
   if (token0Symbol === "WAVAX" || token0Symbol === "AVAX") {
-    return amount0 * AVAX_PRICE_USD_FALLBACK * 2;
+    return amount0 * _avaxPriceUsd * 2;
   }
   if (token1Symbol === "WAVAX" || token1Symbol === "AVAX") {
-    return amount1 * AVAX_PRICE_USD_FALLBACK * 2;
+    return amount1 * _avaxPriceUsd * 2;
   }
 
   return (amount0 + amount1) / 2;

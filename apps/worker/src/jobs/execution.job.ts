@@ -15,7 +15,7 @@ import type { Hex } from "viem";
 
 const logger = pino();
 
-const AVAX_PRICE_FALLBACK_USD = 25;
+const AVAX_PRICE_FALLBACK_USD = 22;
 const ENCRYPTION_ALGO = "aes-256-gcm";
 
 function decryptWalletKey(encrypted: string): string {
@@ -106,12 +106,12 @@ export async function processExecutionJob(
     if (useFlashArb) {
       // ── Look up router addresses from DB ─────────────────────────────
       const [buyVenue, sellVenue] = await Promise.all([
-        prisma.venue.findFirst({
-          where: { name: { contains: candidate.buyPool.venueId } },
+        prisma.venue.findUnique({
+          where: { id: candidate.buyPool.venueId },
           select: { routerAddress: true },
         }),
-        prisma.venue.findFirst({
-          where: { name: { contains: candidate.sellPool.venueId } },
+        prisma.venue.findUnique({
+          where: { id: candidate.sellPool.venueId },
           select: { routerAddress: true },
         }),
       ]);
