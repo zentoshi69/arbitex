@@ -9,10 +9,9 @@ import { OpportunityEngine } from "@arbitex/opportunity-engine";
 import { RiskEngine, RegimeClassifier } from "@arbitex/risk-engine";
 import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
 import { AccumulationEngine } from "@arbitex/accumulation-engine";
-import { ConversionEngine } from "@arbitex/conversion-engine";
+import { ConversionEngine, fetchMarketSignals, buildExplanation } from "@arbitex/conversion-engine";
 import { EXTENDED_REGIME_CONFIGS } from "@arbitex/risk-engine";
 import { RiskConfigSchema, OpportunityState, ExecutionState } from "@arbitex/shared-types";
-import type { MarketSignals } from "@arbitex/shared-types";
 import { processOpportunityJob } from "./jobs/opportunity.job.js";
 import { processExecutionJob } from "./jobs/execution.job.js";
 import { processBalanceSyncJob } from "./jobs/balance-sync.job.js";
@@ -459,45 +458,6 @@ const liquidityScanWorker = new Worker(
 );
 
 // ── Conversion evaluation worker ─────────────────────────────────────────────
-async function buildMarketSignals(): Promise<MarketSignals> {
-  const wrpAddr = "0xef282b38d1ceab52134ca2cc653a569435744687";
-
-  let wrpPrice = 0.0061;
-  let avaxPrice = cachedNativePrice.usd;
-  try {
-    const p = await dexScreenerFeed.getTokenPrice(wrpAddr);
-    if (p && p > 0) wrpPrice = p;
-  } catch { /* use default */ }
-
-  const wrpAvaxRatio = avaxPrice > 0 ? wrpPrice / avaxPrice : 0;
-
-  return {
-    btc1hReturn: 0,
-    btc4hReturn: 0,
-    btc24hReturn: 0,
-    btcEMASlope: 0,
-    btcRealizedVolatility: 0.15,
-    btcAbove21EMA: true,
-    btcAbove55EMA: true,
-    wrpAvaxRatio,
-    wrpAvaxRatioTrend: wrpAvaxRatio > 0.0003 ? 0.5 : -0.5,
-    wrpBtcRatio: 0,
-    wrpBtcRatioTrend: 0,
-    wrpAbove21EMA: true,
-    wrpVWAPDeviation: 0,
-    wrpZScore: 0,
-    wrpRelativeVolume: 1.0,
-    avaxRelativeVolume: 1.0,
-    wrpTrendQuality: 0.5,
-    wrpPullbackQuality: 0.3,
-    wrpLiquidityScore: 50,
-    slippageEstimate: 0.005,
-    wrpPriceUsd: wrpPrice,
-    avaxPriceUsd: avaxPrice,
-    lpDepthUsd: 50_000,
-  };
-}
-
 const conversionWorker = new Worker(
   "conversion-eval",
   async (job: Job) => {
@@ -506,12 +466,14 @@ const conversionWorker = new Worker(
     const regime = await regimeClassifier.classify();
     const extConfig = EXTENDED_REGIME_CONFIGS[regime.regime];
 
-    const signals = await buildMarketSignals();
+    const signals = await fetchMarketSignals();
     const decision = await conversionEngine.evaluate(
       signals,
       extConfig,
       signals.wrpPriceUsd ?? 0.0061,
     );
+
+    const explanation = buildExplanation(decision, signals);
 
     logger.info(
       {
@@ -527,12 +489,23 @@ const conversionWorker = new Worker(
       "Conversion decision produced",
     );
 
-    // Persist latest decision for API reads
-    await prisma.configOverride.upsert({
-      where: { key: "conversion_latest_decision" },
-      update: { value: JSON.stringify(decision) },
-      create: { key: "conversion_latest_decision", value: JSON.stringify(decision), updatedBy: "system:worker" },
-    });
+    await Promise.all([
+      prisma.configOverride.upsert({
+        where: { key: "conversion_latest_decision" },
+        update: { value: JSON.stringify(decision) },
+        create: { key: "conversion_latest_decision", value: JSON.stringify(decision), updatedBy: "system:worker" },
+      }),
+      prisma.configOverride.upsert({
+        where: { key: "conversion_latest_explanation" },
+        update: { value: JSON.stringify(explanation) },
+        create: { key: "conversion_latest_explanation", value: JSON.stringify(explanation), updatedBy: "system:worker" },
+      }),
+      prisma.configOverride.upsert({
+        where: { key: "market_signals_latest" },
+        update: { value: JSON.stringify(signals) },
+        create: { key: "market_signals_latest", value: JSON.stringify(signals), updatedBy: "system:worker" },
+      }),
+    ]);
   },
   { ...workerOpts, concurrency: 1 },
 );

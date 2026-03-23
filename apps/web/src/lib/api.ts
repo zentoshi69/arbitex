@@ -248,6 +248,8 @@ export const api = {
     history: (limit?: number) =>
       apiFetch<any>(`/conversion/history${limit ? `?limit=${limit}` : ""}`),
     regimeConfigs: () => apiFetch<any>("/conversion/regime-configs"),
+    explanation: () => apiFetch<any>("/conversion/explanation"),
+    signals: () => apiFetch<any>("/conversion/signals"),
   },
 
   // Stats

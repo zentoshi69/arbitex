@@ -43,16 +43,44 @@ export class ConversionService {
     return EXTENDED_REGIME_CONFIGS;
   }
 
+  async getLatestExplanation() {
+    const row = await prisma.configOverride.findUnique({
+      where: { key: "conversion_latest_explanation" },
+    });
+    if (!row) return null;
+    try {
+      return JSON.parse(row.value);
+    } catch {
+      return null;
+    }
+  }
+
+  async getLatestSignals() {
+    const row = await prisma.configOverride.findUnique({
+      where: { key: "market_signals_latest" },
+    });
+    if (!row) return null;
+    try {
+      return JSON.parse(row.value);
+    } catch {
+      return null;
+    }
+  }
+
   async getDashboard() {
-    const [latest, history] = await Promise.all([
+    const [latest, history, explanation, signals] = await Promise.all([
       this.getLatestDecision(),
       this.getDecisionHistory(20),
+      this.getLatestExplanation(),
+      this.getLatestSignals(),
     ]);
 
     return {
       latestDecision: latest,
       recentDecisions: history,
       extendedRegimeConfigs: EXTENDED_REGIME_CONFIGS,
+      explanation,
+      signals,
     };
   }
 }
@@ -80,6 +108,16 @@ export class ConversionController {
   @Get("regime-configs")
   regimeConfigs() {
     return this.svc.getExtendedRegimeConfigs();
+  }
+
+  @Get("explanation")
+  explanation() {
+    return this.svc.getLatestExplanation();
+  }
+
+  @Get("signals")
+  signals() {
+    return this.svc.getLatestSignals();
   }
 }
 

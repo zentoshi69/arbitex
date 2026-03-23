@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/opportunities", label: "Opportunities" },
   { href: "/executions", label: "Executions" },
   { href: "/pnl", label: "PnL" },
+  { href: "/explainability", label: "Explainability" },
   { href: "/trading-brain", label: "Trading Brain" },
   { href: "/fair-value", label: "Fair Value" },
   { href: "/regime", label: "Market Regime" },
@@ -151,7 +152,7 @@ export function Sidebar() {
           <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
 
-        {NAV_ITEMS.slice(0, 13).map(({ href, label }) => {
+        {NAV_ITEMS.slice(0, 14).map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
           const isTrading = href === "/trading";
           const tradingActive = tradingStatus?.tradingEnabled && !tradingStatus?.mockExecution;
@@ -194,7 +195,7 @@ export function Sidebar() {
           <span className="h-px flex-1 bg-[var(--border)]" />
         </div>
 
-        {NAV_ITEMS.slice(13)
+        {NAV_ITEMS.slice(14)
           .filter((item) => !("superAdminOnly" in item && item.superAdminOnly) || role === "SUPER_ADMIN")
           .map(({ href, label }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));

@@ -24,6 +24,8 @@ export {
   evaluateWrpToAvaxTriggers,
   evaluateNoTradeConditions,
 } from "./triggers.js";
+export { fetchMarketSignals } from "./signal-provider.js";
+export { buildExplanation, type ExplanationPayload } from "./explainability.js";
 
 const DEFAULT_HURDLE_SCORE = 15;
 const DEFAULT_MIN_UNIT_GAIN_PCT = 0.02;
