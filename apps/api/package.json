@@ -16,6 +16,8 @@
     "@arbitex/chain": "workspace:*",
     "@arbitex/config": "workspace:*",
     "@arbitex/db": "workspace:*",
+    "@arbitex/accumulation-engine": "workspace:*",
+    "@arbitex/conversion-engine": "workspace:*",
     "@arbitex/risk-engine": "workspace:*",
     "@arbitex/shared-types": "workspace:*",
     "@fastify/helmet": "^13.0.2",

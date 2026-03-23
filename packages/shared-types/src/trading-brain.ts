@@ -339,6 +339,10 @@ export const MarketSignalsSchema = z.object({
 
   wrpLiquidityScore: z.number(),
   slippageEstimate: z.number(),
+
+  wrpPriceUsd: z.number().optional(),
+  avaxPriceUsd: z.number().optional(),
+  lpDepthUsd: z.number().optional(),
 });
 export type MarketSignals = z.infer<typeof MarketSignalsSchema>;
 

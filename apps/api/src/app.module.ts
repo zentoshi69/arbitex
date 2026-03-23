@@ -18,6 +18,8 @@ import { FairValueModule } from "./fair-value/fair-value.module.js";
 import { RegimeModule } from "./regime/regime.module.js";
 import { TradingModule } from "./trading/trading.module.js";
 import { StatsModule } from "./stats/stats.module.js";
+import { AccumulationModule } from "./accumulation/accumulation.module.js";
+import { ConversionModule } from "./conversion/conversion.module.js";
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { StatsModule } from "./stats/stats.module.js";
     RegimeModule,
     TradingModule,
     StatsModule,
+    AccumulationModule,
+    ConversionModule,
   ],
 })
 export class AppModule {}

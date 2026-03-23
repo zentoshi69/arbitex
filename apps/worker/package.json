@@ -19,6 +19,8 @@
     "@arbitex/dex-adapters": "workspace:*",
     "@arbitex/execution-engine": "workspace:*",
     "@arbitex/opportunity-engine": "workspace:*",
+    "@arbitex/accumulation-engine": "workspace:*",
+    "@arbitex/conversion-engine": "workspace:*",
     "@arbitex/risk-engine": "workspace:*",
     "@arbitex/shared-types": "workspace:*",
     "bullmq": "^5.9.0",

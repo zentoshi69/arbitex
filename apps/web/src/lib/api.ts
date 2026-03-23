@@ -225,6 +225,31 @@ export const api = {
       apiFetch<void>("/trading/wallet", { method: "DELETE" }),
   },
 
+  // Accumulation
+  accumulation: {
+    dashboard: () => apiFetch<any>("/accumulation"),
+    state: () => apiFetch<any>("/accumulation/state"),
+    routing: () => apiFetch<any>("/accumulation/routing"),
+    updateSleeves: (data: {
+      coreAllocationPct: number;
+      tacticalAllocationPct: number;
+      arbAllocationPct: number;
+    }) =>
+      apiFetch<any>("/accumulation/sleeves", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  // Conversion
+  conversion: {
+    dashboard: () => apiFetch<any>("/conversion"),
+    latest: () => apiFetch<any>("/conversion/latest"),
+    history: (limit?: number) =>
+      apiFetch<any>(`/conversion/history${limit ? `?limit=${limit}` : ""}`),
+    regimeConfigs: () => apiFetch<any>("/conversion/regime-configs"),
+  },
+
   // Stats
   stats: {
     volume24h: () => apiFetch<{ volume24hUsd: number; tradeCount: number }>("/stats/volume-24h"),

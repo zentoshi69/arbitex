@@ -8,7 +8,11 @@ import { UniswapV3Adapter, SushiSwapV2Adapter, SolidlyV2Adapter, AlgebraV1Adapte
 import { OpportunityEngine } from "@arbitex/opportunity-engine";
 import { RiskEngine, RegimeClassifier } from "@arbitex/risk-engine";
 import { ExecutionEngine, RouteSimulator } from "@arbitex/execution-engine";
+import { AccumulationEngine } from "@arbitex/accumulation-engine";
+import { ConversionEngine } from "@arbitex/conversion-engine";
+import { EXTENDED_REGIME_CONFIGS } from "@arbitex/risk-engine";
 import { RiskConfigSchema, OpportunityState, ExecutionState } from "@arbitex/shared-types";
+import type { MarketSignals } from "@arbitex/shared-types";
 import { processOpportunityJob } from "./jobs/opportunity.job.js";
 import { processExecutionJob } from "./jobs/execution.job.js";
 import { processBalanceSyncJob } from "./jobs/balance-sync.job.js";
@@ -33,6 +37,7 @@ export const queues = {
   balanceSync: new Queue("balance-sync", { connection }),
   liquidityScan: new Queue("liquidity-scan", { connection }),
   audit: new Queue("audit", { connection }),
+  conversion: new Queue("conversion-eval", { connection }),
 };
 
 // ── Chain client (multi-RPC with automatic failover + latency ranking) ───────
@@ -260,6 +265,10 @@ async function loadLiveRiskConfig() {
 const riskEngine = new RiskEngine(connection, prisma, defaultRiskConfig);
 const regimeClassifier = new RegimeClassifier(prisma);
 
+// ── Accumulation + Conversion engines ────────────────────────────────────
+const accumulationEngine = new AccumulationEngine(prisma);
+const conversionEngine = new ConversionEngine(prisma, accumulationEngine);
+
 // ── Opportunity engine ────────────────────────────────────────────────────────
 const opportunityEngine = new OpportunityEngine(
   registry.getAll(),
@@ -449,6 +458,85 @@ const liquidityScanWorker = new Worker(
   { ...workerOpts, concurrency: 1, limiter: { max: 1, duration: 5000 } }
 );
 
+// ── Conversion evaluation worker ─────────────────────────────────────────────
+async function buildMarketSignals(): Promise<MarketSignals> {
+  const wrpAddr = "0xef282b38d1ceab52134ca2cc653a569435744687";
+
+  let wrpPrice = 0.0061;
+  let avaxPrice = cachedNativePrice.usd;
+  try {
+    const p = await dexScreenerFeed.getTokenPrice(wrpAddr);
+    if (p && p > 0) wrpPrice = p;
+  } catch { /* use default */ }
+
+  const wrpAvaxRatio = avaxPrice > 0 ? wrpPrice / avaxPrice : 0;
+
+  return {
+    btc1hReturn: 0,
+    btc4hReturn: 0,
+    btc24hReturn: 0,
+    btcEMASlope: 0,
+    btcRealizedVolatility: 0.15,
+    btcAbove21EMA: true,
+    btcAbove55EMA: true,
+    wrpAvaxRatio,
+    wrpAvaxRatioTrend: wrpAvaxRatio > 0.0003 ? 0.5 : -0.5,
+    wrpBtcRatio: 0,
+    wrpBtcRatioTrend: 0,
+    wrpAbove21EMA: true,
+    wrpVWAPDeviation: 0,
+    wrpZScore: 0,
+    wrpRelativeVolume: 1.0,
+    avaxRelativeVolume: 1.0,
+    wrpTrendQuality: 0.5,
+    wrpPullbackQuality: 0.3,
+    wrpLiquidityScore: 50,
+    slippageEstimate: 0.005,
+    wrpPriceUsd: wrpPrice,
+    avaxPriceUsd: avaxPrice,
+    lpDepthUsd: 50_000,
+  };
+}
+
+const conversionWorker = new Worker(
+  "conversion-eval",
+  async (job: Job) => {
+    logger.info({ jobId: job.id }, "Conversion evaluation start");
+
+    const regime = await regimeClassifier.classify();
+    const extConfig = EXTENDED_REGIME_CONFIGS[regime.regime];
+
+    const signals = await buildMarketSignals();
+    const decision = await conversionEngine.evaluate(
+      signals,
+      extConfig,
+      signals.wrpPriceUsd ?? 0.0061,
+    );
+
+    logger.info(
+      {
+        direction: decision.direction,
+        state: decision.conversionState,
+        approved: decision.approved,
+        scoreWRP: decision.scoreWRP.toFixed(1),
+        scoreAVAX: decision.scoreAVAX.toFixed(1),
+        scoreDelta: decision.scoreDelta.toFixed(1),
+        proposedSizeUsd: decision.proposedSizeUsd.toFixed(2),
+        blockedReasons: decision.blockedReasons,
+      },
+      "Conversion decision produced",
+    );
+
+    // Persist latest decision for API reads
+    await prisma.configOverride.upsert({
+      where: { key: "conversion_latest_decision" },
+      update: { value: JSON.stringify(decision) },
+      create: { key: "conversion_latest_decision", value: JSON.stringify(decision) },
+    });
+  },
+  { ...workerOpts, concurrency: 1 },
+);
+
 // ── Operation state helpers ──────────────────────────────────────────────────
 const KILL_SWITCH_KEY = "arbitex:risk:kill:GLOBAL";
 let lastKnownKillState = true; // assume paused until we check
@@ -535,6 +623,13 @@ async function startSchedulers() {
     { repeat: { every: 60_000 }, removeOnComplete: 5, removeOnFail: false }
   );
 
+  // Conversion evaluation every 60 seconds
+  await queues.conversion.add(
+    "evaluate",
+    {},
+    { repeat: { every: 60_000 }, removeOnComplete: 10, removeOnFail: false }
+  );
+
   // Liquidity map scheduler (60 min, pause-aware)
   await startLiquidityScheduler();
 
@@ -558,6 +653,7 @@ for (const [name, worker] of [
   ["execution", executionWorker],
   ["balance-sync", balanceSyncWorker],
   ["liquidity-scan", liquidityScanWorker],
+  ["conversion-eval", conversionWorker],
 ] as const) {
   worker.on("failed", (job, err) => {
     logger.error({ jobId: job?.id, queue: name, err }, "Job failed");
@@ -592,6 +688,7 @@ async function main() {
       executionWorker.close(),
       balanceSyncWorker.close(),
       liquidityScanWorker.close(),
+      conversionWorker.close(),
     ]);
     await prisma.$disconnect();
     process.exit(0);
