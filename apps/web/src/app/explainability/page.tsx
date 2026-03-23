@@ -46,7 +46,7 @@ export default function ExplainabilityPage() {
     <div className="space-y-6 p-6">
       <SectionHeader
         title="Explainability"
-        subtitle="7-section breakdown of every conversion decision — human-readable, auditable, transparent"
+        description="7-section breakdown of every conversion decision — human-readable, auditable, transparent"
       />
 
       {dashQ.isLoading && <Skeleton className="h-64" />}
