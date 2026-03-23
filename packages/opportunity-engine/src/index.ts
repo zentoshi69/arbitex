@@ -346,8 +346,8 @@ export class OpportunityEngine {
         rejectReasons[key] = (rejectReasons[key] ?? 0) + 1;
         continue;
       }
-      if (candidate.profitBreakdown.netProfitUsd < cfg.riskConfig.minNetProfitUsd) {
-        const key = `lowProfit(${candidate.profitBreakdown.netProfitUsd.toFixed(2)}/${cfg.riskConfig.minNetProfitUsd.toFixed(2)})`;
+      if (candidate.profitBreakdown.grossSpreadUsd <= 0) {
+        const key = `noSpread:${buyPool.venueName}→${sellPool.venueName}:${buyPool.token0Symbol}/${buyPool.token1Symbol}`;
         rejectReasons[key] = (rejectReasons[key] ?? 0) + 1;
         continue;
       }
@@ -406,16 +406,20 @@ export class OpportunityEngine {
           }
 
           const now = new Date();
+          const MAX_DECIMAL_36_18 = 999_999_999_999_999_999n;
           for (const pool of pools) {
             const dbPoolId = await this.resolveDbPoolId(pool);
             if (!dbPoolId) continue;
+            const p0 = Math.abs(pool.price0Per1);
+            const p1 = Math.abs(pool.price1Per0);
+            if (!Number.isFinite(p0) || !Number.isFinite(p1) || p0 > 1e17 || p1 > 1e17) continue;
             await this.db.poolSnapshot.create({
               data: {
                 poolId: dbPoolId,
-                price0Per1: pool.price0Per1,
-                price1Per0: pool.price1Per0,
-                liquidityUsd: pool.liquidityUsd,
-                sqrtPriceX96: pool.sqrtPriceX96 ?? null,
+                price0Per1: p0,
+                price1Per0: p1,
+                liquidityUsd: Math.min(pool.liquidityUsd, 1e15),
+                sqrtPriceX96: pool.sqrtPriceX96 ? String(pool.sqrtPriceX96) : null,
                 tick: pool.tick ?? null,
                 timestamp: now,
               },
@@ -525,7 +529,7 @@ export class OpportunityEngine {
         priceImpactUsd,
       });
 
-      if (profitBreakdown.netProfitUsd < cfg.riskConfig.minNetProfitUsd) {
+      if (profitBreakdown.netProfitUsd < -1) {
         return null;
       }
 
