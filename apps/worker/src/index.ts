@@ -644,8 +644,15 @@ async function main() {
   await registerAdapters();
   opportunityEngine.updateAdapters(registry.getAll());
 
-  await refreshV3PoolStates();
-  startLPWatcher();
+  try {
+    await Promise.race([
+      refreshV3PoolStates(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("V3 pool refresh timed out")), 30_000)),
+    ]);
+    startLPWatcher();
+  } catch (err) {
+    logger.warn({ err }, "V3 pool initial refresh failed — continuing without cached V3 state");
+  }
 
   await startSchedulers();
   logger.info({ v3Pools: v3PoolCache.size }, "Worker started — opportunity engine running");
