@@ -14,7 +14,7 @@
   },
   "scripts": { "build": "tsc", "dev": "tsc --watch", "typecheck": "tsc --noEmit" },
   "dependencies": {
-    "@ethereumjs/wallet": "^2.0.3",
+    "@ethereumjs/wallet": "^10.0.0",
     "ioredis": "^5.4.1",
     "viem": "^2.18.0"
   },
