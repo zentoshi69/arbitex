@@ -315,55 +315,59 @@ export class RegimeClassifier {
     const now = Date.now();
     const h1 = new Date(now - 3600_000);
 
-    const [recentExecs, recentOpps, dexData] = await Promise.all([
-      this.db.execution.findMany({
-        where: { createdAt: { gte: h1 } },
-        select: { state: true, pnlUsd: true },
-      }),
-      this.db.opportunity.findMany({
-        where: { detectedAt: { gte: h1 } },
-        select: {
-          netProfitBps: true,
-          grossSpreadUsd: true,
-          tradeSizeUsd: true,
-        },
-      }),
-      this.fetchDexScreenerSignals(),
-    ]);
+    const execQuery = this.db.execution.findMany({
+      where: { createdAt: { gte: h1 } },
+      select: { state: true, pnlUsd: true },
+    });
+    const oppQuery = this.db.opportunity.findMany({
+      where: { detectedAt: { gte: h1 } },
+      select: {
+        netProfitBps: true,
+        grossSpreadUsd: true,
+        tradeSizeUsd: true,
+      },
+    });
+    const dexQuery = this.fetchDexScreenerSignals();
 
-    type ExecRow = { state: string; pnlUsd: number | null };
-    type OppRow = { netProfitBps: number | null; grossSpreadUsd: number | null; tradeSizeUsd: number | null };
+    const [recentExecsRaw, recentOppsRaw, dexData] = await Promise.all([execQuery, oppQuery, dexQuery]);
+
+    interface ExecRow { state: string; pnlUsd: number | null }
+    interface OppRow { netProfitBps: number | null; grossSpreadUsd: number | null; tradeSizeUsd: number | null }
+
+    const recentExecs: ExecRow[] = recentExecsRaw.map((e: any) => ({
+      state: String(e.state),
+      pnlUsd: e.pnlUsd != null ? Number(e.pnlUsd) : null,
+    }));
+    const recentOpps: OppRow[] = recentOppsRaw.map((o: any) => ({
+      netProfitBps: o.netProfitBps != null ? Number(o.netProfitBps) : null,
+      grossSpreadUsd: o.grossSpreadUsd != null ? Number(o.grossSpreadUsd) : null,
+      tradeSizeUsd: o.tradeSizeUsd != null ? Number(o.tradeSizeUsd) : null,
+    }));
 
     const totalExecs = recentExecs.length;
-    const failedExecs = recentExecs.filter(
-      (e: ExecRow) => e.state === "FAILED",
-    ).length;
-    const landedExecs = recentExecs.filter(
-      (e: ExecRow) => e.state === "LANDED",
-    ).length;
+    const failedExecs = recentExecs.filter((e) => e.state === "FAILED").length;
+    const landedExecs = recentExecs.filter((e) => e.state === "LANDED").length;
     const failRatePercent =
       totalExecs > 0 ? (failedExecs / totalExecs) * 100 : 0;
     const winRate =
       totalExecs > 0 ? (landedExecs / totalExecs) * 100 : 50;
 
-    const spreads = recentOpps.map((o: OppRow) => Number(o.netProfitBps));
+    const spreads: number[] = recentOpps.map((o) => o.netProfitBps ?? 0);
     const spreadMeanBps =
       spreads.length > 0
-        ? spreads.reduce((a: number, b: number) => a + b, 0) / spreads.length
+        ? spreads.reduce((a, b) => a + b, 0) / spreads.length
         : 0;
 
-    const grossSpreads = recentOpps.map((o: OppRow) => Number(o.grossSpreadUsd));
+    const grossSpreads: number[] = recentOpps.map((o) => o.grossSpreadUsd ?? 0);
+    const grossMean = grossSpreads.length > 0
+      ? grossSpreads.reduce((a, b) => a + b, 0) / grossSpreads.length
+      : 0;
     const variance =
       grossSpreads.length > 1
-        ? grossSpreads.reduce((sum: number, v: number) => {
-            const mean =
-              grossSpreads.reduce((a: number, b: number) => a + b, 0) / grossSpreads.length;
-            return sum + (v - mean) ** 2;
-          }, 0) / grossSpreads.length
+        ? grossSpreads.reduce((sum, v) => sum + (v - grossMean) ** 2, 0) / grossSpreads.length
         : 0;
     const volatility24h = Math.sqrt(variance);
 
-    // Use DexScreener liquidity for LP depth score instead of heuristic
     const lpDepthScore = dexData.totalLiquidityUsd > 100_000
       ? 100
       : dexData.totalLiquidityUsd > 50_000
@@ -374,12 +378,13 @@ export class RegimeClassifier {
             ? 30
             : 10;
 
-    const pnls = recentExecs
-      .filter((e: ExecRow) => e.pnlUsd !== null)
-      .map((e: ExecRow) => Number(e.pnlUsd));
+    const pnls: number[] = [];
+    for (const e of recentExecs) {
+      if (e.pnlUsd !== null) pnls.push(e.pnlUsd);
+    }
     const pnlTrend =
       pnls.length >= 3
-        ? pnls.slice(-3).reduce((a: number, b: number) => a + b, 0) / 3
+        ? pnls.slice(-3).reduce((a, b) => a + b, 0) / 3
         : 0;
     const trendDirection: "up" | "down" | "neutral" =
       pnlTrend > 1 ? "up" : pnlTrend < -1 ? "down" : "neutral";
