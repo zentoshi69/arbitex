@@ -42,13 +42,13 @@ export class AccumulationService {
     ]);
 
     const recentLogs = await prisma.auditLog.findMany({
-      where: { category: "ACCUMULATION" },
+      where: { action: { startsWith: "WRP_UNIT_" } },
       orderBy: { createdAt: "desc" },
       take: 20,
       select: {
         id: true,
-        message: true,
-        payload: true,
+        action: true,
+        diff: true,
         createdAt: true,
       },
     });

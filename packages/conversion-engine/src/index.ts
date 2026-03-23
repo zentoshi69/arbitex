@@ -230,18 +230,17 @@ export class ConversionEngine {
           : decision.direction;
       await this.db.auditLog.create({
         data: {
-          level: decision.approved ? "INFO" : "WARN",
-          category: "CONVERSION",
-          message:
-            `Conversion decision: ${label} (${decision.conversionState}) ` +
-            `— scoreWRP=${decision.scoreWRP.toFixed(1)} scoreAVAX=${decision.scoreAVAX.toFixed(1)} ` +
-            `delta=${decision.scoreDelta.toFixed(1)} hurdle=${decision.hurdleBps.toFixed(1)} ` +
-            `${decision.approved ? "APPROVED" : "BLOCKED"}`,
-          payload: {
-            id: decision.id,
+          action: `CONVERSION_${decision.approved ? "APPROVED" : "BLOCKED"}`,
+          actor: "system:conversion-engine",
+          entityType: "conversion",
+          entityId: decision.id,
+          diff: {
             direction: decision.direction,
             state: decision.conversionState,
             approved: decision.approved,
+            scoreWRP: decision.scoreWRP,
+            scoreAVAX: decision.scoreAVAX,
+            scoreDelta: decision.scoreDelta,
             blockedReasons: decision.blockedReasons,
             proposedSizeUsd: decision.proposedSizeUsd,
             expectedUnitGain: decision.expectedUnitGain,

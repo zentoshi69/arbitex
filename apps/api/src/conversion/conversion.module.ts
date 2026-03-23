@@ -26,14 +26,13 @@ export class ConversionService {
 
   async getDecisionHistory(limit = 50) {
     const logs = await prisma.auditLog.findMany({
-      where: { category: "CONVERSION" },
+      where: { action: { startsWith: "CONVERSION_" } },
       orderBy: { createdAt: "desc" },
       take: limit,
       select: {
         id: true,
-        level: true,
-        message: true,
-        payload: true,
+        action: true,
+        diff: true,
         createdAt: true,
       },
     });

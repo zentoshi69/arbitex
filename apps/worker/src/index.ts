@@ -531,7 +531,7 @@ const conversionWorker = new Worker(
     await prisma.configOverride.upsert({
       where: { key: "conversion_latest_decision" },
       update: { value: JSON.stringify(decision) },
-      create: { key: "conversion_latest_decision", value: JSON.stringify(decision) },
+      create: { key: "conversion_latest_decision", value: JSON.stringify(decision), updatedBy: "system:worker" },
     });
   },
   { ...workerOpts, concurrency: 1 },

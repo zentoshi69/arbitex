@@ -7,6 +7,7 @@ import type {
 
 const SLEEVE_CONFIG_KEY = "accumulation_sleeve_state";
 const ROUTING_CONFIG_KEY = "accumulation_arb_routing";
+const SYSTEM_ACTOR = "system:accumulation-engine";
 
 const DEFAULT_STATE: AccumulationState = {
   totalWRPUnits: 0,
@@ -55,16 +56,10 @@ export class AccumulationEngine {
     await this.db.configOverride.upsert({
       where: { key: SLEEVE_CONFIG_KEY },
       update: { value: JSON.stringify(state) },
-      create: { key: SLEEVE_CONFIG_KEY, value: JSON.stringify(state) },
+      create: { key: SLEEVE_CONFIG_KEY, value: JSON.stringify(state), updatedBy: SYSTEM_ACTOR },
     });
   }
 
-  /**
-   * Core gate: should a proposed conversion be approved based on WRP unit gain?
-   *
-   * Only converts if:
-   *   expectedReentryWRPUnits > currentWRPUnits * (1 + MIN_UNIT_GAIN_THRESHOLD)
-   */
   evaluateConversionForWRPUnits(
     currentWRPUnits: number,
     proposedConversionUsd: number,
@@ -116,10 +111,11 @@ export class AccumulationEngine {
 
     await this.db.auditLog.create({
       data: {
-        level: "INFO",
-        category: "ACCUMULATION",
-        message: `WRP unit change: ${deltaUnits > 0 ? "+" : ""}${deltaUnits.toFixed(2)} (${sleeve}) — ${reason}`,
-        payload: { deltaUnits, sleeve, reason, newTotal: state.totalWRPUnits } as any,
+        action: "WRP_UNIT_CHANGE",
+        actor: SYSTEM_ACTOR,
+        entityType: "accumulation",
+        entityId: sleeve,
+        diff: { deltaUnits, sleeve, reason, newTotal: state.totalWRPUnits } as any,
       },
     });
 
@@ -165,7 +161,7 @@ export class AccumulationEngine {
     await this.db.configOverride.upsert({
       where: { key: ROUTING_CONFIG_KEY },
       update: { value: JSON.stringify(routing) },
-      create: { key: ROUTING_CONFIG_KEY, value: JSON.stringify(routing) },
+      create: { key: ROUTING_CONFIG_KEY, value: JSON.stringify(routing), updatedBy: SYSTEM_ACTOR },
     });
     return routing;
   }
@@ -184,7 +180,7 @@ export class AccumulationEngine {
     await this.db.configOverride.upsert({
       where: { key: ROUTING_CONFIG_KEY },
       update: { value: JSON.stringify(routing) },
-      create: { key: ROUTING_CONFIG_KEY, value: JSON.stringify(routing) },
+      create: { key: ROUTING_CONFIG_KEY, value: JSON.stringify(routing), updatedBy: SYSTEM_ACTOR },
     });
   }
 }
