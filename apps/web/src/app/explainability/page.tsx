@@ -68,28 +68,27 @@ export default function ExplainabilityPage() {
                     ? "WRP \u2192 AVAX"
                     : "NO TRADE"
               }
-              valueColor={
+              trend={
                 explanation.direction === "AVAX_TO_WRP"
-                  ? "#4DD68C"
+                  ? "up"
                   : explanation.direction === "WRP_TO_AVAX"
-                    ? "#E84142"
-                    : "var(--grey2)"
+                    ? "down"
+                    : "neutral"
               }
             />
             <KpiCard
               label="Verdict"
               value={explanation.approved ? "APPROVED" : "BLOCKED"}
-              valueColor={explanation.approved ? "#4DD68C" : "#E84142"}
+              trend={explanation.approved ? "up" : "down"}
             />
             <KpiCard
               label="Sections"
               value={`${explanation.sections.filter((s) => s.status === "pass").length}/${explanation.sections.length} pass`}
-              valueColor="var(--offwhite)"
             />
             <KpiCard
               label="Evaluated"
               value={new Date(explanation.timestamp).toLocaleTimeString()}
-              valueColor="var(--grey1)"
+              sub="Last evaluation"
             />
           </div>
 

@@ -29,8 +29,7 @@ async function bootstrap() {
   await app.register(rateLimit, {
     max: 120,
     timeWindow: "1 minute",
-    trustProxy: true,
-  });
+  } as any);
 
   app.useGlobalPipes(
     new ValidationPipe({
