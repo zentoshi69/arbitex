@@ -29,7 +29,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              `connect-src 'self' wss://api.bitrunner3001.com ${rpcHost} https://api.coingecko.com https://api.snowtrace.io https://api.avax.network`,
+              `connect-src 'self' wss://api.bitrunner3001.com ${rpcHost} https://api.coingecko.com https://api.dexscreener.com https://api.snowtrace.io https://api.avax.network`,
               "script-src 'self' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",

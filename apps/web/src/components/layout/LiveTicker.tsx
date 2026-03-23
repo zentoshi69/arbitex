@@ -108,8 +108,14 @@ export function LiveTicker() {
 
   const wrpQ = useWrpPrice();
 
-  const btcUsd = cgQ.data?.bitcoin?.usd ?? null;
-  const btcChange = cgQ.data?.bitcoin?.usd_24h_change ?? null;
+  const btcUsd =
+    marketQ.data?.tokens?.BTC?.usd ??
+    cgQ.data?.bitcoin?.usd ??
+    null;
+  const btcChange =
+    marketQ.data?.tokens?.BTC?.change24h ??
+    cgQ.data?.bitcoin?.usd_24h_change ??
+    null;
 
   const avaxUsd =
     marketQ.data?.tokens?.AVAX?.usd ??

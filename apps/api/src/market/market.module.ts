@@ -22,6 +22,25 @@ const KNOWN_FACTORIES = [
   { addr: "0xefa94DE7a4656D787667C749f7E1223D71E9FD88", name: "Pangolin" },
 ];
 
+function raceTimeout<T>(p: Promise<T>, ms: number, label = "rpc"): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timeout (${ms}ms)`)), ms),
+    ),
+  ]);
+}
+
+type TokenPriceCache = {
+  updatedAt: string;
+  tokens: Record<string, { usd: number | null; source: string; change24h: number | null }>;
+};
+
+let _priceCache: TokenPriceCache | null = null;
+let _priceCacheAt = 0;
+const CACHE_TTL_MS = 30_000;
+const STALE_TTL_MS = 300_000;
+
 function toFixedDecimalString(value: bigint, decimals: number): string {
   const d = BigInt(decimals);
   const base = 10n ** d;
@@ -210,143 +229,163 @@ class MarketService {
     };
   }
 
-  async tokenPrices(): Promise<{
-    updatedAt: string;
-    tokens: Record<string, { usd: number | null; source: string; change24h: number | null }>;
-  }> {
-    const tokens: Record<string, { usd: number | null; source: string; change24h: number | null }> = {
+  async tokenPrices(): Promise<TokenPriceCache> {
+    const now = Date.now();
+    if (_priceCache && now - _priceCacheAt < CACHE_TTL_MS) {
+      return _priceCache;
+    }
+
+    try {
+      const fresh = await raceTimeout(this.fetchTokenPricesFast(), 8_000, "tokenPrices");
+      _priceCache = fresh;
+      _priceCacheAt = Date.now();
+      return fresh;
+    } catch (e) {
+      log.warn(`tokenPrices fetch failed: ${e}`);
+      if (_priceCache && now - _priceCacheAt < STALE_TTL_MS) {
+        return _priceCache;
+      }
+      return {
+        updatedAt: new Date().toISOString(),
+        tokens: {
+          WRP: { usd: null, source: "error", change24h: null },
+          AVAX: { usd: null, source: "error", change24h: null },
+        },
+      };
+    }
+  }
+
+  private async fetchTokenPricesFast(): Promise<TokenPriceCache> {
+    const tokens: TokenPriceCache["tokens"] = {
       WRP: { usd: null, source: "none", change24h: null },
       AVAX: { usd: null, source: "none", change24h: null },
+      BTC: { usd: null, source: "none", change24h: null },
     };
 
-    // Try on-chain WRP/USDC price from any enabled Avalanche venue
-    try {
-      const avaxVenues = await prisma.venue.findMany({
-        where: { chainId: 43114, isEnabled: true },
-        select: { id: true, factoryAddress: true, name: true },
-      });
-      const wrp = WRP_TOKEN;
-      const usdc = USDC_TOKEN;
-      const wavax = WAVAX_TOKEN;
+    const [cgResult, dexResult] = await Promise.allSettled([
+      this.fetchCoinGeckoPrices(),
+      this.fetchDexScreenerWrp(),
+    ]);
 
-      for (const v of avaxVenues) {
-        if (!v.factoryAddress || !isHexAddress(v.factoryAddress)) continue;
-        try {
-          const pair = await this.getPairAddress(43114, v.factoryAddress, wrp, usdc);
-          if (!pair || String(pair).toLowerCase() === ZERO) continue;
-          const data = await this.priceFromPair(43114, String(pair));
-          log.debug(`WRP venue ${v.name} pair symbols: ${data.symbol0}/${data.symbol1}`);
-          const price = this.pickUsdQuoteFromPair(data, "WRP");
-          if (price !== null && price > 0) {
-            tokens.WRP = { usd: price, source: `on-chain:${v.name}`, change24h: null };
-            break;
-          }
-        } catch (e) {
-          log.debug(`WRP venue ${v.name} failed: ${e}`);
-        }
-      }
-
-      if (!tokens.WRP?.usd) {
-        try {
-          const data = await this.priceFromPair(43114, BLACKHOLE_POOL_WRP_USDC);
-          log.debug(`Blackhole pool symbols: ${data.symbol0}/${data.symbol1}, p0Per1=${data.price0Per1}, p1Per0=${data.price1Per0}`);
-          const price = this.pickUsdQuoteFromPair(data, "WRP");
-          if (price !== null && price > 0) {
-            tokens.WRP = { usd: price, source: "on-chain:Blackhole", change24h: null };
-          } else {
-            log.warn(`Blackhole WRP/USDC pool returned no usable price (symbols: ${data.symbol0}/${data.symbol1})`);
-          }
-        } catch (e) {
-          log.warn(`Blackhole WRP/USDC fallback failed: ${e}`);
-        }
-      }
-
-      // AVAX/USDC on-chain
-      for (const v of avaxVenues) {
-        if (!v.factoryAddress || !isHexAddress(v.factoryAddress)) continue;
-        try {
-          const pair = await this.getPairAddress(43114, v.factoryAddress, wavax, usdc);
-          if (!pair || String(pair).toLowerCase() === ZERO) continue;
-          const data = await this.priceFromPair(43114, String(pair));
-          const price = this.pickUsdQuoteFromPair(data, "WAVAX");
-          if (price !== null && price > 0) {
-            tokens.AVAX = { usd: price, source: `on-chain:${v.name}`, change24h: null };
-            break;
-          }
-        } catch (e) {
-          log.debug(`AVAX venue failed: ${e}`);
-        }
-      }
-    } catch (e) {
-      log.warn(`On-chain pricing failed, falling through to CoinGecko: ${e}`);
+    if (cgResult.status === "fulfilled" && cgResult.value) {
+      const cg = cgResult.value;
+      if (cg.btcUsd) tokens.BTC = { usd: cg.btcUsd, source: "coingecko", change24h: cg.btcChange ?? null };
+      if (cg.avaxUsd) tokens.AVAX = { usd: cg.avaxUsd, source: "coingecko", change24h: cg.avaxChange ?? null };
     }
 
-    // CoinGecko fallback for AVAX (and reference data)
-    try {
-      const cgRes = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=avalanche-2&vs_currencies=usd&include_24hr_change=true"
-      );
-      if (cgRes.ok) {
-        const cg = (await cgRes.json()) as Record<string, any>;
-        const avaxCg = cg["avalanche-2"];
-        if (avaxCg?.usd && (!tokens.AVAX?.usd || tokens.AVAX.source === "none")) {
-          tokens.AVAX = { usd: avaxCg.usd, source: "coingecko", change24h: avaxCg.usd_24h_change ?? null };
-        }
-        if (tokens.AVAX?.usd && avaxCg?.usd_24h_change != null && tokens.AVAX.change24h === null) {
-          tokens.AVAX.change24h = avaxCg.usd_24h_change;
-        }
-      }
-    } catch { /* CoinGecko unavailable */ }
-
-    // WRP/WAVAX fallback — derive WRP USD via (AVAX per WRP) × AVAX/USD
-    if (!tokens.WRP?.usd && tokens.AVAX?.usd) {
-      for (const fac of KNOWN_FACTORIES) {
-        try {
-          const pair = await this.getPairAddress(43114, fac.addr, WRP_TOKEN, WAVAX_TOKEN);
-          if (!pair || String(pair).toLowerCase() === ZERO) continue;
-          const data = await this.priceFromPair(43114, String(pair));
-          const s0 = String(data.symbol0).toUpperCase();
-          const s1 = String(data.symbol1).toUpperCase();
-          log.debug(`WRP/WAVAX ${fac.name}: ${s0}/${s1}, p0Per1=${data.price0Per1}, p1Per0=${data.price1Per0}`);
-
-          let avaxPerWrp: number | null = null;
-          if (isWavaxSymbol(s0) && isWrpSymbol(s1)) {
-            avaxPerWrp = Number(data.price0Per1);
-          } else if (isWrpSymbol(s0) && isWavaxSymbol(s1)) {
-            avaxPerWrp = Number(data.price1Per0);
-          }
-
-          if (avaxPerWrp && Number.isFinite(avaxPerWrp) && avaxPerWrp > 0) {
-            const wrpUsd = avaxPerWrp * tokens.AVAX.usd!;
-            tokens.WRP = { usd: wrpUsd, source: `on-chain:${fac.name} (via AVAX)`, change24h: null };
-            log.debug(`WRP price via ${fac.name}: ${avaxPerWrp} AVAX × $${tokens.AVAX.usd} = $${wrpUsd.toFixed(6)}`);
-            break;
-          }
-        } catch (e) {
-          log.debug(`WRP/WAVAX ${fac.name} failed: ${e}`);
-        }
-      }
+    if (dexResult.status === "fulfilled" && dexResult.value) {
+      const dx = dexResult.value;
+      if (dx.wrpUsd) tokens.WRP = { usd: dx.wrpUsd, source: `dexscreener:${dx.source}`, change24h: dx.change24h ?? null };
+      if (dx.avaxUsd && !tokens.AVAX!.usd) tokens.AVAX = { usd: dx.avaxUsd, source: "dexscreener", change24h: null };
     }
 
-    // WRP/native-USDC fallback (native USDC at 0xB97…)
-    if (!tokens.WRP?.usd) {
-      for (const fac of KNOWN_FACTORIES) {
-        try {
-          const pair = await this.getPairAddress(43114, fac.addr, WRP_TOKEN, USDC_NATIVE);
-          if (!pair || String(pair).toLowerCase() === ZERO) continue;
-          const data = await this.priceFromPair(43114, String(pair));
-          const price = this.pickUsdQuoteFromPair(data, "WRP");
-          if (price !== null && price > 0) {
-            tokens.WRP = { usd: price, source: `on-chain:${fac.name} (native USDC)`, change24h: null };
-            break;
-          }
-        } catch (e) {
-          log.debug(`WRP/native-USDC ${fac.name} failed: ${e}`);
-        }
+    if (!tokens.WRP!.usd || !tokens.AVAX!.usd) {
+      try {
+        const onChain = await raceTimeout(this.fetchOnChainPrices(), 5_000, "onchain");
+        if (onChain.wrpUsd && !tokens.WRP!.usd) tokens.WRP = { usd: onChain.wrpUsd, source: onChain.wrpSource, change24h: null };
+        if (onChain.avaxUsd && !tokens.AVAX!.usd) tokens.AVAX = { usd: onChain.avaxUsd, source: onChain.avaxSource, change24h: null };
+      } catch (e) {
+        log.debug(`On-chain fallback failed: ${e}`);
       }
     }
 
     return { updatedAt: new Date().toISOString(), tokens };
+  }
+
+  private async fetchCoinGeckoPrices(): Promise<{
+    btcUsd: number | null; btcChange: number | null;
+    avaxUsd: number | null; avaxChange: number | null;
+  } | null> {
+    const res = await raceTimeout(
+      fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,avalanche-2&vs_currencies=usd&include_24hr_change=true"),
+      5_000, "coingecko",
+    );
+    if (!res.ok) return null;
+    const cg = (await res.json()) as Record<string, any>;
+    return {
+      btcUsd: cg.bitcoin?.usd ?? null,
+      btcChange: cg.bitcoin?.usd_24h_change ?? null,
+      avaxUsd: cg["avalanche-2"]?.usd ?? null,
+      avaxChange: cg["avalanche-2"]?.usd_24h_change ?? null,
+    };
+  }
+
+  private async fetchDexScreenerWrp(): Promise<{
+    wrpUsd: number | null; avaxUsd: number | null; source: string; change24h: number | null;
+  } | null> {
+    const res = await raceTimeout(
+      fetch(`https://api.dexscreener.com/latest/dex/tokens/${WRP_TOKEN}`),
+      5_000, "dexscreener",
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as any;
+    const pairs = data?.pairs;
+    if (!Array.isArray(pairs) || pairs.length === 0) return null;
+
+    const best = pairs
+      .filter((p: any) => p.chainId === "avalanche" && p.priceUsd)
+      .sort((a: any, b: any) => (b.volume?.h24 ?? 0) - (a.volume?.h24 ?? 0))[0];
+    if (!best) return null;
+
+    const wrpUsd = parseFloat(best.priceUsd);
+    const change24h = best.priceChange?.h24 != null ? parseFloat(best.priceChange.h24) : null;
+
+    let avaxUsd: number | null = null;
+    if (best.quoteToken?.symbol?.toUpperCase() === "WAVAX" && best.priceNative) {
+      const nativePrice = parseFloat(best.priceNative);
+      if (nativePrice > 0 && wrpUsd > 0) avaxUsd = wrpUsd / nativePrice;
+    }
+
+    return { wrpUsd, avaxUsd, source: best.dexId ?? "unknown", change24h };
+  }
+
+  private async fetchOnChainPrices(): Promise<{
+    wrpUsd: number | null; wrpSource: string;
+    avaxUsd: number | null; avaxSource: string;
+  }> {
+    let wrpUsd: number | null = null;
+    let wrpSource = "none";
+    let avaxUsd: number | null = null;
+    let avaxSource = "none";
+
+    for (const fac of KNOWN_FACTORIES) {
+      if (avaxUsd) break;
+      try {
+        const pair = await raceTimeout(this.getPairAddress(43114, fac.addr, WAVAX_TOKEN, USDC_TOKEN), 3_000, "getPair");
+        if (!pair || String(pair).toLowerCase() === ZERO) continue;
+        const data = await raceTimeout(this.priceFromPair(43114, String(pair)), 3_000, "priceFromPair");
+        const price = this.pickUsdQuoteFromPair(data, "WAVAX");
+        if (price && price > 0) { avaxUsd = price; avaxSource = `on-chain:${fac.name}`; }
+      } catch { /* skip */ }
+    }
+
+    try {
+      const data = await raceTimeout(this.priceFromPair(43114, BLACKHOLE_POOL_WRP_USDC), 3_000, "blackhole");
+      const price = this.pickUsdQuoteFromPair(data, "WRP");
+      if (price && price > 0) { wrpUsd = price; wrpSource = "on-chain:Blackhole"; }
+    } catch { /* skip */ }
+
+    if (!wrpUsd && avaxUsd) {
+      for (const fac of KNOWN_FACTORIES) {
+        try {
+          const pair = await raceTimeout(this.getPairAddress(43114, fac.addr, WRP_TOKEN, WAVAX_TOKEN), 3_000, "getPair");
+          if (!pair || String(pair).toLowerCase() === ZERO) continue;
+          const data = await raceTimeout(this.priceFromPair(43114, String(pair)), 3_000, "priceFromPair");
+          const s0 = String(data.symbol0).toUpperCase();
+          const s1 = String(data.symbol1).toUpperCase();
+          let avaxPerWrp: number | null = null;
+          if (isWavaxSymbol(s0) && isWrpSymbol(s1)) avaxPerWrp = Number(data.price0Per1);
+          else if (isWrpSymbol(s0) && isWavaxSymbol(s1)) avaxPerWrp = Number(data.price1Per0);
+          if (avaxPerWrp && Number.isFinite(avaxPerWrp) && avaxPerWrp > 0) {
+            wrpUsd = avaxPerWrp * avaxUsd;
+            wrpSource = `on-chain:${fac.name} (via AVAX)`;
+            break;
+          }
+        } catch { /* skip */ }
+      }
+    }
+
+    return { wrpUsd, wrpSource, avaxUsd, avaxSource };
   }
 }
 

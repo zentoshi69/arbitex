@@ -101,7 +101,7 @@ export function TopBar() {
     health?.status === "healthy"
       ? "ONLINE"
       : health?.status === "degraded"
-        ? "DEGRADED"
+        ? "ONLINE"
         : health?.status === "down"
           ? "ERROR"
           : "CONNECTING";
@@ -109,11 +109,9 @@ export function TopBar() {
   const statusColor =
     statusDisplay === "ONLINE"
       ? "#4DD68C"
-      : statusDisplay === "DEGRADED"
+      : statusDisplay === "CONNECTING"
         ? "#F59E0B"
-        : statusDisplay === "CONNECTING"
-          ? "#F59E0B"
-          : "#E84142";
+        : "#E84142";
 
   return (
     <header className="relative flex h-[44px] flex-shrink-0 items-stretch border-b border-[var(--border)] bg-[var(--black)]">

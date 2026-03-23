@@ -42,9 +42,9 @@ export class HealthService {
     const killSwitches = await this.getKillSwitches();
 
     const status =
-      dbStatus === "down" || redisStatus === "down"
+      dbStatus === "down"
         ? "down"
-        : rpcStatus === "down"
+        : redisStatus === "down" || rpcStatus === "down"
           ? "degraded"
           : "healthy";
 
@@ -71,7 +71,7 @@ export class HealthService {
 
   private async checkRedis(): Promise<"up" | "down"> {
     try {
-      await withTimeout(this.redis.ping(), 500);
+      await withTimeout(this.redis.ping(), 2000);
       return "up";
     } catch {
       return "down";
@@ -80,12 +80,12 @@ export class HealthService {
 
   private async checkRpc(): Promise<"up" | "down" | "slow"> {
     try {
-      const client = createChainClient({
-        rpcUrl: config.ETHEREUM_RPC_URL ?? "",
-        chainId: config.CHAIN_ID,
-      });
+      const rpcUrl = config.CHAIN_ID === 43114
+        ? (config.AVALANCHE_RPC_URL || "https://api.avax.network/ext/bc/C/rpc")
+        : (config.ETHEREUM_RPC_URL ?? "");
+      const client = createChainClient({ rpcUrl, chainId: config.CHAIN_ID });
       const start = Date.now();
-      await withTimeout(client.getBlockNumber(), 1500);
+      await withTimeout(client.getBlockNumber(), 3000);
       const latency = Date.now() - start;
       return latency > 2000 ? "slow" : "up";
     } catch {
