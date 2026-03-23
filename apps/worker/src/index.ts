@@ -341,9 +341,16 @@ function startLPWatcher() {
 const poolRefreshWorker = new Worker(
   "pool-refresh",
   async (job: Job) => {
-    logger.debug({ jobId: job.id }, "pool-refresh start");
+    logger.info({ jobId: job.id }, "pool-refresh start");
 
-    await refreshV3PoolStates();
+    try {
+      await Promise.race([
+        refreshV3PoolStates(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("V3 timeout")), 10_000)),
+      ]);
+    } catch {
+      logger.warn("V3 pool refresh skipped (timeout)");
+    }
 
     const nativePriceUsd = await fetchNativeTokenPriceUsd();
     const targetTokens = await loadTargetTokens();
@@ -366,7 +373,7 @@ const poolRefreshWorker = new Worker(
 
     const adjustedRiskConfig = {
       ...liveConfig,
-      minNetProfitUsd: Math.max(liveConfig.minNetProfitUsd, adjustedMinProfit),
+      minNetProfitUsd: liveConfig.minNetProfitUsd,
       maxTradeSizeUsd: adjustedTradeSize,
     };
 
