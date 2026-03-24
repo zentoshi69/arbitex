@@ -270,54 +270,60 @@ export class FairValueService {
     const info = KNOWN_TOKENS[symbol];
     if (!info) return null;
 
-    try {
-      const token = await prisma.token.findFirst({
-        where: { address: { equals: info.address, mode: "insensitive" }, chainId: 43114 },
-      });
-      if (!token) return null;
+    return raceTimeout(
+      (async () => {
+        const token = await prisma.token.findFirst({
+          where: { address: { equals: info.address, mode: "insensitive" }, chainId: 43114 },
+          select: { id: true },
+        });
+        if (!token) return null;
 
-      const pools = await prisma.pool.findMany({
-        where: {
-          OR: [{ token0Id: token.id }, { token1Id: token.id }],
-          isActive: true,
-        },
-        include: {
-          snapshots: { orderBy: { timestamp: "desc" }, take: 1 },
-          token0: true,
-          token1: true,
-        },
-      });
+        const usdcTokens = await prisma.token.findMany({
+          where: { chainId: 43114, symbol: { contains: "USDC", mode: "insensitive" } },
+          select: { id: true },
+        });
+        const usdcIds = usdcTokens.map((t) => t.id);
+        if (usdcIds.length === 0) return null;
 
-      for (const pool of pools) {
+        const pool = await prisma.pool.findFirst({
+          where: {
+            isActive: true,
+            OR: [
+              { token0Id: token.id, token1Id: { in: usdcIds } },
+              { token1Id: token.id, token0Id: { in: usdcIds } },
+            ],
+          },
+          include: {
+            snapshots: { orderBy: { timestamp: "desc" }, take: 1 },
+            token0: { select: { address: true } },
+            token1: { select: { address: true } },
+          },
+        });
+
+        if (!pool) return null;
         const snap = pool.snapshots[0];
-        if (!snap) continue;
+        if (!snap) return null;
 
         const age = Date.now() - snap.timestamp.getTime();
-        if (age > 300_000) continue;
+        if (age > 300_000) return null;
 
         const isToken0 = pool.token0.address.toLowerCase() === info.address.toLowerCase();
-        const otherToken = isToken0 ? pool.token1 : pool.token0;
-        const isUsdcPair = otherToken.symbol.toUpperCase().includes("USDC");
-        if (!isUsdcPair) continue;
-
         const price = isToken0 ? Number(snap.price0Per1) : Number(snap.price1Per0);
-        if (!Number.isFinite(price) || price <= 0) continue;
+        if (!Number.isFinite(price) || price <= 0) return null;
 
         return {
           name: "DB Snapshot",
-          method: "pool-snapshot",
+          method: "pool-snapshot" as const,
           priceUsd: price,
           weight: 0.5,
           confidence: 0.6,
           stale: age > 60_000,
           lastUpdated: snap.timestamp.getTime(),
-        };
-      }
-    } catch (e) {
-      log.debug(`DB snapshot for ${symbol} failed: ${e}`);
-    }
-
-    return null;
+        } satisfies FairValueSource;
+      })(),
+      3_000,
+      `dbSnapshot:${symbol}`,
+    ).catch(() => null);
   }
 }
 
