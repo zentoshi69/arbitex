@@ -111,17 +111,16 @@ export class FairValueService {
   }
 
   private async fetchSources(symbol: string): Promise<FairValueSource[]> {
+    const [cgSource, onChainSources, dbSource] = await Promise.all([
+      this.fetchCoinGecko(symbol).catch(() => null),
+      this.fetchOnChainPrices(symbol).catch(() => [] as FairValueSource[]),
+      this.fetchDbSnapshot(symbol).catch(() => null),
+    ]);
+
     const sources: FairValueSource[] = [];
-
-    const cgSource = await this.fetchCoinGecko(symbol);
     if (cgSource) sources.push(cgSource);
-
-    const onChainSources = await this.fetchOnChainPrices(symbol);
     sources.push(...onChainSources);
-
-    const dbSource = await this.fetchDbSnapshot(symbol);
     if (dbSource) sources.push(dbSource);
-
     return sources;
   }
 
