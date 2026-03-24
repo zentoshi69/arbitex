@@ -88,21 +88,26 @@ export class FairValueService {
   }
 
   async getAllEstimates(): Promise<FairValueEstimate[]> {
-    return raceTimeout(
-      Promise.all(
-        Object.keys(KNOWN_TOKENS).map((sym) => this.getEstimate(sym))
-      ),
-      8_000,
-      "getAllEstimates",
-    ).catch((e) => {
-      log.warn(`getAllEstimates fallback to cache: ${e}`);
-      const results: FairValueEstimate[] = [];
-      for (const sym of Object.keys(KNOWN_TOKENS)) {
-        const cached = this.cache.get(sym);
-        if (cached) results.push(cached.estimate);
-      }
-      return results;
+    const emptyEstimate = (token: string): FairValueEstimate => ({
+      token,
+      compositeUsd: 0,
+      sources: [],
+      divergenceAlertActive: false,
+      maxDivergencePct: 0,
+      updatedAt: Date.now(),
     });
+
+    return Promise.all(
+      Object.keys(KNOWN_TOKENS).map(async (sym) => {
+        try {
+          return await raceTimeout(this.getEstimate(sym), 6_000, `estimate:${sym}`);
+        } catch (e) {
+          log.warn(`Fair value ${sym} timeout/error: ${e}`);
+          const cached = this.cache.get(sym);
+          return cached?.estimate ?? emptyEstimate(sym);
+        }
+      })
+    );
   }
 
   private async fetchSources(symbol: string): Promise<FairValueSource[]> {
@@ -162,45 +167,48 @@ export class FairValueService {
 
     const usdcAddr = KNOWN_TOKENS.USDC!.address as `0x${string}`;
 
-    for (const venue of venues) {
-      if (!venue.factoryAddress) continue;
-      try {
-        const pair = (await raceTimeout(client.readContract({
-          address: venue.factoryAddress as `0x${string}`,
-          abi: UNISWAPV2_FACTORY_ABI,
-          functionName: "getPair",
-          args: [info.address as `0x${string}`, usdcAddr],
-        }), 3_000, `getPair:${venue.name}`)) as string;
+    const venueResults = await Promise.allSettled(
+      venues
+        .filter((v) => v.factoryAddress)
+        .map(async (venue) => {
+          const pair = (await raceTimeout(client.readContract({
+            address: venue.factoryAddress as `0x${string}`,
+            abi: UNISWAPV2_FACTORY_ABI,
+            functionName: "getPair",
+            args: [info.address as `0x${string}`, usdcAddr],
+          }), 3_000, `getPair:${venue.name}`)) as string;
 
-        if (!pair || pair.toLowerCase() === ZERO_ADDR) continue;
+          if (!pair || pair.toLowerCase() === ZERO_ADDR) return null;
 
-        const [token0, reserves] = await raceTimeout(Promise.all([
-          client.readContract({ address: pair as `0x${string}`, abi: UNISWAPV2_PAIR_ABI, functionName: "token0" }),
-          client.readContract({ address: pair as `0x${string}`, abi: UNISWAPV2_PAIR_ABI, functionName: "getReserves" }),
-        ]), 3_000, `reserves:${venue.name}`);
+          const [token0, reserves] = await raceTimeout(Promise.all([
+            client.readContract({ address: pair as `0x${string}`, abi: UNISWAPV2_PAIR_ABI, functionName: "token0" }),
+            client.readContract({ address: pair as `0x${string}`, abi: UNISWAPV2_PAIR_ABI, functionName: "getReserves" }),
+          ]), 3_000, `reserves:${venue.name}`);
 
-        const [r0, r1] = reserves as readonly [bigint, bigint, number];
-        if (r0 === 0n || r1 === 0n) continue;
+          const [r0, r1] = reserves as readonly [bigint, bigint, number];
+          if (r0 === 0n || r1 === 0n) return null;
 
-        const isToken0 = (token0 as string).toLowerCase() === info.address.toLowerCase();
-        const tokenReserve = isToken0 ? r0 : r1;
-        const usdcReserve = isToken0 ? r1 : r0;
+          const isToken0 = (token0 as string).toLowerCase() === info.address.toLowerCase();
+          const tokenReserve = isToken0 ? r0 : r1;
+          const usdcReserve = isToken0 ? r1 : r0;
 
-        const price = Number(usdcReserve) / 10 ** 6 / (Number(tokenReserve) / 10 ** info.decimals);
-        if (!Number.isFinite(price) || price <= 0) continue;
+          const price = Number(usdcReserve) / 10 ** 6 / (Number(tokenReserve) / 10 ** info.decimals);
+          if (!Number.isFinite(price) || price <= 0) return null;
 
-        sources.push({
-          name: `${venue.name} (on-chain)`,
-          method: "dex-reserve",
-          priceUsd: price,
-          weight: 1,
-          confidence: 0.8,
-          stale: false,
-          lastUpdated: Date.now(),
-        });
-      } catch (e) {
-        log.debug(`On-chain ${symbol} from ${venue.name} failed: ${e}`);
-      }
+          return {
+            name: `${venue.name} (on-chain)`,
+            method: "dex-reserve" as const,
+            priceUsd: price,
+            weight: 1,
+            confidence: 0.8,
+            stale: false,
+            lastUpdated: Date.now(),
+          } satisfies FairValueSource;
+        })
+    );
+
+    for (const r of venueResults) {
+      if (r.status === "fulfilled" && r.value) sources.push(r.value);
     }
 
     return sources;
