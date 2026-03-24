@@ -111,17 +111,56 @@ export class FairValueService {
   }
 
   private async fetchSources(symbol: string): Promise<FairValueSource[]> {
-    const [cgSource, onChainSources, dbSource] = await Promise.all([
+    const [cgSource, dexSource, onChainSources, dbSource] = await Promise.all([
       this.fetchCoinGecko(symbol).catch(() => null),
-      this.fetchOnChainPrices(symbol).catch(() => [] as FairValueSource[]),
+      this.fetchDexScreener(symbol).catch(() => null),
+      raceTimeout(
+        this.fetchOnChainPrices(symbol).catch(() => [] as FairValueSource[]),
+        4_000,
+        `onchain:${symbol}`,
+      ).catch(() => [] as FairValueSource[]),
       this.fetchDbSnapshot(symbol).catch(() => null),
     ]);
 
     const sources: FairValueSource[] = [];
     if (cgSource) sources.push(cgSource);
+    if (dexSource) sources.push(dexSource);
     sources.push(...onChainSources);
     if (dbSource) sources.push(dbSource);
     return sources;
+  }
+
+  private async fetchDexScreener(symbol: string): Promise<FairValueSource | null> {
+    const info = KNOWN_TOKENS[symbol];
+    if (!info) return null;
+
+    try {
+      const res = await raceTimeout(
+        fetch(`https://api.dexscreener.com/latest/dex/tokens/${info.address}`),
+        3_000,
+        "dexscreener",
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as any;
+      const pairs = data?.pairs;
+      if (!Array.isArray(pairs) || pairs.length === 0) return null;
+
+      const best = pairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
+      const price = parseFloat(best.priceUsd);
+      if (!Number.isFinite(price) || price <= 0) return null;
+
+      return {
+        name: "DexScreener",
+        method: "api",
+        priceUsd: price,
+        weight: 1.5,
+        confidence: 0.85,
+        stale: false,
+        lastUpdated: Date.now(),
+      };
+    } catch {
+      return null;
+    }
   }
 
   private async fetchCoinGecko(symbol: string): Promise<FairValueSource | null> {
