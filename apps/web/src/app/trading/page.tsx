@@ -296,7 +296,18 @@ function TradeParamsForm({ config }: { config: Record<string, number> }) {
   const [saved, setSaved] = useState(false);
 
   const mutation = useMutation({
-    mutationFn: (data: Record<string, number>) => api.risk.updateConfig(data),
+    mutationFn: (data: Record<string, number>) => {
+      const allowed = [
+        "baseTradeSizeUsd", "minNetProfitUsd", "maxTradeSizeUsd",
+        "minPoolLiquidityUsd", "maxGasGwei", "maxSlippageBps",
+        "maxTokenExposureUsd", "maxFailedTxPerHour", "tokenCooldownSeconds",
+        "failureBufferFactor", "slippageBufferFactor",
+      ];
+      const filtered = Object.fromEntries(
+        Object.entries(data).filter(([k, v]) => allowed.includes(k) && Number.isFinite(v))
+      );
+      return api.risk.updateConfig(filtered);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["trading", "status"] });
       qc.invalidateQueries({ queryKey: ["risk", "config"] });
@@ -394,16 +405,27 @@ function TradeParamsForm({ config }: { config: Record<string, number> }) {
         ))}
       </div>
       <div className="px-5 py-4 border-t border-[var(--ax-border)] flex items-center justify-between">
-        <p className="text-xs text-[var(--grey2)]">
-          Changes take effect on the next scan cycle (seconds).
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-xs text-[var(--grey2)]">
+            Changes take effect on the next scan cycle (seconds).
+          </p>
+          {mutation.isError && (
+            <p className="text-xs text-red-400">
+              Save failed: {(mutation.error as Error)?.message ?? "Unknown error"}
+            </p>
+          )}
+        </div>
         <button
           onClick={() => mutation.mutate(form as any)}
           disabled={mutation.isPending}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--ax-red)] hover:opacity-90 disabled:opacity-60 rounded-[2px] text-sm font-medium text-white transition-colors"
+          className={`flex items-center gap-2 px-4 py-2 rounded-[2px] text-sm font-medium text-white transition-colors ${
+            saved
+              ? "bg-emerald-600 hover:bg-emerald-700"
+              : "bg-[var(--ax-red)] hover:opacity-90 disabled:opacity-60"
+          }`}
         >
           <Save className="w-3.5 h-3.5" />
-          {mutation.isPending ? "Saving..." : saved ? "Saved" : "Save Changes"}
+          {mutation.isPending ? "Saving..." : saved ? "Saved ✓" : "Save Changes"}
         </button>
       </div>
     </div>

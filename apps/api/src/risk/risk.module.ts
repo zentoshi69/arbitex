@@ -33,6 +33,8 @@ class UpdateRiskConfigDto {
   @IsOptional() @IsNumber() @IsPositive() maxSlippageBps?: number;
   @IsOptional() @IsNumber() @IsPositive() maxTokenExposureUsd?: number;
   @IsOptional() @IsNumber() @IsPositive() tokenCooldownSeconds?: number;
+  @IsOptional() @IsNumber() failureBufferFactor?: number;
+  @IsOptional() @IsNumber() slippageBufferFactor?: number;
 }
 
 class KillSwitchDto {
