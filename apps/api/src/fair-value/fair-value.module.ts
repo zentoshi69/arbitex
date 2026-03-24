@@ -18,8 +18,8 @@ const log = new Logger("FairValueService");
 const KNOWN_TOKENS: Record<string, { address: string; decimals: number; cgId?: string }> = {
   AVAX:  { address: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", decimals: 18, cgId: "avalanche-2" },
   WRP:   { address: "0xeF282B38D1ceAB52134CA2cc653a569435744687", decimals: 18 },
-  USDC:  { address: "0xA7D7079b0FEAD91F3e65f86E8915Cb59c1a4C664", decimals: 6 },
-  USDT:  { address: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", decimals: 6 },
+  USDC:  { address: "0xA7D7079b0FEAD91F3e65f86E8915Cb59c1a4C664", decimals: 6, cgId: "usd-coin" },
+  USDT:  { address: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", decimals: 6, cgId: "tether" },
 };
 
 const UNISWAPV2_PAIR_ABI = [
@@ -111,21 +111,15 @@ export class FairValueService {
   }
 
   private async fetchSources(symbol: string): Promise<FairValueSource[]> {
-    const [cgSource, dexSource, onChainSources, dbSource] = await Promise.all([
+    const [cgSource, dexSource, dbSource] = await Promise.all([
       this.fetchCoinGecko(symbol).catch(() => null),
       this.fetchDexScreener(symbol).catch(() => null),
-      raceTimeout(
-        this.fetchOnChainPrices(symbol).catch(() => [] as FairValueSource[]),
-        4_000,
-        `onchain:${symbol}`,
-      ).catch(() => [] as FairValueSource[]),
       this.fetchDbSnapshot(symbol).catch(() => null),
     ]);
 
     const sources: FairValueSource[] = [];
     if (cgSource) sources.push(cgSource);
     if (dexSource) sources.push(dexSource);
-    sources.push(...onChainSources);
     if (dbSource) sources.push(dbSource);
     return sources;
   }
@@ -163,31 +157,48 @@ export class FairValueService {
     }
   }
 
+  private cgPriceCache: Record<string, number> = {};
+  private cgCacheAt = 0;
+
   private async fetchCoinGecko(symbol: string): Promise<FairValueSource | null> {
     const info = KNOWN_TOKENS[symbol];
     if (!info?.cgId) return null;
 
-    try {
-      const res = await raceTimeout(fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${info.cgId}&vs_currencies=usd`
-      ), 5_000, "coingecko");
-      if (!res.ok) return null;
-      const data = (await res.json()) as Record<string, any>;
-      const price = data[info.cgId]?.usd;
-      if (typeof price !== "number" || price <= 0) return null;
-
-      return {
-        name: "CoinGecko",
-        method: "api",
-        priceUsd: price,
-        weight: 2,
-        confidence: 0.95,
-        stale: false,
-        lastUpdated: Date.now(),
-      };
-    } catch {
-      return null;
+    if (Date.now() - this.cgCacheAt > 20_000) {
+      try {
+        const allIds = Object.values(KNOWN_TOKENS)
+          .filter((t) => t.cgId)
+          .map((t) => t.cgId!)
+          .join(",");
+        const res = await raceTimeout(
+          fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${allIds}&vs_currencies=usd`),
+          4_000,
+          "coingecko-batch",
+        );
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, any>;
+          for (const [cgId, vals] of Object.entries(data)) {
+            if (typeof vals?.usd === "number") this.cgPriceCache[cgId] = vals.usd;
+          }
+          this.cgCacheAt = Date.now();
+        }
+      } catch {
+        /* CoinGecko unavailable, use stale cache */
+      }
     }
+
+    const price = this.cgPriceCache[info.cgId];
+    if (typeof price !== "number" || price <= 0) return null;
+
+    return {
+      name: "CoinGecko",
+      method: "api",
+      priceUsd: price,
+      weight: 2,
+      confidence: 0.95,
+      stale: Date.now() - this.cgCacheAt > 60_000,
+      lastUpdated: this.cgCacheAt,
+    };
   }
 
   private async fetchOnChainPrices(symbol: string): Promise<FairValueSource[]> {
