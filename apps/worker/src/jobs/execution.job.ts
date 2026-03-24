@@ -15,7 +15,7 @@ import type { Hex } from "viem";
 
 const logger = pino();
 
-const AVAX_PRICE_FALLBACK_USD = 22;
+const AVAX_PRICE_FALLBACK_USD = 10;
 const ENCRYPTION_ALGO = "aes-256-gcm";
 
 function decryptWalletKey(encrypted: string): string {

@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   MessageBody,
   ConnectedSocket,
 } from "@nestjs/websockets";
@@ -13,8 +14,12 @@ import * as jose from "jose";
 import { config } from "@arbitex/config";
 import type { WsEventMap } from "@arbitex/shared-types";
 import { pino } from "pino";
+import RedisModule from "ioredis";
 
+const RedisCtor = (RedisModule as any).default ?? RedisModule;
 const logger = pino({ level: config.LOG_LEVEL });
+
+const REDIS_CHANNEL = "arbitex:ws:events";
 
 // ── Gateway ───────────────────────────────────────────────────────────────────
 @WebSocketGateway({
@@ -33,13 +38,31 @@ const logger = pino({ level: config.LOG_LEVEL });
   namespace: "/ws",
 })
 export class EventsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
 {
   @WebSocketServer()
   server!: Server;
 
   private readonly secret = new TextEncoder().encode(config.JWT_SECRET);
   private readonly clientChannels = new Map<string, Set<string>>();
+  private redisSub: InstanceType<typeof RedisCtor> | null = null;
+
+  afterInit() {
+    this.redisSub = new RedisCtor(config.REDIS_URL);
+    this.redisSub.subscribe(REDIS_CHANNEL).catch((err: unknown) =>
+      logger.warn({ err }, "Redis subscribe failed"),
+    );
+    this.redisSub.on("message", (_channel: string, message: string) => {
+      try {
+        const { event, data } = JSON.parse(message);
+        if (event && this.server) {
+          this.server.emit(event, data);
+          logger.debug({ event }, "Relayed Redis event to WS clients");
+        }
+      } catch { /* malformed message */ }
+    });
+    logger.info("WS gateway subscribed to Redis for live events");
+  }
 
   async handleConnection(client: Socket) {
     const token = client.handshake.auth["token"] as string | undefined;

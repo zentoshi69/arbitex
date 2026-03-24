@@ -1,5 +1,5 @@
 const STABLECOINS = new Set(["USDC", "USDC.e", "USDT", "DAI", "BUSD", "USDbC", "FRAX"]);
-let _avaxPriceUsd = 22;
+let _avaxPriceUsd = 10;
 export function setAvaxPriceUsd(price: number) { _avaxPriceUsd = price; }
 export function getAvaxPriceUsd() { return _avaxPriceUsd; }
 

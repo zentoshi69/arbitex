@@ -3,6 +3,7 @@ node_modules
 **/dist
 **/.next
 **/.turbo
+.pnpm-store
 
 .git
 .github

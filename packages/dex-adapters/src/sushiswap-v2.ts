@@ -66,7 +66,13 @@ export class SushiSwapV2Adapter implements IDexAdapter {
   readonly protocol: string;
 
   private pairCache = new Map<string, NormalizedPool>();
+  private pairAddressCache = new Map<string, ViemAddress>();
   private tokenMetaCache = new Map<string, { symbol: string; decimals: number }>();
+
+  private pairCacheKey(a: string, b: string): string {
+    const [lo, hi] = a.toLowerCase() < b.toLowerCase() ? [a, b] : [b, a];
+    return `${lo}:${hi}`;
+  }
 
   constructor(
     private readonly client: PublicClient,
@@ -102,44 +108,76 @@ export class SushiSwapV2Adapter implements IDexAdapter {
     if (!tokens || tokens.length < 2) return [];
     const pools: NormalizedPool[] = [];
 
+    type PairLookup = { tokenA: ViemAddress; tokenB: ViemAddress; key: string };
+    const uncached: PairLookup[] = [];
+    const knownPairs: ViemAddress[] = [];
+
     for (let i = 0; i < tokens.length - 1; i++) {
       for (let j = i + 1; j < tokens.length; j++) {
         const tokenA = tokens[i] as ViemAddress;
         const tokenB = tokens[j] as ViemAddress;
+        const key = this.pairCacheKey(tokenA, tokenB);
+        const cached = this.pairAddressCache.get(key);
+        if (cached) {
+          knownPairs.push(cached);
+        } else {
+          uncached.push({ tokenA, tokenB, key });
+        }
+      }
+    }
 
-        try {
-          const pairAddress = await this.client.readContract({
+    if (uncached.length > 0) {
+      const BATCH = 20;
+      for (let b = 0; b < uncached.length; b += BATCH) {
+        const batch = uncached.slice(b, b + BATCH);
+        const results = await this.client.multicall({
+          contracts: batch.map((l) => ({
             address: this.cfg.factoryAddress as ViemAddress,
             abi: FACTORY_ABI,
-            functionName: "getPair",
-            args: [tokenA, tokenB],
-          });
+            functionName: "getPair" as const,
+            args: [l.tokenA, l.tokenB] as const,
+          })),
+          allowFailure: true,
+        });
+        for (let k = 0; k < batch.length; k++) {
+          const r = results[k]!;
+          if (r.status !== "success") continue;
+          const addr = r.result as ViemAddress;
+          if (!addr || addr === "0x0000000000000000000000000000000000000000") continue;
+          this.pairAddressCache.set(batch[k]!.key, addr);
+          knownPairs.push(addr);
+        }
+      }
+    }
 
-          if (pairAddress === "0x0000000000000000000000000000000000000000") continue;
+    const BATCH_STATE = 8;
+    for (let b = 0; b < knownPairs.length; b += BATCH_STATE) {
+      const batch = knownPairs.slice(b, b + BATCH_STATE);
+      const contracts = batch.flatMap((addr) => [
+        { address: addr, abi: PAIR_ABI, functionName: "getReserves" as const },
+        { address: addr, abi: PAIR_ABI, functionName: "token0" as const },
+        { address: addr, abi: PAIR_ABI, functionName: "token1" as const },
+      ]);
+      try {
+        const stateResults = await this.client.multicall({ contracts, allowFailure: true });
+        for (let k = 0; k < batch.length; k++) {
+          const base = k * 3;
+          const resR = stateResults[base];
+          const t0R = stateResults[base + 1];
+          const t1R = stateResults[base + 2];
+          if (resR?.status !== "success" || t0R?.status !== "success" || t1R?.status !== "success") continue;
 
-          const [reserves, token0, token1] = await this.client.multicall({
-            contracts: [
-              { address: pairAddress, abi: PAIR_ABI, functionName: "getReserves" },
-              { address: pairAddress, abi: PAIR_ABI, functionName: "token0" },
-              { address: pairAddress, abi: PAIR_ABI, functionName: "token1" },
-            ],
-            allowFailure: false,
-          });
-
-          const [reserve0, reserve1] = reserves as [bigint, bigint, number];
-          const t0Addr = (token0 as string).toLowerCase() as Address;
-          const t1Addr = (token1 as string).toLowerCase() as Address;
+          const [reserve0, reserve1] = resR.result as [bigint, bigint, number];
+          const t0Addr = (t0R.result as string).toLowerCase() as Address;
+          const t1Addr = (t1R.result as string).toLowerCase() as Address;
 
           const [t0Meta, t1Meta] = await Promise.all([
             this.resolveTokenMeta(t0Addr as ViemAddress),
             this.resolveTokenMeta(t1Addr as ViemAddress),
           ]);
 
-          const r0 = Number(reserve0);
-          const r1 = Number(reserve1);
-
-          const adj0 = r0 / 10 ** t0Meta.decimals;
-          const adj1 = r1 / 10 ** t1Meta.decimals;
+          const adj0 = Number(reserve0) / 10 ** t0Meta.decimals;
+          const adj1 = Number(reserve1) / 10 ** t1Meta.decimals;
           const price0Per1 = adj1 > 0 ? adj0 / adj1 : 0;
           const price1Per0 = adj0 > 0 ? adj1 / adj0 : 0;
 
@@ -148,7 +186,7 @@ export class SushiSwapV2Adapter implements IDexAdapter {
           );
 
           const pool: NormalizedPool = {
-            poolId: pairAddress.toLowerCase(),
+            poolId: batch[k]!.toLowerCase(),
             venueId: this.venueId,
             venueName: this.venueName,
             chainId: this.chainId,
@@ -166,11 +204,11 @@ export class SushiSwapV2Adapter implements IDexAdapter {
           };
 
           pools.push(pool);
-          this.pairCache.set(`${tokenA}-${tokenB}`, pool);
-          this.pairCache.set(`${tokenB}-${tokenA}`, pool);
-        } catch {
-          // Pair doesn't exist or call failed
+          this.pairCache.set(`${t0Addr}-${t1Addr}`, pool);
+          this.pairCache.set(`${t1Addr}-${t0Addr}`, pool);
         }
+      } catch {
+        // Batch failed — skip
       }
     }
 

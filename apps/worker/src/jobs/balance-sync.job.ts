@@ -11,7 +11,7 @@ const NATIVE_WRAPPED: Record<string, string> = {
   WAVAX: "avalanche-2",
 };
 
-let _nativePrice = { usd: 22, fetchedAt: 0 };
+let _nativePrice = { usd: 10, fetchedAt: 0 };
 
 async function getNativePriceUsd(symbol: string): Promise<number> {
   const cgId = NATIVE_WRAPPED[symbol];

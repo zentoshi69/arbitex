@@ -42,6 +42,8 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: always
     logging: *default-logging
+    ports:
+      - "3001:3001"
     healthcheck:
       test:
         [
@@ -62,9 +64,11 @@ services:
       OPERATOR_API_KEY: ${OPERATOR_API_KEY:-dev_operator_api_key_replace_in_production}
       PORT: 3001
       CHAIN_ID: ${CHAIN_ID:-43114}
-      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-https://bitrunner3001.com}
+      DASHBOARD_ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:3000}
       OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-arbitex2026}
       AVALANCHE_RPC_URL: ${AVALANCHE_RPC_URL:-https://avalanche.drpc.org}
+      MOCK_EXECUTION: ${MOCK_EXECUTION:-true}
+      DEFAULT_MIN_POOL_LIQUIDITY_USD: ${DEFAULT_MIN_POOL_LIQUIDITY_USD:-5000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -105,6 +109,8 @@ services:
       dockerfile: apps/web/Dockerfile
     restart: always
     logging: *default-logging
+    ports:
+      - "3000:3000"
     environment:
       OPERATOR_PASSWORD: ${OPERATOR_PASSWORD:-arbitex2026}
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_replace_in_production_min_256_bits}

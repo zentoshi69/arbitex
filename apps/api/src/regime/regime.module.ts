@@ -7,15 +7,34 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { prisma } from "@arbitex/db";
+import { config } from "@arbitex/config";
 import { RegimeClassifier, REGIME_CONFIGS } from "@arbitex/risk-engine";
 import type { RegimeSnapshot } from "@arbitex/risk-engine";
 import { JwtAuthGuard, RolesGuard } from "../auth/auth.module.js";
+
+const BASE_PAIR_SYMBOLS = ["WAVAX", "USDC", "USDC.e", "USDT"];
 
 @Injectable()
 export class RegimeService {
   private readonly classifier = new RegimeClassifier(prisma);
 
+  private async loadTrackedTokens(): Promise<string[]> {
+    const [tracked, basePairs] = await Promise.all([
+      prisma.token.findMany({
+        where: { chainId: config.CHAIN_ID, isTracked: true },
+        select: { address: true },
+      }),
+      prisma.token.findMany({
+        where: { chainId: config.CHAIN_ID, isEnabled: true, symbol: { in: BASE_PAIR_SYMBOLS } },
+        select: { address: true },
+      }),
+    ]);
+    return [...new Set([...tracked, ...basePairs].map((t) => t.address))];
+  }
+
   async classify(): Promise<RegimeSnapshot> {
+    const tokens = await this.loadTrackedTokens();
+    this.classifier.setTrackedTokens(tokens);
     return this.classifier.classify();
   }
 

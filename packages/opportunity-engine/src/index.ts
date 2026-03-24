@@ -65,7 +65,7 @@ export type PoolIndexerConfig = {
 export function computeProfitBreakdown(params: {
   grossSpreadUsd: number;
   gasUnits: bigint;
-  gasPriceGwei: bigint;
+  gasPriceWei: bigint;
   ethPriceUsd: number;
   buyFeeBps: number;
   sellFeeBps: number;
@@ -76,7 +76,7 @@ export function computeProfitBreakdown(params: {
   priceImpactUsd?: number;
 }): ProfitBreakdown {
   const gasEth =
-    Number(params.gasUnits * params.gasPriceGwei) / 1e9;
+    Number(params.gasUnits * params.gasPriceWei) / 1e18;
   const gasEstimateUsd = gasEth * params.ethPriceUsd;
 
   const venueFeesUsd =
@@ -329,7 +329,6 @@ export class OpportunityEngine {
     }
 
     const gasPriceWei = await this.client.getGasPrice();
-    const gasPriceGwei = gasPriceWei / 1_000_000_000n;
 
     const scored: OpportunityCandidate[] = [];
     let rejectReasons: Record<string, number> = {};
@@ -338,7 +337,7 @@ export class OpportunityEngine {
       const candidate = await this.scoreCandidate(
         buyPool,
         sellPool,
-        gasPriceGwei,
+        gasPriceWei,
         cfg
       );
       if (!candidate) {
@@ -405,26 +404,28 @@ export class OpportunityEngine {
             this.poolCache.set(pool.poolId, pool);
           }
 
+          // Fire-and-forget snapshot writes — analytics only, must not block the scan
           const now = new Date();
-          const MAX_DECIMAL_36_18 = 999_999_999_999_999_999n;
-          for (const pool of pools) {
-            const dbPoolId = await this.resolveDbPoolId(pool);
-            if (!dbPoolId) continue;
-            const p0 = Math.abs(pool.price0Per1);
-            const p1 = Math.abs(pool.price1Per0);
-            if (!Number.isFinite(p0) || !Number.isFinite(p1) || p0 > 1e17 || p1 > 1e17) continue;
-            await this.db.poolSnapshot.create({
-              data: {
-                poolId: dbPoolId,
-                price0Per1: p0,
-                price1Per0: p1,
-                liquidityUsd: Math.min(pool.liquidityUsd, 1e15),
-                sqrtPriceX96: pool.sqrtPriceX96 ? String(pool.sqrtPriceX96) : null,
-                tick: pool.tick ?? null,
-                timestamp: now,
-              },
-            }).catch(() => {});
-          }
+          void Promise.allSettled(
+            pools.map(async (pool) => {
+              const dbPoolId = await this.resolveDbPoolId(pool);
+              if (!dbPoolId) return;
+              const p0 = Math.abs(pool.price0Per1);
+              const p1 = Math.abs(pool.price1Per0);
+              if (!Number.isFinite(p0) || !Number.isFinite(p1) || p0 > 1e17 || p1 > 1e17) return;
+              await this.db.poolSnapshot.create({
+                data: {
+                  poolId: dbPoolId,
+                  price0Per1: p0,
+                  price1Per0: p1,
+                  liquidityUsd: Math.min(pool.liquidityUsd, 1e15),
+                  sqrtPriceX96: pool.sqrtPriceX96 ? String(pool.sqrtPriceX96) : null,
+                  tick: pool.tick ?? null,
+                  timestamp: now,
+                },
+              }).catch(() => {});
+            })
+          );
         } catch (err) {
           console.warn(`Adapter ${adapter.venueId} refresh failed:`, err);
         }
@@ -473,7 +474,7 @@ export class OpportunityEngine {
   private async scoreCandidate(
     buyPool: NormalizedPool,
     sellPool: NormalizedPool,
-    gasPriceGwei: bigint,
+    gasPriceWei: bigint,
     cfg: PoolIndexerConfig
   ): Promise<OpportunityCandidate | null> {
     try {
@@ -513,12 +514,12 @@ export class OpportunityEngine {
       }
 
       const gasUnits = 500_000n;
-      const gasFailureUsd = (Number(gasUnits * gasPriceGwei) / 1e9) * cfg.ethPriceUsd;
+      const gasFailureUsd = (Number(gasUnits * gasPriceWei) / 1e18) * cfg.ethPriceUsd;
 
       const profitBreakdown = computeProfitBreakdown({
         grossSpreadUsd,
         gasUnits,
-        gasPriceGwei,
+        gasPriceWei,
         ethPriceUsd: cfg.ethPriceUsd,
         buyFeeBps: buyPool.feeBps,
         sellFeeBps: sellPool.feeBps,

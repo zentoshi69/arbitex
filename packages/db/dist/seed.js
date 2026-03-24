@@ -26,7 +26,7 @@ async function main() {
             chainId: 43114,
             name: "Avalanche C-Chain",
             shortName: "AVAX",
-            rpcUrl: process.env["AVALANCHE_RPC_URL"] ?? "https://api.avax.network/ext/bc/C/rpc",
+            rpcUrl: process.env["AVALANCHE_RPC_URL"] ?? "https://dark-practical-theorem.avalanche-mainnet.quiknode.pro/f5e3d1af2e5937c54596182fce5715cd9becd177/ext/bc/C/rpc/",
             isEnabled: true,
         },
         update: {},
@@ -35,7 +35,9 @@ async function main() {
     // ── Tokens (Avalanche) ─────────────────────────────────────────────────────
     const avaxTokenDefs = [
         { address: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", symbol: "WAVAX", name: "Wrapped AVAX", decimals: 18 },
-        { address: "0xeF282B38D1ceAB52134CA2cc653a569435744687", symbol: "WRP", name: "WarpChain Token", decimals: 18 },
+        { address: "0xeF282B38D1ceAB52134CA2cc653a569435744687", symbol: "WRP", name: "WarpChain Token", decimals: 18, isTracked: true, accentColor: "E84142" },
+        { address: "0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd", symbol: "JOE", name: "JOE Token", decimals: 18, isTracked: true, accentColor: "F59E0B" },
+        { address: "0x60781C2586D68229fde47564546784ab3fACA982", symbol: "PNG", name: "Pangolin", decimals: 18, isTracked: true, accentColor: "4DD68C" },
         { address: "0xA7D7079b0FEAD91F3e65f86E8915Cb59c1a4C664", symbol: "USDC.e", name: "USD Coin (Bridged)", decimals: 6 },
         { address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", symbol: "USDC", name: "USD Coin (Native)", decimals: 6 },
         { address: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", symbol: "USDT", name: "Tether USD", decimals: 6 },
@@ -46,8 +48,8 @@ async function main() {
     for (const t of avaxTokenDefs) {
         const token = await prisma.token.upsert({
             where: { chainId_address: { chainId: 43114, address: t.address } },
-            create: { ...t, chainId: 43114, flags: [], isEnabled: true },
-            update: { symbol: t.symbol, name: t.name, decimals: t.decimals, isEnabled: true },
+            create: { ...t, chainId: 43114, flags: [], isEnabled: true, isTracked: t.isTracked ?? false, accentColor: t.accentColor ?? null },
+            update: { symbol: t.symbol, name: t.name, decimals: t.decimals, isEnabled: true, isTracked: t.isTracked ?? false, accentColor: t.accentColor ?? null },
         });
         tokenMap[t.symbol] = token;
     }
@@ -200,6 +202,17 @@ async function main() {
         { venue: blackholeV3, token0: "WAVAX", token1: "USDC", address: "0xa02ec3ba8d17887567672b2cdcaf525534636ea0", feeBps: 5 },
         { venue: blackholeV3, token0: "WAVAX", token1: "USDC", address: "0x41100c6d2c6920b10d12cd8d59c8a9aa2ef56fc7", feeBps: 5 },
         { venue: blackholeV3, token0: "USDC", token1: "WRP", address: "0xa4c81fb39ebf487cbd97e8b1c066c9fc04488c00", feeBps: 500 },
+        // ─── JOE cross-venue pools (verified via factory.getPair) ───
+        { venue: pangolin, token0: "JOE", token1: "WAVAX", address: "0x134Ad631337E8Bf7E01bA641fB650070a2e0efa8", feeBps: 30 },
+        { venue: traderJoe, token0: "JOE", token1: "WAVAX", address: "0x454E67025631C065d3cFAD6d71E6892f74487a15", feeBps: 30 },
+        { venue: sushiSwap, token0: "JOE", token1: "WAVAX", address: "0xb73c30C2741B8C62730B58B10CeAa55bdDdA7327", feeBps: 30 },
+        { venue: pangolin, token0: "JOE", token1: "USDC", address: "0x20aFA79976BaA1A23f3c13bC2588236489fF46b5", feeBps: 30 },
+        { venue: traderJoe, token0: "JOE", token1: "USDC", address: "0x3bc40d4307cD946157447CD55d70ee7495bA6140", feeBps: 30 },
+        // ─── PNG cross-venue pools (verified via factory.getPair) ───
+        { venue: pangolin, token0: "PNG", token1: "WAVAX", address: "0xd7538cABBf8605BdE1f4901B47B8D42c61DE0367", feeBps: 30 },
+        { venue: traderJoe, token0: "PNG", token1: "WAVAX", address: "0x3dAF1C6268362214eBB064647555438c6f365F96", feeBps: 30 },
+        { venue: sushiSwap, token0: "PNG", token1: "WAVAX", address: "0xa1708efD71E516A2D0Ebd7eC8D877C02d4d2De6d", feeBps: 30 },
+        { venue: pangolin, token0: "PNG", token1: "USDC", address: "0x1784B2ff6841d46163fBf817b3FEb98A0E163E0f", feeBps: 30 },
         // ─── Uniswap V3 Avalanche (verified via factory.getPool) ───
         { venue: uniV3Avax, token0: "WAVAX", token1: "USDC", address: "0xfAe3f424a0a47706811521E3ee268f00cFb5c45E", feeBps: 5 },
         { venue: uniV3Avax, token0: "WAVAX", token1: "USDC", address: "0x0E663593657B064e1baE76d28625Df5D0eBd4421", feeBps: 30 },
@@ -243,10 +256,11 @@ async function main() {
     console.log(`  Wallet balances seeded`);
     // ── Config overrides ───────────────────────────────────────────────────────
     const defaults = [
+        { key: "baseTradeSizeUsd", value: "500" },
         { key: "maxTradeSizeUsd", value: "1000" },
-        { key: "minNetProfitUsd", value: "5" },
+        { key: "minNetProfitUsd", value: "0.5" },
         { key: "maxGasGwei", value: "100" },
-        { key: "minPoolLiquidityUsd", value: "100000" },
+        { key: "minPoolLiquidityUsd", value: "1000" },
         { key: "maxFailedTxPerHour", value: "5" },
         { key: "maxSlippageBps", value: "50" },
         { key: "maxTokenExposureUsd", value: "25000" },

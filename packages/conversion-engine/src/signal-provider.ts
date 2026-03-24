@@ -109,7 +109,7 @@ export async function fetchMarketSignals(): Promise<MarketSignals> {
 
   const btcPrices = cache.btc?.prices ?? [];
   const wrpPrice = cache.wrp?.price ?? 0.0061;
-  const avaxPrice = cache.avax?.price ?? 22;
+  const avaxPrice = cache.avax?.price ?? 10;
   const wrpLiquidity = cache.wrp?.liquidity ?? 0;
   const wrpVolume = cache.wrp?.volume24h ?? 0;
   const avaxVolume = cache.avax?.volume24h ?? 0;

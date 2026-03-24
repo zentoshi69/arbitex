@@ -97,6 +97,7 @@ export class UniswapV3Adapter implements IDexAdapter {
   readonly protocol = "uniswap_v3";
 
   private tokenMetaCache = new Map<string, { symbol: string; decimals: number }>();
+  private poolAddressCache = new Map<string, ViemAddress>();
 
   constructor(
     private readonly client: PublicClient,
@@ -106,6 +107,11 @@ export class UniswapV3Adapter implements IDexAdapter {
     this.venueId = cfg.venueId;
     this.chainId = cfg.chainId;
     this.venueName = venueName ?? "Uniswap V3";
+  }
+
+  private poolCacheKey(a: string, b: string, fee: number): string {
+    const [lo, hi] = a.toLowerCase() < b.toLowerCase() ? [a, b] : [b, a];
+    return `${lo}:${hi}:${fee}`;
   }
 
   private async resolveTokenMeta(addr: ViemAddress): Promise<{ symbol: string; decimals: number }> {
@@ -164,74 +170,107 @@ export class UniswapV3Adapter implements IDexAdapter {
 
     const pools: NormalizedPool[] = [];
 
-    // Build all token pairs
+    type PoolLookup = { tokenA: ViemAddress; tokenB: ViemAddress; fee: number; key: string };
+    const uncachedLookups: PoolLookup[] = [];
+    const knownPools: { addr: ViemAddress; fee: number }[] = [];
+
     for (let i = 0; i < tokens.length - 1; i++) {
       for (let j = i + 1; j < tokens.length; j++) {
         const tokenA = tokens[i] as ViemAddress;
         const tokenB = tokens[j] as ViemAddress;
-
         for (const fee of this.cfg.feeTiers) {
-          try {
-            const poolAddress = await this.client.readContract({
-              address: this.cfg.factoryAddress as ViemAddress,
-              abi: FACTORY_ABI,
-              functionName: "getPool",
-              args: [tokenA, tokenB, fee],
-            });
-
-            if (poolAddress === "0x0000000000000000000000000000000000000000") {
-              continue;
-            }
-
-            const [slot0, liquidity, token0, token1] =
-              await this.client.multicall({
-                contracts: [
-                  { address: poolAddress, abi: POOL_ABI, functionName: "slot0" },
-                  { address: poolAddress, abi: POOL_ABI, functionName: "liquidity" },
-                  { address: poolAddress, abi: POOL_ABI, functionName: "token0" },
-                  { address: poolAddress, abi: POOL_ABI, functionName: "token1" },
-                ],
-                allowFailure: false,
-              });
-
-            const sqrtPrice = BigInt((slot0 as any)[0]);
-            const liq = liquidity as bigint;
-
-            const t0Addr = (token0 as string).toLowerCase() as Address;
-            const t1Addr = (token1 as string).toLowerCase() as Address;
-            const [t0Meta, t1Meta] = await Promise.all([
-              this.resolveTokenMeta(t0Addr as ViemAddress),
-              this.resolveTokenMeta(t1Addr as ViemAddress),
-            ]);
-
-            const price0Per1 = this.sqrtPriceX96ToPrice(sqrtPrice, t0Meta.decimals, t1Meta.decimals);
-            const liquidityUsd = estimateV3LiquidityUsd(
-              liq, sqrtPrice, t0Meta.decimals, t1Meta.decimals, t0Meta.symbol, t1Meta.symbol
-            );
-
-            pools.push({
-              poolId: poolAddress.toLowerCase(),
-              venueId: this.venueId,
-              venueName: this.venueName,
-              chainId: this.chainId,
-              token0: t0Addr,
-              token1: t1Addr,
-              token0Symbol: t0Meta.symbol,
-              token1Symbol: t1Meta.symbol,
-              token0Decimals: t0Meta.decimals,
-              token1Decimals: t1Meta.decimals,
-              feeBps: fee / 100,
-              liquidityUsd,
-              price0Per1,
-              price1Per0: price0Per1 > 0 ? 1 / price0Per1 : 0,
-              sqrtPriceX96: sqrtPrice.toString(),
-              tick: Number((slot0 as any)[1]),
-              lastUpdated: new Date(),
-            });
-          } catch {
-            // Pool not found or error — skip
+          const key = this.poolCacheKey(tokenA, tokenB, fee);
+          const cached = this.poolAddressCache.get(key);
+          if (cached) {
+            knownPools.push({ addr: cached, fee });
+          } else {
+            uncachedLookups.push({ tokenA, tokenB, fee, key });
           }
         }
+      }
+    }
+
+    if (uncachedLookups.length > 0) {
+      const BATCH = 20;
+      for (let b = 0; b < uncachedLookups.length; b += BATCH) {
+        const batch = uncachedLookups.slice(b, b + BATCH);
+        const results = await this.client.multicall({
+          contracts: batch.map((l) => ({
+            address: this.cfg.factoryAddress as ViemAddress,
+            abi: FACTORY_ABI,
+            functionName: "getPool" as const,
+            args: [l.tokenA, l.tokenB, l.fee] as const,
+          })),
+          allowFailure: true,
+        });
+        for (let k = 0; k < batch.length; k++) {
+          const r = results[k]!;
+          if (r.status !== "success") continue;
+          const addr = r.result as ViemAddress;
+          if (!addr || addr === "0x0000000000000000000000000000000000000000") continue;
+          this.poolAddressCache.set(batch[k]!.key, addr);
+          knownPools.push({ addr, fee: batch[k]!.fee });
+        }
+      }
+    }
+
+    const BATCH_STATE = 6;
+    for (let b = 0; b < knownPools.length; b += BATCH_STATE) {
+      const batch = knownPools.slice(b, b + BATCH_STATE);
+      const contracts = batch.flatMap((p) => [
+        { address: p.addr, abi: POOL_ABI, functionName: "slot0" as const },
+        { address: p.addr, abi: POOL_ABI, functionName: "liquidity" as const },
+        { address: p.addr, abi: POOL_ABI, functionName: "token0" as const },
+        { address: p.addr, abi: POOL_ABI, functionName: "token1" as const },
+      ]);
+      try {
+        const stateResults = await this.client.multicall({ contracts, allowFailure: true });
+        for (let k = 0; k < batch.length; k++) {
+          const base = k * 4;
+          const slot0R = stateResults[base];
+          const liqR = stateResults[base + 1];
+          const t0R = stateResults[base + 2];
+          const t1R = stateResults[base + 3];
+          if (slot0R?.status !== "success" || liqR?.status !== "success" ||
+              t0R?.status !== "success" || t1R?.status !== "success") continue;
+
+          const sqrtPrice = BigInt((slot0R.result as any)[0]);
+          const liq = liqR.result as bigint;
+          const t0Addr = (t0R.result as string).toLowerCase() as Address;
+          const t1Addr = (t1R.result as string).toLowerCase() as Address;
+
+          const [t0Meta, t1Meta] = await Promise.all([
+            this.resolveTokenMeta(t0Addr as ViemAddress),
+            this.resolveTokenMeta(t1Addr as ViemAddress),
+          ]);
+
+          const price0Per1 = this.sqrtPriceX96ToPrice(sqrtPrice, t0Meta.decimals, t1Meta.decimals);
+          const liquidityUsd = estimateV3LiquidityUsd(
+            liq, sqrtPrice, t0Meta.decimals, t1Meta.decimals, t0Meta.symbol, t1Meta.symbol
+          );
+
+          pools.push({
+            poolId: batch[k]!.addr.toLowerCase(),
+            venueId: this.venueId,
+            venueName: this.venueName,
+            chainId: this.chainId,
+            token0: t0Addr,
+            token1: t1Addr,
+            token0Symbol: t0Meta.symbol,
+            token1Symbol: t1Meta.symbol,
+            token0Decimals: t0Meta.decimals,
+            token1Decimals: t1Meta.decimals,
+            feeBps: batch[k]!.fee / 100,
+            liquidityUsd,
+            price0Per1,
+            price1Per0: price0Per1 > 0 ? 1 / price0Per1 : 0,
+            sqrtPriceX96: sqrtPrice.toString(),
+            tick: Number((slot0R.result as any)[1]),
+            lastUpdated: new Date(),
+          });
+        }
+      } catch {
+        // Batch failed — skip
       }
     }
 

@@ -233,7 +233,7 @@ export const RiskConfigSchema = z.object({
   maxFailedTxPerHour: z.number().int().positive().default(5),
   maxGasGwei: z.number().positive().default(100),
   tokenCooldownSeconds: z.number().int().positive().default(300),
-  minNetProfitUsd: z.number().positive().default(0.5),
+  minNetProfitUsd: z.number().nonnegative().default(0.5),
   failureBufferFactor: z.number().min(0).max(1).default(0.05),
   slippageBufferFactor: z.number().min(0).max(0.1).default(0.002),
 });

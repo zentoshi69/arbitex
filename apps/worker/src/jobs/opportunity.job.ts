@@ -7,8 +7,21 @@ import { OpportunityState } from "@arbitex/shared-types";
 import type { ArbitexPublicClient } from "@arbitex/chain";
 import type { queues } from "../index.js";
 import { pino } from "pino";
+import RedisModule from "ioredis";
+import { config } from "@arbitex/config";
 
+const RedisCtor = (RedisModule as any).default ?? RedisModule;
 const logger = pino();
+
+const REDIS_CHANNEL = "arbitex:ws:events";
+let _redisPub: InstanceType<typeof RedisCtor> | null = null;
+function getPublisher(): InstanceType<typeof RedisCtor> {
+  if (!_redisPub) _redisPub = new RedisCtor(config.REDIS_URL);
+  return _redisPub;
+}
+function publishWsEvent(event: string, data: Record<string, unknown>) {
+  getPublisher().publish(REDIS_CHANNEL, JSON.stringify({ event, data })).catch(() => {});
+}
 
 const MAX_USD = 9_999_999_999_999; // fits Decimal(20,4)
 const MAX_BPS = 999_999;           // fits Decimal(10,4)
@@ -126,6 +139,17 @@ export async function processOpportunityJob(
     "Opportunity detected"
   );
 
+  publishWsEvent("opportunity:new", {
+    id: opp.id,
+    state: opp.state,
+    tokenInSymbol: candidate.tokenInSymbol,
+    tokenOutSymbol: candidate.tokenOutSymbol,
+    grossSpreadUsd: candidate.profitBreakdown.grossSpreadUsd,
+    netProfitUsd: candidate.profitBreakdown.netProfitUsd,
+    buyVenueName: candidate.buyPool.venueName,
+    sellVenueName: candidate.sellPool.venueName,
+  });
+
   // ── Risk evaluation ────────────────────────────────────────────────────────
   let gasGwei = 25; // fallback for Avalanche C-Chain
   try {
@@ -157,6 +181,7 @@ export async function processOpportunityJob(
         riskDecision: riskDecision as any,
       },
     });
+    publishWsEvent("opportunity:update", { id: opp.id, state: OpportunityState.BLOCKED });
     logger.info(
       { opportunityId: opp.id, reasons: riskDecision.rejectionReasons },
       "Opportunity blocked by risk engine"
@@ -186,6 +211,7 @@ export async function processOpportunityJob(
     }
   );
 
+  publishWsEvent("opportunity:update", { id: opp.id, state: OpportunityState.APPROVED });
   logger.info({ opportunityId: opp.id }, "Opportunity approved and queued for execution");
 }
 

@@ -70,7 +70,7 @@ async function loadTargetTokens(): Promise<string[]> {
 }
 
 // ── Fetch native token price from CoinGecko ──────────────────────────────────
-let cachedNativePrice = { usd: 22, fetchedAt: 0 };
+let cachedNativePrice = { usd: 10, fetchedAt: 0 };
 
 async function fetchNativeTokenPriceUsd(): Promise<number> {
   if (Date.now() - cachedNativePrice.fetchedAt < 60_000) return cachedNativePrice.usd;
@@ -350,7 +350,7 @@ function startLPWatcher() {
 }
 
 // Pool refresh → opportunity scoring (regime-aware)
-const POOL_REFRESH_TIMEOUT_MS = 25_000;
+const POOL_REFRESH_TIMEOUT_MS = 120_000;
 
 const poolRefreshWorker = new Worker(
   "pool-refresh",
@@ -613,7 +613,7 @@ async function startSchedulers() {
   await queues.poolRefresh.add(
     "refresh-all",
     {},
-    { repeat: { every: 10_000 }, removeOnComplete: 10, removeOnFail: false }
+    { repeat: { every: 50_000 }, removeOnComplete: 10, removeOnFail: false }
   );
 
   // Balance sync every 60 seconds
