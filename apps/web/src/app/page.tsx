@@ -59,6 +59,17 @@ export default function OverviewPage() {
   const wallet = useWallet();
   const { activeToken, isAll } = useTokenContext();
 
+  const tradingQ = useQuery({
+    queryKey: ["ui", "trading-status-overview"],
+    queryFn: () => api.trading.status(),
+    refetchInterval: 10_000,
+    staleTime: 8_000,
+    retry: 1,
+  });
+
+  const isMock = tradingQ.data?.mockExecution !== false;
+  const isLive = tradingQ.data?.tradingEnabled && !tradingQ.data?.mockExecution;
+
   const cgQ = useQuery({
     queryKey: ["ui", "coingecko", "avax-btc"],
     queryFn: async () => {
@@ -165,7 +176,7 @@ export default function OverviewPage() {
               <span className="font-mono text-[9px] uppercase tracking-[0.22em] text-[var(--red)]">
                 {activeToken
                   ? `${activeToken.symbol} · Avalanche C-Chain · Cross-DEX`
-                  : "Avalanche C-Chain · Pangolin V2 · Trader Joe V1"}
+                  : "Avalanche C-Chain · Multi-DEX Arbitrage"}
               </span>
               <span className="h-px w-[40px] bg-[var(--red)]" />
             </div>
@@ -188,7 +199,7 @@ export default function OverviewPage() {
                 <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--offwhite)]">
                   <span className="text-[var(--grey2)]">[</span>
                   <span className="h-[6px] w-[6px] rounded-full bg-[var(--red)] [animation:pulse_1.4s_ease-in-out_infinite]" />
-                  <span className="text-[var(--red)]">Shadow Mode Active</span>
+                  <span className="text-[var(--red)]">{isLive ? "Live Trading" : "Shadow Mode"}</span>
                   <span className="text-[var(--grey2)]">]</span>
                 </div>
 
@@ -239,7 +250,7 @@ export default function OverviewPage() {
           <div>
             Chain <span className="text-[var(--offwhite)]">43114</span>
           </div>
-          <div className="text-[#4DD68C]">Shadow Mode Active</div>
+          <div className={isLive ? "text-[#4DD68C]" : "text-[var(--red)]"}>{isLive ? "Live Trading" : "Shadow Mode"}</div>
         </div>
       </div>
 

@@ -48,8 +48,8 @@ async function main() {
   }[] = [
     { address: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", symbol: "WAVAX",  name: "Wrapped AVAX",            decimals: 18 },
     { address: "0xeF282B38D1ceAB52134CA2cc653a569435744687", symbol: "WRP",    name: "WarpChain Token",          decimals: 18, isTracked: true, accentColor: "E84142" },
-    { address: "0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd", symbol: "JOE",    name: "JOE Token",               decimals: 18, isTracked: true, accentColor: "F59E0B" },
-    { address: "0x60781C2586D68229fde47564546784ab3fACA982", symbol: "PNG",    name: "Pangolin",                decimals: 18, isTracked: true, accentColor: "4DD68C" },
+    { address: "0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd", symbol: "JOE",    name: "JOE Token",               decimals: 18 },
+    { address: "0x60781C2586D68229fde47564546784ab3fACA982", symbol: "PNG",    name: "Pangolin",                decimals: 18 },
     { address: "0xA7D7079b0FEAD91F3e65f86E8915Cb59c1a4C664", symbol: "USDC.e", name: "USD Coin (Bridged)",      decimals: 6 },
     { address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", symbol: "USDC",   name: "USD Coin (Native)",       decimals: 6 },
     { address: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", symbol: "USDT",   name: "Tether USD",              decimals: 6 },
