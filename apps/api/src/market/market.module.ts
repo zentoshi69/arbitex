@@ -38,7 +38,7 @@ type TokenPriceCache = {
 
 let _priceCache: TokenPriceCache | null = null;
 let _priceCacheAt = 0;
-const CACHE_TTL_MS = 30_000;
+const CACHE_TTL_MS = 45_000;
 const STALE_TTL_MS = 300_000;
 
 function toFixedDecimalString(value: bigint, decimals: number): string {

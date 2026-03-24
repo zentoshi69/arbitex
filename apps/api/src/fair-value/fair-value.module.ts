@@ -167,7 +167,7 @@ export class FairValueService {
     const info = KNOWN_TOKENS[symbol];
     if (!info?.cgId) return null;
 
-    if (Date.now() - this.cgCacheAt > 20_000) {
+    if (Date.now() - this.cgCacheAt > 45_000) {
       try {
         const allIds = Object.values(KNOWN_TOKENS)
           .filter((t) => t.cgId)
