@@ -38,10 +38,17 @@ const ERC20_ABI = [
 
 const ZERO_ADDR = "0x0000000000000000000000000000000000000000";
 
+function raceTimeout<T>(p: Promise<T>, ms: number, label = "op"): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`${label} timeout (${ms}ms)`)), ms)),
+  ]);
+}
+
 @Injectable()
 export class FairValueService {
   private cache = new Map<string, { estimate: FairValueEstimate; ts: number }>();
-  private readonly CACHE_TTL = 15_000;
+  private readonly CACHE_TTL = 30_000;
 
   async getEstimate(symbol: string): Promise<FairValueEstimate> {
     const key = symbol.toUpperCase();
@@ -81,9 +88,21 @@ export class FairValueService {
   }
 
   async getAllEstimates(): Promise<FairValueEstimate[]> {
-    return Promise.all(
-      Object.keys(KNOWN_TOKENS).map((sym) => this.getEstimate(sym))
-    );
+    return raceTimeout(
+      Promise.all(
+        Object.keys(KNOWN_TOKENS).map((sym) => this.getEstimate(sym))
+      ),
+      8_000,
+      "getAllEstimates",
+    ).catch((e) => {
+      log.warn(`getAllEstimates fallback to cache: ${e}`);
+      const results: FairValueEstimate[] = [];
+      for (const sym of Object.keys(KNOWN_TOKENS)) {
+        const cached = this.cache.get(sym);
+        if (cached) results.push(cached.estimate);
+      }
+      return results;
+    });
   }
 
   private async fetchSources(symbol: string): Promise<FairValueSource[]> {
@@ -106,9 +125,9 @@ export class FairValueService {
     if (!info?.cgId) return null;
 
     try {
-      const res = await fetch(
+      const res = await raceTimeout(fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${info.cgId}&vs_currencies=usd`
-      );
+      ), 5_000, "coingecko");
       if (!res.ok) return null;
       const data = (await res.json()) as Record<string, any>;
       const price = data[info.cgId]?.usd;
@@ -146,19 +165,19 @@ export class FairValueService {
     for (const venue of venues) {
       if (!venue.factoryAddress) continue;
       try {
-        const pair = (await client.readContract({
+        const pair = (await raceTimeout(client.readContract({
           address: venue.factoryAddress as `0x${string}`,
           abi: UNISWAPV2_FACTORY_ABI,
           functionName: "getPair",
           args: [info.address as `0x${string}`, usdcAddr],
-        })) as string;
+        }), 3_000, `getPair:${venue.name}`)) as string;
 
         if (!pair || pair.toLowerCase() === ZERO_ADDR) continue;
 
-        const [token0, reserves] = await Promise.all([
+        const [token0, reserves] = await raceTimeout(Promise.all([
           client.readContract({ address: pair as `0x${string}`, abi: UNISWAPV2_PAIR_ABI, functionName: "token0" }),
           client.readContract({ address: pair as `0x${string}`, abi: UNISWAPV2_PAIR_ABI, functionName: "getReserves" }),
-        ]);
+        ]), 3_000, `reserves:${venue.name}`);
 
         const [r0, r1] = reserves as readonly [bigint, bigint, number];
         if (r0 === 0n || r1 === 0n) continue;
