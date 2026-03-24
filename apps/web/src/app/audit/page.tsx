@@ -42,7 +42,7 @@ function AuditRow({ log }: { log: any }) {
         <span className="text-xs text-[var(--grey1)] flex-1 truncate">
           <span className="text-[var(--offwhite)]">{log.actor}</span>
           {" · "}
-          <span className="text-[var(--grey2)]">{log.entityType}:{log.entityId.slice(0, 8)}</span>
+          <span className="text-[var(--grey2)]">{log.entityType}:{log.entityId?.slice(0, 8) ?? "—"}</span>
         </span>
         <span className="text-[11px] text-[var(--grey2)] font-mono flex-shrink-0">
           {new Date(log.createdAt).toLocaleString()}
@@ -68,6 +68,7 @@ async function fetchAuditLogs({ page, action }: { page: number; action: string }
   const res = await fetch(`/api/v1/audit?${qs}`, {
     headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
+  if (!res.ok) throw new Error(`Audit fetch failed: ${res.status}`);
   return res.json();
 }
 

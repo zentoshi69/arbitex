@@ -100,7 +100,7 @@ function TokenFairValue({ estimate }: { estimate: any }) {
                     {s.priceUsd != null ? `$${s.priceUsd.toFixed(s.priceUsd < 1 ? 6 : 4)}` : "—"}
                   </td>
                   <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">{s.weight}</td>
-                  <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">{(s.confidence * 100).toFixed(0)}%</td>
+                  <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">{s.confidence != null ? `${(s.confidence * 100).toFixed(0)}%` : "—"}</td>
                   <td className="py-2 px-2 text-center">
                     {s.stale ? (
                       <span className="text-yellow-400 text-xs">STALE</span>

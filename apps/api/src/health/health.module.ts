@@ -85,9 +85,9 @@ export class HealthService {
         : (config.ETHEREUM_RPC_URL ?? "");
       const client = createChainClient({ rpcUrl, chainId: config.CHAIN_ID });
       const start = Date.now();
-      await withTimeout(client.getBlockNumber(), 3000);
+      await withTimeout(client.getBlockNumber(), 5000);
       const latency = Date.now() - start;
-      return latency > 2000 ? "slow" : "up";
+      return latency > 3000 ? "slow" : "up";
     } catch {
       return "down";
     }

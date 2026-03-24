@@ -90,6 +90,7 @@ export function ProfitCell({ value }: { value: number }) {
 
 // ── Address display ────────────────────────────────────────────────────────────
 export function AddressCell({ address }: { address: string }) {
+  if (!address) return <span className="font-mono text-xs text-[var(--ax-dim)]">—</span>;
   return (
     <span className="font-mono text-xs text-[var(--ax-dim)]" title={address}>
       {address.slice(0, 6)}…{address.slice(-4)}
