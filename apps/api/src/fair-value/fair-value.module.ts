@@ -126,32 +126,35 @@ export class FairValueService {
 
   private async fetchDexScreener(symbol: string): Promise<FairValueSource | null> {
     const info = KNOWN_TOKENS[symbol];
-    if (!info) return null;
+    if (!info || info.cgId) return null;
 
     try {
-      const res = await raceTimeout(
-        fetch(`https://api.dexscreener.com/latest/dex/tokens/${info.address}`),
-        3_000,
-        "dexscreener",
+      const result = await raceTimeout(
+        (async () => {
+          const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${info.address}`);
+          if (!res.ok) return null;
+          const data = (await res.json()) as any;
+          const pairs = data?.pairs;
+          if (!Array.isArray(pairs) || pairs.length === 0) return null;
+
+          const best = pairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
+          const price = parseFloat(best.priceUsd);
+          if (!Number.isFinite(price) || price <= 0) return null;
+
+          return {
+            name: "DexScreener",
+            method: "api" as const,
+            priceUsd: price,
+            weight: 1.5,
+            confidence: 0.85,
+            stale: false,
+            lastUpdated: Date.now(),
+          } satisfies FairValueSource;
+        })(),
+        4_000,
+        `dexscreener:${symbol}`,
       );
-      if (!res.ok) return null;
-      const data = (await res.json()) as any;
-      const pairs = data?.pairs;
-      if (!Array.isArray(pairs) || pairs.length === 0) return null;
-
-      const best = pairs.sort((a: any, b: any) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
-      const price = parseFloat(best.priceUsd);
-      if (!Number.isFinite(price) || price <= 0) return null;
-
-      return {
-        name: "DexScreener",
-        method: "api",
-        priceUsd: price,
-        weight: 1.5,
-        confidence: 0.85,
-        stale: false,
-        lastUpdated: Date.now(),
-      };
+      return result;
     } catch {
       return null;
     }
