@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { SectionHeader, KpiCard, Skeleton, EmptyState } from "@/components/ui";
+import { fmt, fmtUsd, num } from "@/lib/utils";
 
 export default function PnlPage() {
   const [days, setDays] = useState(30);
@@ -66,33 +67,33 @@ export default function PnlPage() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <KpiCard
             label="Today"
-            value={`$${s.today.pnlUsd.toFixed(2)}`}
-            sub={`${s.today.tradeCount} trades`}
-            trend={s.today.pnlUsd > 0 ? "up" : s.today.pnlUsd < 0 ? "down" : "neutral"}
+            value={fmtUsd(s.today?.pnlUsd)}
+            sub={`${s.today?.tradeCount ?? 0} trades`}
+            trend={num(s.today?.pnlUsd) > 0 ? "up" : num(s.today?.pnlUsd) < 0 ? "down" : "neutral"}
           />
           <KpiCard
             label="7 Day"
-            value={`$${s.week.pnlUsd.toFixed(2)}`}
-            sub={`${s.week.tradeCount} trades`}
-            trend={s.week.pnlUsd > 0 ? "up" : "down"}
+            value={fmtUsd(s.week?.pnlUsd)}
+            sub={`${s.week?.tradeCount ?? 0} trades`}
+            trend={num(s.week?.pnlUsd) > 0 ? "up" : "down"}
           />
           <KpiCard
             label="30 Day"
-            value={`$${s.month.pnlUsd.toFixed(2)}`}
-            sub={`Gas: $${s.month.gasCostUsd.toFixed(2)}`}
-            trend={s.month.pnlUsd > 0 ? "up" : "down"}
+            value={fmtUsd(s.month?.pnlUsd)}
+            sub={`Gas: ${fmtUsd(s.month?.gasCostUsd)}`}
+            trend={num(s.month?.pnlUsd) > 0 ? "up" : "down"}
           />
           <KpiCard
             label="All Time"
-            value={`$${s.allTime.pnlUsd.toFixed(2)}`}
-            sub={`${s.allTime.tradeCount} trades`}
-            trend={s.allTime.pnlUsd > 0 ? "up" : "down"}
+            value={fmtUsd(s.allTime?.pnlUsd)}
+            sub={`${s.allTime?.tradeCount ?? 0} trades`}
+            trend={num(s.allTime?.pnlUsd) > 0 ? "up" : "down"}
           />
           <KpiCard
             label="Success Rate"
-            value={`${s.successRate}%`}
+            value={`${fmt(s.successRate, 0)}%`}
             sub="Last 30 days"
-            trend={s.successRate >= 90 ? "up" : s.successRate >= 70 ? "neutral" : "down"}
+            trend={num(s.successRate) >= 90 ? "up" : num(s.successRate) >= 70 ? "neutral" : "down"}
           />
         </div>
       ) : null}
@@ -102,11 +103,11 @@ export default function PnlPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           <KpiCard
             label="Realized PnL (net)"
-            value={`$${cum.totalPnlUsd.toFixed(2)}`}
+            value={fmtUsd(cum.totalPnlUsd)}
             sub="Token arb − gas (settlement)"
-            trend={cum.totalPnlUsd > 0 ? "up" : "down"}
+            trend={num(cum.totalPnlUsd) > 0 ? "up" : "down"}
           />
-          <KpiCard label="Total Gas" value={`$${cum.totalGasCostUsd.toFixed(2)}`} sub="All time AVAX→USD" />
+          <KpiCard label="Total Gas" value={fmtUsd(cum.totalGasCostUsd)} sub="All time AVAX→USD" />
           <KpiCard label="Landed trades" value={String(cum.tradeCount)} />
         </div>
       )}
@@ -116,9 +117,9 @@ export default function PnlPage() {
         <div className="ax-panel p-4 space-y-3">
           <h3 className="text-xs font-semibold text-[var(--offwhite)] uppercase tracking-wider">Gas Breakdown (30d)</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <InfoBlock label="Total Gas" value={`$${s.gasBreakdown.totalGasUsd.toFixed(2)}`} />
-            <InfoBlock label="Avg Gas / Trade" value={`$${s.gasBreakdown.avgGasUsd.toFixed(4)}`} />
-            <InfoBlock label="Max Gas" value={`$${s.gasBreakdown.maxGasUsd.toFixed(4)}`} />
+            <InfoBlock label="Total Gas" value={fmtUsd(s.gasBreakdown.totalGasUsd)} />
+            <InfoBlock label="Avg Gas / Trade" value={fmtUsd(s.gasBreakdown.avgGasUsd, 4)} />
+            <InfoBlock label="Max Gas" value={fmtUsd(s.gasBreakdown.maxGasUsd, 4)} />
             <InfoBlock label="Trades w/ Gas" value={String(s.gasBreakdown.tradeCount)} />
           </div>
         </div>
@@ -150,8 +151,8 @@ export default function PnlPage() {
                       {new Date(r.date).toLocaleDateString()}
                     </td>
                     <td className="py-2 px-2 text-right font-mono">
-                      <span className={r.pnl >= 0 ? "text-emerald-400" : "text-red-400"}>
-                        {r.pnl >= 0 ? "+" : ""}{r.pnl.toFixed(2)}
+                      <span className={num(r.pnl) >= 0 ? "text-emerald-400" : "text-red-400"}>
+                        {num(r.pnl) >= 0 ? "+" : ""}{fmt(r.pnl)}
                       </span>
                     </td>
                     <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">
@@ -195,14 +196,14 @@ export default function PnlPage() {
                   <tr key={i} className="border-b border-[rgba(255,255,255,0.03)]">
                     <td className="py-2 px-2 text-[var(--offwhite)] font-semibold">{v.venue}</td>
                     <td className="py-2 px-2 text-right font-mono">
-                      <span className={v.pnl >= 0 ? "text-emerald-400" : "text-red-400"}>
-                        ${v.pnl.toFixed(2)}
+                      <span className={num(v.pnl) >= 0 ? "text-emerald-400" : "text-red-400"}>
+                        ${fmt(v.pnl)}
                       </span>
                     </td>
                     <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">${(v.gas_cost ?? 0).toFixed(4)}</td>
                     <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">{v.trades}</td>
                     <td className="py-2 px-2 text-right font-mono text-[var(--grey1)]">
-                      ${v.trades > 0 ? (v.pnl / v.trades).toFixed(4) : "—"}
+                      ${v.trades > 0 ? fmt(num(v.pnl) / v.trades, 4) : "—"}
                     </td>
                   </tr>
                 ))}

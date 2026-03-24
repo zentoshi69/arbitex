@@ -14,6 +14,7 @@ import {
 import { OpportunityDrawer } from "@/components/drawers/OpportunityDrawer";
 import { Search, Filter } from "lucide-react";
 import { useTokenContext } from "@/contexts/TokenContext";
+import { fmt, num } from "@/lib/utils";
 
 const STATES = [
   "ALL", "DETECTED", "QUOTED", "SIMULATED", "APPROVED",
@@ -51,7 +52,9 @@ export default function OpportunitiesPage() {
 
   const items = (data?.items ?? []).filter((o: any) =>
     search
-      ? `${o.tokenInSymbol}${o.tokenOutSymbol}${o.buyVenueName}${o.sellVenueName}`
+      ? [o.tokenInSymbol, o.tokenOutSymbol, o.buyVenueName, o.sellVenueName]
+          .filter(Boolean)
+          .join(" ")
           .toLowerCase()
           .includes(search.toLowerCase())
       : true
@@ -99,7 +102,7 @@ export default function OpportunitiesPage() {
         />
 
         <span className="ml-auto text-xs text-[var(--grey2)]">
-          {data?.pagination.total ?? 0} total
+          {data?.pagination?.total ?? 0} total
         </span>
       </div>
 
@@ -154,16 +157,16 @@ export default function OpportunitiesPage() {
                     </span>
                   </td>
                   <td className="text-right font-mono text-sm text-[var(--offwhite)]">
-                    ${Number(opp.tradeSizeUsd).toFixed(0)}
+                    ${fmt(opp.tradeSizeUsd, 0)}
                   </td>
                   <td className="text-right font-mono text-sm text-[var(--offwhite)]">
-                    ${Number(opp.grossSpreadUsd).toFixed(4)}
+                    ${fmt(opp.grossSpreadUsd, 4)}
                   </td>
                   <td className="text-right">
-                    <ProfitCell value={Number(opp.netProfitUsd)} />
+                    <ProfitCell value={num(opp.netProfitUsd)} />
                   </td>
                   <td className="text-right font-mono text-xs text-[var(--grey1)]">
-                    {Number(opp.netProfitBps).toFixed(2)}
+                    {fmt(opp.netProfitBps)}
                   </td>
                   <td><StateBadge state={opp.state} /></td>
                   <td className="text-xs text-[var(--grey2)] font-mono">

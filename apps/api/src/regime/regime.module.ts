@@ -108,7 +108,13 @@ export class RegimeService {
     };
   }
 
+  private venueCache: { data: any; ts: number } | null = null;
+
   async venueBreakdown() {
+    if (this.venueCache && Date.now() - this.venueCache.ts < 15_000) {
+      return this.venueCache.data;
+    }
+
     const h1 = new Date(Date.now() - 3600_000);
 
     const [venues, pools, recentOpps] = await Promise.all([
@@ -125,14 +131,41 @@ export class RegimeService {
           snapshots: { orderBy: { timestamp: "desc" }, take: 1, select: { liquidityUsd: true, timestamp: true } },
         },
       }),
-      prisma.opportunity.findMany({
-        where: { detectedAt: { gte: h1 } },
-        select: { buyVenueId: true, sellVenueId: true, netProfitBps: true, grossSpreadUsd: true, state: true },
+      prisma.opportunity.count({ where: { detectedAt: { gte: h1 } } }).then(async (total) => {
+        if (total > 5000) {
+          return prisma.opportunity.findMany({
+            where: { detectedAt: { gte: h1 } },
+            select: { buyVenueId: true, sellVenueId: true, netProfitBps: true },
+            take: 2000,
+            orderBy: { detectedAt: "desc" },
+          });
+        }
+        return prisma.opportunity.findMany({
+          where: { detectedAt: { gte: h1 } },
+          select: { buyVenueId: true, sellVenueId: true, netProfitBps: true },
+        });
       }),
     ]);
 
-    return venues.map((v) => {
-      const venuePools = pools.filter((p) => p.venue.id === v.id);
+    const poolsByVenue = new Map<string, typeof pools>();
+    for (const p of pools) {
+      const vid = p.venue.id;
+      if (!poolsByVenue.has(vid)) poolsByVenue.set(vid, []);
+      poolsByVenue.get(vid)!.push(p);
+    }
+
+    const oppsByVenue = new Map<string, { count: number; totalBps: number }>();
+    for (const o of recentOpps) {
+      for (const vid of [o.buyVenueId, o.sellVenueId]) {
+        const entry = oppsByVenue.get(vid) ?? { count: 0, totalBps: 0 };
+        entry.count++;
+        entry.totalBps += Number(o.netProfitBps);
+        oppsByVenue.set(vid, entry);
+      }
+    }
+
+    const data = venues.map((v) => {
+      const venuePools = poolsByVenue.get(v.id) ?? [];
       const totalLiquidity = venuePools.reduce(
         (sum, p) => sum + Number(p.snapshots[0]?.liquidityUsd ?? 0), 0,
       );
@@ -141,12 +174,7 @@ export class RegimeService {
         return snap && Date.now() - new Date(snap.timestamp).getTime() < 60_000;
       }).length;
 
-      const venueOpps = recentOpps.filter(
-        (o) => o.buyVenueId === v.id || o.sellVenueId === v.id,
-      );
-      const avgSpreadBps = venueOpps.length > 0
-        ? venueOpps.reduce((s, o) => s + Number(o.netProfitBps), 0) / venueOpps.length
-        : 0;
+      const opp = oppsByVenue.get(v.id) ?? { count: 0, totalBps: 0 };
 
       return {
         venueId: v.id,
@@ -156,15 +184,18 @@ export class RegimeService {
         poolCount: venuePools.length,
         activePools: freshPools,
         totalLiquidityUsd: Math.round(totalLiquidity * 100) / 100,
-        opportunityCount1h: venueOpps.length,
-        avgSpreadBps1h: Math.round(avgSpreadBps * 100) / 100,
-        pools: venuePools.map((p) => ({
+        opportunityCount1h: opp.count,
+        avgSpreadBps1h: opp.count > 0 ? Math.round(opp.totalBps / opp.count * 100) / 100 : 0,
+        pools: venuePools.slice(0, 20).map((p) => ({
           pair: `${p.token0.symbol}/${p.token1.symbol}`,
           liquidityUsd: Number(p.snapshots[0]?.liquidityUsd ?? 0),
           lastUpdate: p.snapshots[0]?.timestamp ?? null,
         })),
       };
     });
+
+    this.venueCache = { data, ts: Date.now() };
+    return data;
   }
 }
 

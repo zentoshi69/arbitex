@@ -260,9 +260,9 @@ export function ExecutionDrawer({ executionId, onClose }: Props) {
                       <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400">
                         {r.stepIndex + 1}
                       </span>
-                      <span className="text-slate-300">{r.tokenIn.slice(0, 6)}…</span>
+                      <span className="text-slate-300">{r.tokenIn?.slice(0, 6) ?? "?"}…</span>
                       <span className="text-slate-600">→</span>
-                      <span className="text-slate-300">{r.tokenOut.slice(0, 6)}…</span>
+                      <span className="text-slate-300">{r.tokenOut?.slice(0, 6) ?? "?"}…</span>
                       <span className="text-slate-500">via</span>
                       <span className="text-[var(--ax-off-white)]">{r.venueName}</span>
                       <span className="ml-auto text-slate-500 font-mono">{r.feeBps} bps</span>

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { SectionHeader, KpiCard, Skeleton, EmptyState } from "@/components/ui";
+import { fmt, num } from "@/lib/utils";
 
 const REGIME_COLORS: Record<string, string> = {
   SAFE_MODE: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -61,28 +62,30 @@ export default function RegimePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KpiCard
               label="Size Multiplier"
-              value={`${(current.config.sizeMultiplier * 100).toFixed(0)}%`}
-              sub={current.config.sizeMultiplier === 0 ? "HALTED" : undefined}
-              trend={current.config.sizeMultiplier >= 0.75 ? "up" : current.config.sizeMultiplier > 0 ? "neutral" : "down"}
+              value={`${fmt(num(current.config?.sizeMultiplier) * 100, 0)}%`}
+              sub={current.config?.sizeMultiplier === 0 ? "HALTED" : undefined}
+              trend={num(current.config?.sizeMultiplier) >= 0.75 ? "up" : num(current.config?.sizeMultiplier) > 0 ? "neutral" : "down"}
             />
             <KpiCard
               label="Hurdle Rate"
-              value={`${current.config.hurdleBps} bps`}
+              value={`${current.config?.hurdleBps ?? "—"} bps`}
               sub="Min profit threshold"
             />
             <KpiCard
               label="Algorithm"
-              value={current.config.algorithm}
-              sub={`Priority: ${current.config.priority}`}
+              value={current.config?.algorithm ?? "—"}
+              sub={`Priority: ${current.config?.priority ?? "—"}`}
             />
             <KpiCard
               label="Fail Rate"
-              value={`${current.signals?.failRatePercent?.toFixed(1) ?? "—"}%`}
-              sub={`Vol: ${current.signals?.volatility24h?.toFixed(1) ?? "—"}`}
-              trend={current.signals?.failRatePercent < 20 ? "up" : current.signals?.failRatePercent < 50 ? "neutral" : "down"}
+              value={`${fmt(current.signals?.failRatePercent, 1)}%`}
+              sub={`Vol: ${fmt(current.signals?.volatility24h, 1)}`}
+              trend={num(current.signals?.failRatePercent) < 20 ? "up" : num(current.signals?.failRatePercent) < 50 ? "neutral" : "down"}
             />
           </div>
         </div>
+      ) : regimeQ.isError ? (
+        <EmptyState message="Failed to load regime data — check API connection" />
       ) : (
         <EmptyState message="Regime classifier not available" />
       )}
@@ -92,11 +95,11 @@ export default function RegimePage() {
         <div className="ax-panel p-4 space-y-3">
           <h3 className="text-xs font-semibold text-[var(--offwhite)] uppercase tracking-wider">Signal Inputs</h3>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <SignalCard label="Volatility (24h)" value={current.signals.volatility24h.toFixed(2)} />
-            <SignalCard label="Spread Mean (bps)" value={current.signals.spreadMeanBps.toFixed(2)} />
-            <SignalCard label="Fail Rate (%)" value={current.signals.failRatePercent.toFixed(1)} />
-            <SignalCard label="LP Depth Score" value={current.signals.lpDepthScore.toFixed(1)} />
-            <SignalCard label="Trend Direction" value={current.signals.trendDirection} />
+            <SignalCard label="Volatility (24h)" value={fmt(current.signals.volatility24h)} />
+            <SignalCard label="Spread Mean (bps)" value={fmt(current.signals.spreadMeanBps)} />
+            <SignalCard label="Fail Rate (%)" value={fmt(current.signals.failRatePercent, 1)} />
+            <SignalCard label="LP Depth Score" value={fmt(current.signals.lpDepthScore, 1)} />
+            <SignalCard label="Trend Direction" value={current.signals.trendDirection ?? "—"} />
           </div>
         </div>
       )}
@@ -130,9 +133,9 @@ export default function RegimePage() {
                       </span>
                     </td>
                     <td className="py-2 px-2 text-right font-mono text-[var(--offwhite)]">
-                      {(c.sizeMultiplier * 100).toFixed(0)}%
+                      {fmt(num(c.sizeMultiplier) * 100, 0)}%
                     </td>
-                    <td className="py-2 px-2 text-right font-mono text-[var(--offwhite)]">{c.hurdleBps}</td>
+                    <td className="py-2 px-2 text-right font-mono text-[var(--offwhite)]">{c.hurdleBps ?? "—"}</td>
                     <td className="py-2 px-2 text-center font-mono text-[var(--grey1)]">{c.algorithm}</td>
                     <td className="py-2 px-2 text-center font-mono text-[var(--grey1)]">{c.priority}</td>
                     <td className="py-2 px-2 text-[var(--grey1)] text-xs">{c.description}</td>

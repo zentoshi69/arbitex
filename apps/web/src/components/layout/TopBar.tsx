@@ -136,10 +136,10 @@ export function TopBar() {
 
         <div className="flex min-w-[84px] flex-col justify-center border-l border-[var(--border)] px-3">
           <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--grey1)]">
-            Gas (Gwei)
+            Gas
           </div>
           <div className="font-mono text-[11px] text-[var(--offwhite)]">
-            {gasPriceGwei != null ? `${gasPriceGwei.toFixed(1)} nAVAX` : "— nAVAX"}
+            {gasPriceGwei != null && gasPriceGwei > 0 ? `${gasPriceGwei.toFixed(1)} Gwei` : "—"}
           </div>
         </div>
 

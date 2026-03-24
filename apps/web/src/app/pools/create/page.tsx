@@ -124,8 +124,12 @@ export default function PoolCreatePage() {
       setLookupResult(null);
       return;
     }
-    const res = await api.pools.resolve(a);
-    setLookupResult(res);
+    try {
+      const res = await api.pools.resolve(a);
+      setLookupResult(res);
+    } catch {
+      setLookupResult(null);
+    }
   }
 
   async function submit() {

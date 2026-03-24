@@ -166,7 +166,7 @@ export default function ExecutionsPage() {
                     {exec.gasUsed ? Number(exec.gasUsed).toLocaleString() : "—"}
                   </td>
                   <td className="text-right font-mono text-xs text-[var(--grey1)]">
-                    {exec.gasCostUsd !== null ? `$${Number(exec.gasCostUsd).toFixed(4)}` : "—"}
+                    {exec.gasCostUsd != null ? `$${Number(exec.gasCostUsd).toFixed(4)}` : "—"}
                   </td>
                   <td className="text-right">
                     {exec.pnlUsd !== null ? (

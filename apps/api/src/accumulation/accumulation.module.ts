@@ -36,24 +36,26 @@ export class AccumulationService {
   }
 
   async getDashboard() {
-    const [state, routing] = await Promise.all([
+    const [state, routing, recentLogs] = await Promise.all([
       this.engine.getState(),
       this.engine.getRouting(),
+      prisma.auditLog.findMany({
+        where: { action: { startsWith: "WRP_UNIT_" } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { id: true, action: true, createdAt: true },
+      }),
     ]);
 
-    const recentLogs = await prisma.auditLog.findMany({
-      where: { action: { startsWith: "WRP_UNIT_" } },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      select: {
-        id: true,
-        action: true,
-        diff: true,
-        createdAt: true,
-      },
-    });
-
-    return { state, routing, recentActivity: recentLogs };
+    return {
+      state,
+      routing,
+      recentActivity: recentLogs.map((l) => ({
+        id: l.id,
+        message: l.action.replace("WRP_UNIT_", "").replace(/_/g, " ").toLowerCase(),
+        createdAt: l.createdAt,
+      })),
+    };
   }
 }
 

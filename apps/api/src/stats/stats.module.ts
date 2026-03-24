@@ -4,27 +4,29 @@ import { JwtAuthGuard, RolesGuard } from "../auth/auth.module.js";
 
 @Injectable()
 export class StatsService {
+  private volumeCache: { data: any; ts: number } | null = null;
+  private readonly VOLUME_CACHE_TTL = 30_000;
+
   async getVolume24h() {
+    if (this.volumeCache && Date.now() - this.volumeCache.ts < this.VOLUME_CACHE_TTL) {
+      return this.volumeCache.data;
+    }
+
     const since = new Date(Date.now() - 24 * 3600_000);
-    const [tradeCount, notionals] = await Promise.all([
-      prisma.execution.count({
-        where: { state: "LANDED", confirmedAt: { gte: since } },
-      }),
-      prisma.execution.findMany({
-        where: { state: "LANDED", confirmedAt: { gte: since } },
-        select: {
-          opportunity: { select: { tradeSizeUsd: true } },
-        },
-      }),
-    ]);
-    const volume24hUsd = notionals.reduce(
-      (s, e) => s + Number(e.opportunity?.tradeSizeUsd ?? 0),
-      0
-    );
-    return {
-      volume24hUsd: Math.round(volume24hUsd * 100) / 100,
-      tradeCount,
+    const rows = await prisma.$queryRaw<Array<{ trade_count: bigint; volume_usd: number }>>`
+      SELECT COUNT(*)::bigint AS trade_count,
+             COALESCE(SUM(o.trade_size_usd), 0) AS volume_usd
+      FROM executions e
+      JOIN opportunities o ON o.id = e.opportunity_id
+      WHERE e.state = 'LANDED' AND e.confirmed_at >= ${since}
+    `;
+    const row = rows[0] ?? { trade_count: 0n, volume_usd: 0 };
+    const data = {
+      volume24hUsd: Math.round(Number(row.volume_usd) * 100) / 100,
+      tradeCount: Number(row.trade_count),
     };
+    this.volumeCache = { data, ts: Date.now() };
+    return data;
   }
 
   async getFeesTotal() {

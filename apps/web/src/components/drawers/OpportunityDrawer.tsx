@@ -12,14 +12,18 @@ type Props = {
 };
 
 export function OpportunityDrawer({ opportunityId, onClose }: Props) {
-  const { data: opp, isLoading } = useQuery({
+  const { data: opp, isLoading, isError } = useQuery({
     queryKey: ["opportunity", opportunityId],
     queryFn: () => api.opportunities.get(opportunityId),
     refetchInterval: 3_000,
   });
 
   const handleSimulate = async () => {
-    await api.opportunities.simulate(opportunityId);
+    try {
+      await api.opportunities.simulate(opportunityId);
+    } catch {
+      // simulation errors are reflected in the opportunity state
+    }
   };
 
   return (
@@ -58,6 +62,10 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-10" />
             ))}
+          </div>
+        ) : isError ? (
+          <div className="p-5 text-center text-sm text-red-400">
+            Failed to load opportunity. It may have expired.
           </div>
         ) : opp ? (
           <div className="p-5 space-y-6">
@@ -129,24 +137,24 @@ export function OpportunityDrawer({ opportunityId, onClose }: Props) {
               <div className="space-y-1.5">
                 {[
                   { label: "Gross Spread", value: opp.grossSpreadUsd, color: "text-emerald-400" },
-                  { label: "− Gas Cost", value: -opp.gasEstimateUsd, color: "text-red-400" },
-                  { label: "− Venue Fees", value: -opp.venueFeesUsd, color: "text-red-400" },
-                  { label: "− Slippage Buffer", value: -opp.slippageBufferUsd, color: "text-red-400" },
-                  { label: "− Failure Buffer", value: -opp.failureBufferUsd, color: "text-red-400" },
+                  { label: "− Gas Cost", value: opp.gasEstimateUsd != null ? -Number(opp.gasEstimateUsd) : null, color: "text-red-400" },
+                  { label: "− Venue Fees", value: opp.venueFeesUsd != null ? -Number(opp.venueFeesUsd) : null, color: "text-red-400" },
+                  { label: "− Slippage Buffer", value: opp.slippageBufferUsd != null ? -Number(opp.slippageBufferUsd) : null, color: "text-red-400" },
+                  { label: "− Failure Buffer", value: opp.failureBufferUsd != null ? -Number(opp.failureBufferUsd) : null, color: "text-red-400" },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="flex items-center justify-between text-sm">
                     <span className="text-slate-400">{label}</span>
                     <span className={`font-mono font-medium ${color}`}>
-                      ${Math.abs(value).toFixed(4)}
+                      {value != null && Number.isFinite(Number(value)) ? `$${Math.abs(Number(value)).toFixed(4)}` : "—"}
                     </span>
                   </div>
                 ))}
                 <div className="border-t border-slate-700 pt-1.5 flex items-center justify-between text-sm font-bold">
                   <span className="text-white">= Net Profit</span>
-                  <ProfitCell value={opp.netProfitUsd} />
+                  <ProfitCell value={Number(opp.netProfitUsd ?? 0)} />
                 </div>
                 <p className="text-right text-xs text-slate-500 font-mono">
-                  {Number(opp.netProfitBps).toFixed(2)} bps
+                  {opp.netProfitBps != null ? Number(opp.netProfitBps).toFixed(2) : "—"} bps
                 </p>
               </div>
             </div>

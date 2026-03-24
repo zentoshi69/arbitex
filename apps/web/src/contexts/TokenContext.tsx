@@ -51,8 +51,12 @@ export function TokenProvider({ children }: { children: ReactNode }) {
   const [activeTokenId, setActiveTokenIdState] = useState<string>("ALL");
 
   useEffect(() => {
-    const saved = localStorage.getItem(LS_KEY);
-    if (saved) setActiveTokenIdState(saved);
+    try {
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved) setActiveTokenIdState(saved);
+    } catch {
+      // localStorage unavailable (private mode / SSR)
+    }
   }, []);
 
   const setActiveTokenId = (id: string) => {
@@ -65,6 +69,13 @@ export function TokenProvider({ children }: { children: ReactNode }) {
     queryFn: () => api.tokens.tracked(),
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    if (!isLoading && activeTokenId !== "ALL" && trackedTokens.length > 0) {
+      const exists = trackedTokens.some((t) => t.id === activeTokenId);
+      if (!exists) setActiveTokenId("ALL");
+    }
+  }, [isLoading, activeTokenId, trackedTokens]);
 
   const activeToken =
     activeTokenId === "ALL"

@@ -57,7 +57,7 @@ function CornerBrackets() {
 
 export default function OverviewPage() {
   const wallet = useWallet();
-  const { activeToken, isAll } = useTokenContext();
+  const { activeToken } = useTokenContext();
 
   const tradingQ = useQuery({
     queryKey: ["ui", "trading-status-overview"],
@@ -67,8 +67,9 @@ export default function OverviewPage() {
     retry: 1,
   });
 
-  const isMock = tradingQ.data?.mockExecution !== false;
-  const isLive = tradingQ.data?.tradingEnabled && !tradingQ.data?.mockExecution;
+  const hasStatus = !!tradingQ.data;
+  const isMock = hasStatus ? tradingQ.data?.mockExecution !== false : null;
+  const isLive = hasStatus ? (tradingQ.data?.tradingEnabled && !tradingQ.data?.mockExecution) : false;
 
   const cgQ = useQuery({
     queryKey: ["ui", "coingecko", "avax-btc"],
@@ -199,7 +200,7 @@ export default function OverviewPage() {
                 <div className="flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--offwhite)]">
                   <span className="text-[var(--grey2)]">[</span>
                   <span className="h-[6px] w-[6px] rounded-full bg-[var(--red)] [animation:pulse_1.4s_ease-in-out_infinite]" />
-                  <span className="text-[var(--red)]">{isLive ? "Live Trading" : "Shadow Mode"}</span>
+                  <span className="text-[var(--red)]">{isLive ? "Live Trading" : hasStatus ? "Shadow Mode" : "Initializing"}</span>
                   <span className="text-[var(--grey2)]">]</span>
                 </div>
 
@@ -237,8 +238,8 @@ export default function OverviewPage() {
         </div>
 
         <div className="relative z-[7] flex h-[28px] items-center gap-5 border-t border-[var(--border)] bg-[var(--bg)] px-5 font-mono text-[8.5px] uppercase tracking-[0.07em] text-[var(--grey2)]">
-          <div className={marketQ.data ? "text-[#4DD68C]" : "text-[var(--red)]"}>
-            ● {marketQ.data ? "CONNECTED" : "CONNECTING"}
+          <div className={marketQ.data ? "text-[#4DD68C]" : marketQ.isError ? "text-[var(--red)]" : "text-[var(--grey2)]"}>
+            ● {marketQ.data ? "CONNECTED" : marketQ.isError ? "DISCONNECTED" : "CONNECTING"}
           </div>
           <div>
             REGIME = <span className="text-[var(--offwhite)]">{regimeQ.data?.regime ?? "—"}</span>
@@ -250,7 +251,7 @@ export default function OverviewPage() {
           <div>
             Chain <span className="text-[var(--offwhite)]">43114</span>
           </div>
-          <div className={isLive ? "text-[#4DD68C]" : "text-[var(--red)]"}>{isLive ? "Live Trading" : "Shadow Mode"}</div>
+          <div className={isLive ? "text-[#4DD68C]" : hasStatus ? "text-[var(--red)]" : "text-[var(--grey2)]"}>{isLive ? "Live Trading" : hasStatus ? "Shadow Mode" : "Loading..."}</div>
         </div>
       </div>
 
