@@ -23,14 +23,14 @@
     "@arbitex/conversion-engine": "workspace:*",
     "@arbitex/risk-engine": "workspace:*",
     "@arbitex/shared-types": "workspace:*",
-    "bullmq": "^5.9.0",
-    "ioredis": "^5.4.1",
+    "bullmq": "^5.71.1",
+    "ioredis": "^5.10.1",
     "pino": "^9.2.0",
-    "viem": "^2.18.0"
+    "viem": "^2.47.6"
   },
   "devDependencies": {
     "@swc-node/register": "^1.11.1",
-    "@swc/core": "^1.15.18",
+    "@swc/core": "^1.15.21",
     "@types/node": "^20.14.0",
     "tsx": "^4.15.1",
     "typescript": "^5.4.5",
