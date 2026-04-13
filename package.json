@@ -25,10 +25,10 @@
   },
   "devDependencies": {
     "@ethereumjs/wallet": "^2.0.3",
-    "@playwright/test": "^1.44.0",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^20.14.0",
     "eslint": "^9.3.0",
-    "prettier": "^3.3.0",
+    "prettier": "^3.8.2",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   },

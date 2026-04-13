@@ -21,7 +21,7 @@
   "dependencies": {
     "@arbitex/shared-types": "workspace:*",
     "pino": "^9.2.0",
-    "viem": "^2.18.0"
+    "viem": "^2.47.16"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
