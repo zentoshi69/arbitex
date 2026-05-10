@@ -45,3 +45,8 @@ coverage/
 playwright-report/
 test-results/
 .github/workflows/deploy-vps.yml
+
+# Anchor / Solana build output
+contracts/solana/target/
+contracts/solana/.anchor/
+contracts/solana/test-ledger/
