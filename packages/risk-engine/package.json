@@ -22,7 +22,7 @@
     "@arbitex/db": "workspace:*",
     "@arbitex/dex-adapters": "workspace:*",
     "@arbitex/shared-types": "workspace:*",
-    "ioredis": "^5.4.1"
+    "ioredis": "^5.10.1"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
